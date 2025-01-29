@@ -72,6 +72,8 @@ private:
     void on_page_down();
     void on_page_up();
 
+    void on_close_tab(int index);
+    void update_title();
 
     QIcon create_double_icon();
     void on_toggle_view_mode();

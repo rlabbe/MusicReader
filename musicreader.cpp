@@ -70,9 +70,13 @@ void MusicReader::setup_UI()
 
     tab_widget_ = new QTabWidget();
     tab_widget_->setTabsClosable(true);
+    connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
+
+    
     splitter_->addWidget(tab_widget_);
     splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
     splitter_->setStretchFactor(1, 1);  // Document view gets priority
+
 
 
     // Adjust the bookmark panel width to fit contents
@@ -373,6 +377,40 @@ PDFViewer *MusicReader::viewer_tab(int index) const
     }
     return nullptr;
 }
+
+
+void MusicReader::on_close_tab(int index)
+{
+    SAFE_METHOD;
+
+    Document *doc = document_at(index);
+    if (doc) {
+        // This function is only called when explicitly closing a tab, not on app shutdown,
+        // so it's safe to add the document to the recent documents list.
+        config_.remove_recent_document(doc->filename());
+    }
+
+    QWidget *widget_to_remove = tab_widget_->widget(index);
+    if (widget_to_remove) {
+        widget_to_remove->deleteLater();  // Perform cleanup
+        tab_widget_->removeTab(index);
+    }
+
+    update_title();
+}
+
+void MusicReader::update_title()
+{
+    SAFE_METHOD;
+
+    if (tab_widget_->count() > 0) {
+        QString current_tab_title = tab_widget_->tabText(tab_widget_->currentIndex());
+        setWindowTitle(current_tab_title);
+    } else {
+        setWindowTitle("MusicReader");
+    }
+}
+
 
 void MusicReader::on_page_up()
 {

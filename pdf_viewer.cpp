@@ -279,6 +279,9 @@ void PDFViewer::_update_image(const QString &message)
         label_->setContentsMargins(-border.left, -border.top,
                                    -(page_.width() - border.right),
                                    -(page_.height() - border.bottom));
+    } else {
+        label_->setScaledContents(false);
+        label_->setContentsMargins(0, 0, 0, 0);
     }
 }
 
