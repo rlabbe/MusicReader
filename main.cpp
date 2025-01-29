@@ -3,7 +3,7 @@
 
 #include "config_file.h"
 #include "logger.h"
-#include "config_file_dialog.h"
+#include "config_dialog.h"
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
 #pragma warning(pop)

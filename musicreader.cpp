@@ -20,30 +20,9 @@
 #include "wait_cursor.h"
 #include "exception_logger.h"
 #include "status_bar.h"
-
-
-void ensure_window_is_visible(QWidget *win, bool move_only = false)
-{
-    try
-    {
-        if (!move_only)
-        {
-            win->setVisible(true);
-        }
-
-        QRect screen_geometry = QGuiApplication::primaryScreen()->geometry();
-        QRect window_geometry = win->geometry();
-
-        if (!screen_geometry.contains(window_geometry.topLeft()))
-        {
-            win->move(screen_geometry.topLeft() + QPoint(50, 50));
-        }
-    }
-    catch (const std::exception &e)
-    {
-        logger::log_error(std::string("ensure_window_is_visible: ") + e.what());
-    }
-}
+#include "config_dialog.h"
+#include "fast_file_search_dialog.h"
+#include "qt_utils.h"
 
 
 
@@ -73,12 +52,10 @@ void MusicReader::setup_UI()
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
 
-    
+
     splitter_->addWidget(tab_widget_);
     splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
     splitter_->setStretchFactor(1, 1);  // Document view gets priority
-
-
 
     // Adjust the bookmark panel width to fit contents
     bookmark_panel_->adjust_width();
@@ -97,6 +74,7 @@ void MusicReader::setup_UI()
     setWindowIcon(QIcon(":/MusicReader/images/gclef.png"));
 
     restore_window_state();
+    initialize_fast_search();
 }
 
 
@@ -208,8 +186,7 @@ void MusicReader::create_toolbar()
 
     toolbar_ = new QToolBar("Toolbar");
     Qt::ToolBarArea area;
-    switch (config_.toolbar_location)
-    {
+    switch (config_.toolbar_location) {
     case ToolbarLocation::Top: area = Qt::TopToolBarArea; break;
     case ToolbarLocation::Bottom: area = Qt::BottomToolBarArea; break;
     case ToolbarLocation::Left: area = Qt::LeftToolBarArea; break;
@@ -231,12 +208,9 @@ void MusicReader::create_toolbar()
     single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
     double_icon_ = create_double_icon();
 
-    if (in_single_page_mode())
-    {
+    if (in_single_page_mode()) {
         action = new QAction(single_icon_, "", this);
-    }
-    else
-    {
+    } else {
         action = new QAction(double_icon_, "", this);
     }
 
@@ -315,13 +289,10 @@ PDFViewer *MusicReader::current_tab() const
     if (!tab_widget_) return nullptr;
 
     int i = tab_widget_->currentIndex();
-    if (i >= 0)
-    {
+    if (i >= 0) {
         QWidget *tab_widget = tab_widget_->widget(i);
-        for (QObject *child : tab_widget->children())
-        {
-            if (auto *viewer = qobject_cast<PDFViewer *>(child))
-            {
+        for (QObject *child : tab_widget->children()) {
+            if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
                 return viewer;
             }
         }
@@ -341,10 +312,10 @@ Document *MusicReader::current_document(const std::string &log_msg) const
 std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 {
     PDFViewer *viewer = current_viewer(log_msg);
-    if (viewer) return { viewer->current_page(), true};
+    if (viewer) return { viewer->current_page(), true };
 
     if (!log_msg.empty()) logger::log_error(log_msg);
-    return {1, false};
+    return { 1, false };
 }
 
 std::string MusicReader::current_document_name() const
@@ -361,19 +332,14 @@ Document *MusicReader::document_at(int index) const
 
 PDFViewer *MusicReader::viewer_tab(int index) const
 {
-    try
-    {
+    try {
         QWidget *tab = tab_widget_->widget(index);
-        for (QObject *child : tab->children())
-        {
-            if (auto *viewer = qobject_cast<PDFViewer *>(child))
-            {
+        for (QObject *child : tab->children()) {
+            if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
                 return viewer;
             }
         }
-    }
-    catch (...)
-    {
+    } catch (...) {
         return nullptr;
     }
     return nullptr;
@@ -388,7 +354,7 @@ void MusicReader::on_close_tab(int index)
     if (doc) {
         // This function is only called when explicitly closing a tab, not on app shutdown,
         // so it's safe to add the document to the recent documents list.
-        config_.remove_recent_document(doc->filename());
+        config_.add_recent_document(doc->filename());
     }
 
     QWidget *widget_to_remove = tab_widget_->widget(index);
@@ -431,15 +397,12 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
     // TODO may not be correct. not sure there is some weird logic in the python
     // to detect the type of the object, may just have been do to earlier code that
     // no longer exists. 
-    try
-    {       
+    try {
         PDFViewer *tab = current_tab();
         if (tab) return tab;
 
         if (!log_err.empty()) logger::log_error(log_err);
-    }
-    catch (...)
-    {
+    } catch (...) {
         if (!log_err.empty()) logger::log_error(log_err);
     }
     return nullptr;
@@ -474,11 +437,9 @@ QIcon MusicReader::create_double_icon()
 
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
-    for (int i = 0; i < tab_widget_->count(); ++i)
-    {
+    for (int i = 0; i < tab_widget_->count(); ++i) {
         // TODO name might not be unique
-        if (tab_widget_->tabText(i).toStdString() == name.filename().string())
-        {
+        if (tab_widget_->tabText(i).toStdString() == name.filename().string()) {
             return i;
         }
     }
@@ -495,7 +456,6 @@ void MusicReader::update_menu_bookmark_visibility()
     //TODO
 }
 
-#include "config_file_dialog.h"
 
 void MusicReader::save_open_documents_to_config()
 {
@@ -504,11 +464,9 @@ void MusicReader::save_open_documents_to_config()
 
 void MusicReader::refresh_all_documents()
 {
-    for (int index = 0; index < tab_widget_->count(); ++index)
-    {
+    for (int index = 0; index < tab_widget_->count(); ++index) {
         PDFViewer *viewer = viewer_tab(index);
-        if (viewer)
-        {
+        if (viewer) {
             viewer->refresh();
         }
     }
@@ -517,42 +475,33 @@ void MusicReader::refresh_all_documents()
 
 void MusicReader::open_config_dialog()
 {
-    try
-    {
+    try {
         ConfigDialog editor_dialog(config_, this);
         save_open_documents_to_config();
 
         editor_dialog.exec();
 
-        if (editor_dialog.result() == QDialog::Accepted)
-        {
+        if (editor_dialog.result() == QDialog::Accepted) {
             config_.save();
             refresh_all_documents();
             logger::enable_debug_logging(config_.log_level == LogLevel::Diagnostic);
         }
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         logger::log_error("Failed to open settings dialog: " + std::string(e.what()));
     }
 }
 
 void MusicReader::restore_window_state()
 {
-    if (config_.restore_window_position)
-    {
-        try
-        {
+    if (config_.restore_window_position) {
+        try {
             const auto &app_size = config_.app_size;
-            if (app_size.size() >= 4)
-            {
+            if (app_size.size() >= 4) {
                 move(app_size[0], app_size[1]);
                 resize(app_size[2], app_size[3]);
                 ensure_window_is_visible(this);
             }
-        }
-        catch (...)
-        {
+        } catch (...) {
             logger::log_error("Failed to restore app position and size");
         }
     }
@@ -563,30 +512,22 @@ void MusicReader::open_file_dialog(const std::string &pathname)
     Document *doc = current_document();
     std::string default_directory;
 
-    if (pathname.empty())
-    {
-        if (doc)
-        {
+    if (pathname.empty()) {
+        if (doc) {
             default_directory = std::filesystem::path(doc->filename()).parent_path().string();
-        }
-        else
-        {
+        } else {
             default_directory = "";
         }
-    }
-    else
-    {
+    } else {
         default_directory = pathname;
     }
 
     QStringList filenames = QFileDialog::getOpenFileNames(
         this, "Open PDF", QString::fromStdString(default_directory), "PDF Files (*.pdf)");
 
-    if (!filenames.isEmpty())
-    {
+    if (!filenames.isEmpty()) {
         WaitCursor cursor;
-        for (const QString &name : filenames)
-        {
+        for (const QString &name : filenames) {
             open_pdf_in_tab(name.toStdString());
         }
     }
@@ -595,8 +536,7 @@ void MusicReader::open_file_dialog(const std::string &pathname)
 void MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 {
     SAFE_METHOD;
-    if (auto i = doc_is_open(filename); i.has_value())
-    {
+    if (auto i = doc_is_open(filename); i.has_value()) {
         focus_on_tab(i.value());
         return;
     }
@@ -604,8 +544,7 @@ void MusicReader::open_pdf_in_tab(const std::string &filename, int page)
     WaitCursor cursor;  // RAII-based wait cursor
 
     Document *doc = open_pdf_document(filename);
-    if (!doc)
-    {
+    if (!doc) {
         display_error_message("Can't open " + filename + ", is it a PDF?");
         return;
     }
@@ -633,8 +572,7 @@ Document *MusicReader::open_pdf_document(const std::string &filename)
 {
     LOG_EXCEPTION;
 
-    if (!std::filesystem::exists(filename))
-    {
+    if (!std::filesystem::exists(filename)) {
         logger::log_error(filename + " doesn't exist");
         return nullptr;
     }
@@ -648,8 +586,7 @@ void MusicReader::focus_on_tab(int index)
     SAFE_METHOD;
 
     PDFViewer *viewer = viewer_tab(index);
-    if (viewer)
-    {
+    if (viewer) {
         tab_widget_->setCurrentIndex(index);
         viewer->setFocusPolicy(Qt::StrongFocus);
         viewer->setFocus();
@@ -688,7 +625,7 @@ void MusicReader::create_status_bar()
     setStatusBar(status_bar_);
 
     // Connect dropdown selection to page change
-    connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+    connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MusicReader::on_page_selected);
 
     // Display initial memory usage
@@ -704,14 +641,12 @@ void MusicReader::update_memory_usage()
 {
     SAFE_METHOD;
 
-    auto format_memory = [](size_t bytes) -> std::string
-    {
+    auto format_memory = [](size_t bytes) -> std::string {
         static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
         int unit_index = 0;
         double size = static_cast<double>(bytes);
 
-        while (size >= 1024.0 && unit_index < 4)
-        {
+        while (size >= 1024.0 && unit_index < 4) {
             size /= 1024.0;
             unit_index++;
         }
@@ -720,8 +655,7 @@ void MusicReader::update_memory_usage()
     };
 
     PROCESS_MEMORY_COUNTERS mem_info;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &mem_info, sizeof(mem_info)))
-    {
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &mem_info, sizeof(mem_info))) {
         size_t usage = mem_info.WorkingSetSize;
         MEMORYSTATUSEX mem_status;
         mem_status.dwLength = sizeof(mem_status);
@@ -737,8 +671,7 @@ void MusicReader::update_memory_usage()
 void MusicReader::show_page_count()
 {
     PDFViewer *viewer = current_viewer();
-    if (!viewer)
-    {
+    if (!viewer) {
         status_bar_->clear_page_count();
         return;
     }
@@ -751,11 +684,57 @@ void MusicReader::show_page_count()
 void MusicReader::on_page_selected(int index)
 {
     PDFViewer *viewer = current_viewer();
-    if (viewer)
-    {
+    if (viewer) {
         viewer->get_page(index + 1);  // Convert index to 1-based page number
     }
     show_page_count();  // Ensure status bar reflects any adjustments
 }
 
+void MusicReader::open_fast_search_dialog()
+{
+    if (!fast_search_dialog_) {
+        return;
+    }
+
+    try {
+        fast_search_dialog_->show();
+        tab_widget_->setEnabled(false);
+        fast_search_dialog_->exec();
+    } catch (const std::exception &e) {
+        logger::log_error("Failed to open fast search dialog: " + std::string(e.what()));
+    }
+
+    tab_widget_->setEnabled(true);
+
+    // Save dialog geometry
+    QRect geometry = fast_search_dialog_->geometry();
+    std::vector<int> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
+
+    config_.fast_search_dialog_size = size;
+    config_.music_directory = fast_search_dialog_->path();
+
+    // Handle selected files
+    auto [selected_files, filepath] = fast_search_dialog_->selected_files();
+    if (selected_files == std::vector<std::string>{"open"}) {
+        open_file_dialog(filepath);
+    } else {
+        for (const auto &file : selected_files) {
+            open_pdf_in_tab(file);
+        }
+    }
+}
+
+
+
+void MusicReader::initialize_fast_search()
+{
+    // get all the files in the music directory
+    FastFileSearchDialog::initialize_watcher(config_.music_directory.string());
+
+    QRect size(config_.fast_search_dialog_size[0], config_.fast_search_dialog_size[1],
+               config_.fast_search_dialog_size[2], config_.fast_search_dialog_size[3]);
+
+    // Initialize the fast search dialog and watcher
+    fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory.string(), size);
+}
 

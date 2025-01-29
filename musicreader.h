@@ -10,6 +10,7 @@ class BookmarkPanel;
 class Document;
 class PDFViewer;
 class StatusBar;
+class FastFileSearchDialog;
 
 class MusicReader : public QMainWindow
 {
@@ -34,7 +35,7 @@ private:
     void update_memory_usage();
 
     void open_file_dialog(const std::string &pathname="");
-    void open_fast_search_dialog() {/*TODO*/ }
+    void open_fast_search_dialog();
     void open_config_dialog();
     void update_recent_files_list() {/*TODO*/ }
     void update_dpi_setting(bool recompute) {/*TODO*/ }
@@ -45,6 +46,7 @@ private:
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
     void update_undo_redo_state() {/*TODO*/ }
+    void initialize_fast_search();
 
     void refresh_all_documents();
     void save_open_documents_to_config();
@@ -114,5 +116,7 @@ private:
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;
+
+    FastFileSearchDialog *fast_search_dialog_;
 
 };

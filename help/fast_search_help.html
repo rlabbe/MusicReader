@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Help Content</title>
+    <style>
+        body {
+            font-family: serif;
+            font-size: 16px;
+            margin: 10px;
+        }
+        h1 {
+            font-size: 20px;
+        }
+        p {
+            font-size: 16px;
+            margin-left: 20px;
+        }
+    .further-indent {
+        display: block;
+        margin-left: 30px; /* Adjust the value as needed */
+    }
+    </style>
+</head>
+<body>
+    <h2>Fast File Search:</h2>
+
+    <p>Suppose you want to open<br><br>
+    <span class="further-indent"><em>c:\\users\\you\\music\\classical\\Philip Glass\\movies\\Koyaanisqatsi - Vocal Score.pdf</em></span><br>
+    That would be very tedious to browse to, and perhaps hard to find if you aren't sure what directory it is in. Instead, set your search path (see <strong>Setting Search Directory</strong>) to<br><br>
+        <span class="further-indent"><em>c:\\users\\you\\music</em></span><br>
+         and then type<br><br>
+         <span class="further-indent"><em>gl ko</em></span><br>
+    where the <em>gl</em> will match "Glass" and the <em>ko</em> will match "Koyaanisqatsi", because case doesn't matter. Search results update as you type each character, so you have immediate feed back on which files match. Order also doesn't matter: <em>ko&nbsp;gl</em> would find the same file, as would for example <em>Ko&nbsp;gL</em>. Diacritics also do not matter. You may have both <em>Frédéric Chopin</em> and <em>Frederic Chopin</em> in your file names, and <em>fred</em> will match either.</p>
+
+    <p>If you were unsure about the name of the directory, just type <em>koya</em> and you'll also find the file, since you probably don't have many files with <em>koya</em> in the name.  </p>
+
+    <p>The strength of searching path and name is that you may have very similar named files in different directories, and you can still find the one you want. For example, if you have a file <em>etude1.pdf</em> in directory <em>Chopin</em> and <em>etude_01.pdf</em> in directory <em>Liszt</em>, you can easily find the one you want with, for example, <em>ch et 1</em>. The minimal number of characters you'll need to type depends on what files you have. In practice, since the search results update after every key press, you'll get quick visual indication. So you might start with <em>etu</em> to get anything with "etude" in the name, and then if there are too many to choose narrow it down to Chopin by pressing space and then <em>ch</em> (resulting in <em>etu ch</em> as the search term). That would give you all the Chopin etudes you have, and you could then just click the file you want.</p>
+
+    <p>When you have narrowed down the results and found the file you want, either double click on it to open, or if you want to open more than one file, multi-select them and then press the "OK" button.</p>
+
+    <p>Files are sorted in "natural order". That is, sorting is not strictly alphabetical, because then "etude10" would come before "etude2". Capitalization is also ignored, so "etude1" would be listed before "Etude2" even though "E" comes before "e".</p>
+
+    <h2>Setting the Search Directory:</h2>
+    <p>Click the "..." button to set the directory to search. This will open a file dialog where you can select the directory to search. When you close it the file list will be updated. The search will only look in this directory and its subdirectories.</p>
+
+    <h2>Using Open File Dialog Instead</h2>
+    <p>If you prefer to use the standard Windows open file dialog, click the "Open" button. This will open the standard Windows open file dialog, and you can navigate to the file you want.</p>
+
+    <p>If you want this to be the default behavior for the app when you press the file icon, uncheck "Use Fast Search" in the settings (in the main app). This setting will be remembered for the next time you run the app.</p>
+</body>
+</html>

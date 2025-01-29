@@ -1,5 +1,5 @@
 // config_dialog.cpp
-#include "config_file_dialog.h"
+#include "config_dialog.h"
 #include <QSpinBox>
 #include <QComboBox>
 #include <QCheckBox>

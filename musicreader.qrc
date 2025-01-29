@@ -8,5 +8,6 @@
         <file>images/right.ico</file>
         <file>images/zoomin.svg</file>
         <file>images/zoomout.svg</file>
+        <file>help/fast_search_help.html</file>
     </qresource>
 </RCC>
