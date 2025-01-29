@@ -88,7 +88,7 @@ Document::Document(std::filesystem::path filename, int dpi)
 
 std::optional<QPixmap> Document::get_page(int page_num) const
 {
-    if (page_num < 0 || page_num >= page_count())
+    if (page_num < 1 || page_num > page_count())
     {
         logger::log_error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
