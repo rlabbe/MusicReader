@@ -152,12 +152,16 @@
     <ClInclude Include="config_file.h" />
     <ClInclude Include="exception_logger.h" />
     <QtMoc Include="status_bar.h" />
+    <ClInclude Include="page.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
     <QtMoc Include="config_file_dialog.h" />
     <ClInclude Include="document.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="logger.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".editorconfig" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

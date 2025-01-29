@@ -86,13 +86,13 @@ Document::Document(std::filesystem::path filename, int dpi)
 }
 
 
-std::optional<QPixmap> Document::get_page(int page_num) const
+Page Document::get_page(int page_num) const
 {
     if (page_num < 1 || page_num > page_count())
     {
         logger::log_error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
-        return std::nullopt;
+        return Page();
     }
     return pages_[page_num-1];
 }
@@ -115,7 +115,7 @@ void Document::load_document()
         for (int i = 0; i < total_pages; ++i)
         {
             auto page = render_page(ctx, doc, i, dpi_);
-            pages_.push_back(page);
+            pages_.push_back(Page(page, i+1));
         }
     }
     fz_always(ctx)

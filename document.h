@@ -9,7 +9,7 @@
 #include <mupdf/fitz.h>
 #pragma warning(pop)
 #include <QPixmap>
-
+#include "page.h"
 #include "bookmark.h"
 
 class Document
@@ -20,11 +20,8 @@ public:
     std::string filename() const { return filename_.string(); }
 
     int page_count() const { return static_cast<int>(pages_.size()); }
-    std::optional<QPixmap> get_page(int page_num) const;
+    Page get_page(int page_num) const;
     bool save(const std::filesystem::path &filename);
-
-
-    //HATTYPE get_toc() const;
 
     bool can_undo() const { return false; }
     bool can_redo() const { return false; }
@@ -58,6 +55,6 @@ private:
     std::filesystem::path filename_;
 
     int dpi_;
-    std::vector<QPixmap> pages_;
+    std::vector<Page> pages_;
 };
 

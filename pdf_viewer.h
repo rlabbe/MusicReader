@@ -16,6 +16,7 @@
 #include <QMutex>
 #include "document.h"
 #include "config_file.h"
+#include "page.h"
 
 class StatusBar;
 
@@ -53,8 +54,8 @@ protected:
 
 private:
     void init_ui(int page);
-    QPixmap get_single_page(int page_num);
-    QPixmap get_double_page(int page_num);
+    Page get_single_page(int page_num);
+    Page get_double_page(int page_num);
     void adjust_initial_subwindow_size();
     void adjust_subwindow_size();
     void update_scrollbar_visibility();
@@ -68,8 +69,9 @@ private:
     Document *document_;
     ConfigFile *config_;
     int initial_page_num_;
-    QPixmap page_;
-    bool drawing_margin_;
+    Page page_;
+    bool drawing_margin_ = false;
+    double aspect_ratio_ = 1.0;
     QRect margin_rect_;
 };
 

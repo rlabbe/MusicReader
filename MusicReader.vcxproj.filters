@@ -113,5 +113,11 @@
     <ClInclude Include="border.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="page.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".editorconfig" />
   </ItemGroup>
 </Project>

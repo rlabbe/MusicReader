@@ -32,8 +32,7 @@ PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar
 
     //connect(qobject_cast<QGuiApplication *>(QCoreApplication::instance()), &QGuiApplication::paletteChanged, this, &PDFViewer::refresh);
 
-    if (document_->page_count() > 0)
-    {
+    if (document_->page_count() > 0) {
         get_page(initial_page_num_, true);
     }
 }
@@ -85,8 +84,7 @@ void PDFViewer::change_page(int step)
 
 void PDFViewer::keyPressEvent(QKeyEvent *event)
 {
-    switch (event->key())
-    {
+    switch (event->key()) {
     case Qt::Key_PageUp:
     case Qt::Key_Up:
         page_up();
@@ -109,28 +107,21 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
 
 void PDFViewer::wheelEvent(QWheelEvent *event)
 {
-    if (event->angleDelta().y() > 0)
-    {
+    if (event->angleDelta().y() > 0) {
         page_up();
-    }
-    else
-    {
+    } else {
         page_down();
     }
 }
 
 bool PDFViewer::event(QEvent *event)
 {
-    if (event->type() == QEvent::Gesture)
-    {
+    if (event->type() == QEvent::Gesture) {
         auto *gesture = dynamic_cast<QSwipeGesture *>(static_cast<QGestureEvent *>(event)->gesture(Qt::SwipeGesture));
 
-        if (gesture->horizontalDirection() == QSwipeGesture::Left)
-        {
+        if (gesture->horizontalDirection() == QSwipeGesture::Left) {
             page_down();
-        }
-        else
-        {
+        } else {
             page_up();
         }
         return true;
@@ -166,8 +157,7 @@ void PDFViewer::init_ui(int page)
 
 void PDFViewer::on_scrollbar_value_changed(int new_page)
 {
-    if (new_page != current_page())
-    {
+    if (new_page != current_page()) {
         get_page(new_page);
     }
 }
@@ -182,60 +172,89 @@ void PDFViewer::get_page(int page_num, bool first_call)
 {
     if (document_->page_count() == 0) return;
 
-    if (single_page_view() || page_num == document_->page_count())
-    {
+    if (single_page_view() || page_num == document_->page_count()) {
         page_ = get_single_page(page_num);
-    }
-    else
-    {
+    } else {
         page_ = get_double_page(page_num);
     }
 
     _update_image();
-    if (!first_call)
-    {
+    if (!first_call) {
         adjust_subwindow_size();
-    }
-    else
-    {
+    } else {
         adjust_initial_subwindow_size();
     }
 }
 
-QPixmap PDFViewer::get_single_page(int page_num)
+Page PDFViewer::get_single_page(int page_num)
 {
-    std::optional<QPixmap> opt_pixmap = document_->get_page(page_num);
-    return opt_pixmap.value_or(QPixmap());
+    auto page = document_->get_page(page_num);
+    if (!page.img.isNull())
+        aspect_ratio_ = double(page.width()) / page.height();
+
+
+    return page;
 }
 
-QPixmap PDFViewer::get_double_page(int page_num)
+Page PDFViewer::get_double_page(int page_num)
 {
-    auto p1 = document_->get_page(page_num);
-    auto p2 = document_->get_page(page_num + 1);
-    if (!p1 || !p2) return QPixmap();
 
+
+    bool zoom_to_content = config_->zoom_to_content;
+    int margin = config_->border_margin;
+
+    Page p1 = document_->get_page(page_num);
+    Page p2 = document_->get_page(page_num + 1);
+
+    // Determine cropped dimensions if zooming to content
+    QRect p1_crop = zoom_to_content
+        ? QRect(p1.border.left, p1.border.top,
+                p1.border.right - p1.border.left,
+                p1.border.bottom - p1.border.top)
+        : QRect(0, 0, p1.width(), p1.height());
+
+    QRect p2_crop = zoom_to_content
+        ? QRect(p2.border.left, p2.border.top,
+                p2.border.right - p2.border.left,
+                p2.border.bottom - p2.border.top)
+        : QRect(0, 0, p2.width(), p2.height());
+
+    // New dimensions including space for the separator line
     int line_width = 8;
-    int combined_width = p1->width() + p2->width() + line_width;
-    int max_height = std::max(p1->height(), p2->height());
+    int combined_width = p1_crop.width() + p2_crop.width() + line_width;
+    int max_height = std::max(p1_crop.height(), p2_crop.height());
 
+    aspect_ratio_ = static_cast<double>(combined_width) / max_height;
+
+    // Create the combined QPixmap
     QPixmap combined_image(combined_width, max_height);
-    combined_image.fill(QApplication::palette().color(QPalette::Window));
+    QColor back_color = static_cast<QApplication *>(QApplication::instance())->palette().color(QPalette::Window);
+
+    combined_image.fill(back_color);
 
     QPainter painter(&combined_image);
-    painter.drawPixmap(0, (max_height - p1->height()) / 2, *p1);
-    painter.drawPixmap(p1->width() + line_width, (max_height - p2->height()) / 2, *p2);
 
-    painter.setPen(QPen(QApplication::palette().color(QPalette::Window), line_width));
-    painter.drawLine(p1->width(), 0, p1->width(), max_height);
+    // Center each cropped page within the available height
+    int p1_offset = (max_height - p1_crop.height()) / 2;
+    int p2_offset = (max_height - p2_crop.height()) / 2;
 
-    return combined_image;
+    // Draw cropped pages directly
+    painter.drawPixmap(0, p1_offset, p1.img, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
+    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.img, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
+
+    // Draw separator line
+    painter.setPen(QPen(back_color, line_width));
+    painter.drawLine(p1_crop.width(), 0, p1_crop.width(), max_height);
+
+    painter.end();
+
+    return Page(combined_image, page_num, true);//true for double page
 }
 
 
 void PDFViewer::_update_image(const QString &message)
 {
-    if (page_.isNull())
-    {
+    if (page_.is_empty()) {
         label_->setText(message.isEmpty() ? "Loading..." : message);
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
@@ -244,25 +263,28 @@ void PDFViewer::_update_image(const QString &message)
 
     label_->setStyleSheet("");
 
-    QSize max_size = config_->allow_oversize ? label_->size() : page_.size().boundedTo(label_->size());
-    label_->setPixmap(page_.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    QSize max_size = config_->allow_oversize ? label_->size() : page_.img.size().boundedTo(label_->size());
+    label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
 
-    label_->setScaledContents(true);  // Let Qt handle scaling efficiently
+    // so, funky logic. We try to minimize copying pixmaps. So, if a single page
+    // and zoomed in we use scaling to efficiently zoom it in w/o copys.
+    // but if a double page the cropping is already handled in get_double_page
+    if (!page_.double_page && config_->zoom_to_content) {
+        label_->setScaledContents(true);  // Let Qt handle scaling efficiently
 
-    Border border = find_content_edges(page_);
+        Border border = find_content_edges(page_.img);
 
-    // Set margins to "crop" the displayed region (instead of copying the pixmap)
-    label_->setContentsMargins(-border.left, -border.top,
-                               -(page_.width() - border.right),
-                               -(page_.height() - border.bottom));
-
-    label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+        // Set margins to "crop" the displayed region (instead of copying the pixmap)
+        label_->setContentsMargins(-border.left, -border.top,
+                                   -(page_.width() - border.right),
+                                   -(page_.height() - border.bottom));
+    }
 }
 
 void PDFViewer::adjust_initial_subwindow_size()
 {
-    if (page_.isNull()) return;
+    if (page_.is_empty()) return;
 
     QSize max_size = parentWidget()->size();
     QSize scaled_size = page_.size().scaled(max_size, Qt::KeepAspectRatio);
@@ -273,7 +295,7 @@ void PDFViewer::adjust_initial_subwindow_size()
 
 void PDFViewer::adjust_subwindow_size()
 {
-    if (page_.isNull()) return;
+    if (page_.is_empty()) return;
 
     QSize max_size = parentWidget()->size();
     QSize new_size = QSize(std::min(page_.width(), max_size.width()), std::min(page_.height(), max_size.height()));
