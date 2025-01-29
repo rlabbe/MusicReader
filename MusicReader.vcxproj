@@ -150,6 +150,7 @@
     <ClInclude Include="bookmark.h" />
     <ClInclude Include="border.h" />
     <ClInclude Include="config_file.h" />
+    <QtMoc Include="directory_watcher.h" />
     <ClInclude Include="exception_logger.h" />
     <QtMoc Include="status_bar.h" />
     <ClInclude Include="page.h" />
