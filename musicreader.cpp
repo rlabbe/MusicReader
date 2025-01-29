@@ -74,6 +74,10 @@ void MusicReader::setup_UI()
     setWindowIcon(QIcon(":/MusicReader/images/gclef.png"));
 
     restore_window_state();
+
+    // this will search the directories and create the fast search dialog
+    // asynchronously, because it can take many seconds to populate all the 
+    // files. Users of 
     initialize_fast_search();
 }
 
@@ -415,7 +419,6 @@ void MusicReader::create_bookmark_panel()
     bookmark_panel_ = new BookmarkPanel(this);
     connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
     connect(bookmark_panel_, &BookmarkPanel::bookmark_visibility_changed, this, &MusicReader::update_menu_bookmark_visibility);
-
 }
 
 
@@ -693,9 +696,17 @@ void MusicReader::on_page_selected(int index)
 void MusicReader::open_fast_search_dialog()
 {
     if (!fast_search_dialog_) {
+        WaitCursor cursor;
+
+        QEventLoop loop;
+        connect(this, &MusicReader::fastSearchInitialized, &loop, &QEventLoop::quit);
+        loop.exec();  // Blocks here until signal is received
+    }
+    if (!fast_search_dialog_) {
+        logger::log_error("Failed to initialize fast search dialog");
         return;
     }
-
+    
     try {
         fast_search_dialog_->show();
         tab_widget_->setEnabled(false);
@@ -726,15 +737,29 @@ void MusicReader::open_fast_search_dialog()
 
 
 
+
+
 void MusicReader::initialize_fast_search()
 {
-    // get all the files in the music directory
+    // Call initialize_watcher in the main thread
     FastFileSearchDialog::initialize_watcher(config_.music_directory.string());
 
-    QRect size(config_.fast_search_dialog_size[0], config_.fast_search_dialog_size[1],
-               config_.fast_search_dialog_size[2], config_.fast_search_dialog_size[3]);
+    // Start a background thread for slow initialization
+    std::thread([this]() {
+        QRect size(config_.fast_search_dialog_size[0], config_.fast_search_dialog_size[1],
+                   config_.fast_search_dialog_size[2], config_.fast_search_dialog_size[3]);
 
-    // Initialize the fast search dialog and watcher
-    fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory.string(), size);
+        // Request creation in the GUI thread
+        QMetaObject::invokeMethod(this, [this, size]() {
+            fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory.string(), size);
+            emit fastSearchInitialized();  // Emit signal when dialog is ready
+        }, Qt::QueuedConnection);
+
+    }).detach();
 }
+
+
+
+
+
 

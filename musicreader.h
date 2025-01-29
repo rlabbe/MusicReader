@@ -4,6 +4,9 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
+#include <mutex>
+#include <condition_variable>
+
 #include "config_file.h"
 
 class BookmarkPanel;
@@ -118,5 +121,9 @@ private:
     std::map<std::string, QKeySequence> shortcuts_;
 
     FastFileSearchDialog *fast_search_dialog_;
-
+    // used to wait until the fast search dialog is ready
+    std::mutex fast_search_mutex_;
+    std::condition_variable fast_search_cv_;
+    signals:
+        void fastSearchInitialized();
 };
