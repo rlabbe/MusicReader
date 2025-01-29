@@ -6,11 +6,18 @@
 #include <QThread>
 #include <QDirIterator>
 #include <filesystem>
+#include <iostream>
 #include "qt_utils.h"
 
 
+static std::string to_lower(const std::string &str)
+{
+    std::string result = str;
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
+}
 
-std::string strip_accents(const std::string &text)
+static std::string strip_accents(const std::string &text)
 {
     QString qtext = QString::fromStdString(text).normalized(QString::NormalizationForm_D);
 
@@ -21,14 +28,15 @@ std::string strip_accents(const std::string &text)
     return qtext.toStdString();
 }
 
-bool human_search(const std::string &search_term, const std::string &search_string)
+static bool human_search(const std::string &search_term, const std::string &search_string)
 {
-    std::string normalized_search_term = strip_accents(search_term);
-    std::string normalized_search_string = strip_accents(search_string);
+    std::string normalized_search_term = strip_accents(to_lower(search_term));
+    std::string normalized_search_string = strip_accents(to_lower(search_string));
+
     return normalized_search_string.find(normalized_search_term) != std::string::npos;
 }
 
-std::string human_size(long size)
+static std::string human_size(long size)
 {
     const char *units[] = { "B", "KB", "MB", "GB" };
     int unit_index = 0;
@@ -53,21 +61,40 @@ bool SortableTableWidgetItem::operator<(const QTableWidgetItem &other) const
 FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &directory_path, const QRect &size)
     : QDialog(parent)
 {
-    files_.clear();
+    instance_ = this;
+    QString path = QDir::toNativeSeparators(QString::fromStdString(directory_path));
+
+    if (path != path_) {
+        // This is slightly inefficient but should only occur if the user manually edits the music_directory in settings.
+        path_ = path;
+        files_.clear(); // Trigger a refresh of the files
+    }
+
+    if (!file_ending_.isEmpty()) {
+        file_ending_ = file_ending_.toLower();
+    }
+
     selected_items_.clear();
-    open_path_.clear();
+    open_path_.clear(); // Used to browse to a directory
 
     init_ui(size);
-    if (files_.empty()) update_files();
+
+    if (files_.empty()) {
+        update_files();
+    }
 
     if (!watcher_) {
-        watcher_ = new DirectoryWatcher(file_ending_, this);
+        watcher_ = new DirectoryWatcher(file_ending_);
         connect(watcher_, &DirectoryWatcher::file_changed, this, &FastFileSearchDialog::class_file_changed);
         watcher_->start(path_);
     }
 
     connect(&UpdateSignal::instance(), &UpdateSignal::filesUpdated, this, &FastFileSearchDialog::instance_update_files);
 }
+
+
+
+
 
 
 void FastFileSearchDialog::init_ui(const QRect &size)
@@ -163,7 +190,7 @@ void FastFileSearchDialog::initialize_watcher(const std::string &directory)
     }
 
     std::thread([] {
-        files_ = find_files();
+        FastFileSearchDialog::find_files_async(FastFileSearchDialog::instance_);
     }).detach();
 }
 
@@ -192,7 +219,7 @@ void FastFileSearchDialog::on_search()
 }
 
 
-void FastFileSearchDialog::display_files(const QStringList &file_paths)
+void FastFileSearchDialog::display_files(const QStringList &file_paths, bool resize)
 {
     file_table_->setSortingEnabled(false);
     file_table_->setRowCount(0);
@@ -219,26 +246,34 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths)
     }
 
     file_table_->setSortingEnabled(true);
-    file_table_->resizeColumnsToContents();
+
+    // Resize columns only if reloading the full directory
+    if (resize)
+        file_table_->resizeColumnsToContents();
+
+    file_table_->setSortingEnabled(true);
 }
 
 
 
 void FastFileSearchDialog::class_file_changed()
 {
-    files_ = find_files();
+    std::cout << "class_file_changed" << std::endl;
+
+    instance_->files_ = instance_->find_files();
     emit UpdateSignal::instance().filesUpdated();
 }
 
 void FastFileSearchDialog::instance_update_files()
 {
-    display_files(files_);
+    std::cout << "instance_update_files" << std::endl;
+    display_files(files_, true);
 }
 
 void FastFileSearchDialog::update_files()
 {
     files_ = find_files();
-    display_files(files_);
+    display_files(files_, true);
     set_title();
 }
 
@@ -347,6 +382,19 @@ QStringList FastFileSearchDialog::find_files()
         }
     }
     return file_paths;
+}
+
+void FastFileSearchDialog::find_files_async(FastFileSearchDialog *instance)
+{
+    std::thread([instance]() {
+        auto files = instance->find_files();  // Call on instance
+
+        // Ensure UI update happens in the main thread
+        QMetaObject::invokeMethod(instance, [instance, files = std::move(files)]() {
+            instance->files_ = files;
+            instance->display_files(instance->files_);
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 void FastFileSearchDialog::directory_changed(const std::string &new_search_path, FastFileSearchDialog *self)

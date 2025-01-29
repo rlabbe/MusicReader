@@ -83,9 +83,10 @@ private slots:
 private:
     void set_title();
     void init_ui(const QRect &size);
-    void display_files(const QStringList &file_paths);
+    void display_files(const QStringList &file_paths, bool resize=false);
     void size_button(QPushButton *button);
-    static QStringList find_files();
+    QStringList find_files();
+    static void find_files_async(FastFileSearchDialog *instance);
 
     void _open_help();
 
@@ -103,6 +104,8 @@ private:
     QTableWidget *file_table_;
     QStringList selected_items_;
     QString open_path_;
+
+    static inline FastFileSearchDialog *instance_ = nullptr;
 };
 
 #endif // FAST_FILE_SEARCH_DIALOG_H

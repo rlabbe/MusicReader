@@ -80,8 +80,8 @@ public:
     {
         if (!supported_) return;
 
-        watcher_.removePaths(watcher_.directories());
-        watcher_.removePaths(watcher_.files());
+        if (!watcher_.directories().isEmpty()) watcher_.removePaths(watcher_.directories());
+        if (!watcher_.files().isEmpty())  watcher_.removePaths(watcher_.files());
     }
 
 signals:

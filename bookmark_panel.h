@@ -19,8 +19,8 @@ public:
 
     bool can_undo() const;
     bool can_redo() const;
-    void undo();
-    void redo();
+
+
 
     // Adjusts the panel width to fit content
     void adjust_width();
@@ -29,6 +29,14 @@ signals:
     void bookmark_visibility_changed(bool visible);
     void bookmark_clicked(int page_num);
 
+public slots:
+    void undo();
+    void redo();
+
+    
+    void add_bookmark(); // Adds a new bookmark at the current page.
+    void delete_selected_bookmark();
+    void toggle_visibility();
 
 private:
 
@@ -47,12 +55,9 @@ private:
     void unindent_selected_bookmarks();
 
     void init_ui();
-
     void setup_shortcuts();
-
     void setup_context_menu();
 
-    void toggle_visibility();
     void show_context_menu(const QPoint &position);
 
     // Populates the tree widget with the document's bookmarks
@@ -60,10 +65,6 @@ private:
 
     void on_bookmark_clicked(QTreeWidgetItem *item, int);
     void on_bookmark_edited(QTreeWidgetItem *item, int);
-    void delete_selected_bookmark();
-
-    // Adds a new bookmark at the current page.
-    void add_bookmark();
 
     // Finds a tree widget item by its bookmark handle.
     QTreeWidgetItem *find_item_by_handle(const std::string &handle);
