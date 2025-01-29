@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/MusicReader">
+        <file>images/border.svg</file>
+        <file>images/gclef.png</file>
+        <file>images/gclef-icon.png</file>
+        <file>images/gear.png</file>
+        <file>images/left.ico</file>
+        <file>images/right.ico</file>
+        <file>images/zoomin.svg</file>
+        <file>images/zoomout.svg</file>
+    </qresource>
+</RCC>
