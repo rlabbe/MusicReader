@@ -71,6 +71,7 @@ void MusicReader::setup_UI()
     tab_widget_ = new QTabWidget();
     tab_widget_->setTabsClosable(true);
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
+    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
 
     
     splitter_->addWidget(tab_widget_);
@@ -399,9 +400,10 @@ void MusicReader::on_close_tab(int index)
     update_title();
 }
 
-void MusicReader::update_title()
+void MusicReader::update_title(int index)
 {
     SAFE_METHOD;
+    index;
 
     if (tab_widget_->count() > 0) {
         QString current_tab_title = tab_widget_->tabText(tab_widget_->currentIndex());

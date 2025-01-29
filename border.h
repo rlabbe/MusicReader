@@ -35,8 +35,6 @@ struct Border
     }
 };
 
-
-
 Border find_content_edges(const QImage &img, int black_pixel_threshold = 10);
 inline Border find_content_edges(const QPixmap &img, int black_pixel_threshold = 10)
 {

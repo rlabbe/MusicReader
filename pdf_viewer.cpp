@@ -44,7 +44,8 @@ int PDFViewer::page_count() const
 
 int PDFViewer::current_page() const
 {
-    return initial_page_num_;
+    if (page_.is_empty()) return 1;
+    return page_.page_num;
 }
 
 bool PDFViewer::single_page_view() const
@@ -189,17 +190,14 @@ void PDFViewer::get_page(int page_num, bool first_call)
 Page PDFViewer::get_single_page(int page_num)
 {
     auto page = document_->get_page(page_num);
-    if (!page.img.isNull())
+    if (!page.is_empty())
         aspect_ratio_ = double(page.width()) / page.height();
-
 
     return page;
 }
 
 Page PDFViewer::get_double_page(int page_num)
 {
-
-
     bool zoom_to_content = config_->zoom_to_content;
     int margin = config_->border_margin;
 
@@ -264,22 +262,16 @@ void PDFViewer::_update_image(const QString &message)
     label_->setStyleSheet("");
 
     QSize max_size = config_->allow_oversize ? label_->size() : page_.img.size().boundedTo(label_->size());
-    label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
 
     // so, funky logic. We try to minimize copying pixmaps. So, if a single page
     // and zoomed in we use scaling to efficiently zoom it in w/o copys.
     // but if a double page the cropping is already handled in get_double_page
     if (!page_.double_page && config_->zoom_to_content) {
-        label_->setScaledContents(true);  // Let Qt handle scaling efficiently
+        label_->setPixmap(page_.resize_by_border());
 
-        Border border = find_content_edges(page_.img);
-
-        // Set margins to "crop" the displayed region (instead of copying the pixmap)
-        label_->setContentsMargins(-border.left, -border.top,
-                                   -(page_.width() - border.right),
-                                   -(page_.height() - border.bottom));
     } else {
+        label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         label_->setScaledContents(false);
         label_->setContentsMargins(0, 0, 0, 0);
     }
