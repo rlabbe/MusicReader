@@ -4,6 +4,7 @@
 #include "document.h"
 #include "logger.h"
 #include "bookmark.h"
+#include "pdf_viewer.h"
 
 BookmarkPanel::BookmarkPanel(MusicReader *main_window)
     : QWidget(main_window)
@@ -168,6 +169,7 @@ void BookmarkPanel::populate()
 
     tree_widget_->expandAll();
     adjust_width();
+    return_focus_to_main();
 }
 
 
@@ -210,6 +212,17 @@ void BookmarkPanel::populate()
     adjust_width();
 }
 */
+void BookmarkPanel::return_focus_to_main()
+{
+    if (!main_window_) 
+        return;
+
+    auto *current_viewer = main_window_->current_viewer();
+    if (current_viewer) 
+        current_viewer->setFocus();
+    
+}
+
 
 void BookmarkPanel::adjust_width()
 {
@@ -222,6 +235,7 @@ void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 {
     int page_num = page_num_of(item);
     emit bookmark_clicked(page_num);
+    return_focus_to_main();
 }
 
 
@@ -248,6 +262,7 @@ void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
     if (new_title.empty()) return;
 
     doc->rename_bookmark(handle, new_title);
+    return_focus_to_main();
 }
 
 
@@ -261,6 +276,7 @@ void BookmarkPanel::delete_selected_bookmark()
     auto handle = handle_of(item);
     doc->remove_bookmark(handle);
     populate();
+    return_focus_to_main();
 }
 
 
@@ -281,6 +297,7 @@ void BookmarkPanel::add_bookmark()
         tree_widget_->setCurrentItem(item);
         tree_widget_->editItem(item, 0);
     }
+    return_focus_to_main();
 }
 
 QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const std::string &handle)

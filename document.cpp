@@ -160,8 +160,6 @@ void Document::load_document()
 }
 
 
-
-
 bool Document::save(const std::filesystem::path &filename)
 {
     /*auto [ctx, doc] = open_fitz(filename_.string());
@@ -190,9 +188,7 @@ bool Document::save(const std::filesystem::path &filename)
 
     */
     return true;
-
 }
-
 
 
 

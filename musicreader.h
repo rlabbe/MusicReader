@@ -73,6 +73,7 @@ private:
     void save_window_state_to_config();
     void check_for_errors_on_exit();
 
+public:
     PDFViewer *current_tab() const;
     std::string current_document_name() const;
     Document *document_at(int index) const;
@@ -81,6 +82,7 @@ private:
     PDFViewer *open_pdf_in_tab(const std::string &filename, int page=1);
     Document *open_pdf_document(const std::string &filename);
 
+private:
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
 

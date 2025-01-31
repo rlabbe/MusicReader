@@ -41,6 +41,9 @@ public slots:
 
 private:
 
+    void return_focus_to_main();
+
+
     // extract info stored with tree item
     std::string handle_of(QTreeWidgetItem *item) const;
     int page_num_of(QTreeWidgetItem *item) const;
