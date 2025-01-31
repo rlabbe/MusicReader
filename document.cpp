@@ -117,6 +117,12 @@ void Document::load_document()
             auto page = render_page(ctx, doc, i, dpi_);
             pages_.push_back(Page(page, i+1));
         }
+
+        // Extract bookmarks from the document
+        fz_outline *outline = fz_load_outline(ctx, doc);
+        if (outline) {
+            bookmarks_ = convert_outline_to_bookmarks(outline);
+        }
     }
     fz_always(ctx)
     {

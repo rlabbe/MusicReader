@@ -10,10 +10,8 @@ PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar
     , document_(document)
     , status_bar_(sbar)
     , config_(config)
-    , initial_page_num_(page)
     , drawing_margin_(false)
 {
-
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
 
@@ -32,9 +30,8 @@ PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar
 
     //connect(qobject_cast<QGuiApplication *>(QCoreApplication::instance()), &QGuiApplication::paletteChanged, this, &PDFViewer::refresh);
 
-    if (document_->page_count() > 0) {
-        get_page(initial_page_num_, true);
-    }
+    if (document_->page_count() > 0)
+        get_page(page, true);
 }
 
 int PDFViewer::page_count() const
@@ -56,7 +53,6 @@ bool PDFViewer::single_page_view() const
 void PDFViewer::replace_document(Document *document, int page)
 {
     document_ = document;
-    initial_page_num_ = page;
     get_page(page);
 }
 

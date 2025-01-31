@@ -68,7 +68,6 @@ private:
     QVBoxLayout *layout_;
     Document *document_;
     ConfigFile *config_;
-    int initial_page_num_;
     Page page_;
     bool drawing_margin_ = false;
     double aspect_ratio_ = 1.0;
