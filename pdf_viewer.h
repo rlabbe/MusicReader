@@ -1,19 +1,11 @@
 #pragma once
 
-#include <QWidget>
-#include <QLabel>
-#include <QScrollBar>
-#include <QVBoxLayout>
-#include <QPixmap>
-#include <QWheelEvent>
-#include <QGestureEvent>
-#include <QSwipeGesture>
-#include <QCursor>
-#include <QPalette>
-#include <QPainter>
-#include <QPen>
-#include <QFont>
-#include <QMutex>
+#include <QtWidgets>
+//#include <QPixmap>
+//#include <QWheelEvent>
+//#include <QSwipeGesture>
+
+//#include <QPainter>
 #include "document.h"
 #include "config_file.h"
 #include "page.h"
@@ -65,7 +57,7 @@ private:
     QLabel *label_;
     StatusBar *status_bar_;
     QScrollBar *scrollbar_;
-    QVBoxLayout *layout_;
+    QHBoxLayout *layout_;
     Document *document_;
     ConfigFile *config_;
     Page page_;

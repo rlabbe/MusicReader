@@ -134,19 +134,20 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
 
 void PDFViewer::init_ui(int page)
 {
-    layout_ = new QVBoxLayout(this);
-    layout_->setContentsMargins(0, 0, 0, 0);
-
-    label_ = new QLabel(this);
-    label_->setStyleSheet("border: 0px;");
-    layout_->addWidget(label_, 1);
+    layout_ = new QHBoxLayout(this);  // Change to horizontal layout
 
     scrollbar_ = new QScrollBar(Qt::Vertical, this);
     scrollbar_->setMinimum(1);
     scrollbar_->setMaximum(page_count());
     scrollbar_->setValue(page);
     connect(scrollbar_, &QScrollBar::valueChanged, this, &PDFViewer::on_scrollbar_value_changed);
-    layout_->addWidget(scrollbar_);
+
+    label_ = new QLabel(this);
+    label_->setStyleSheet("border: 0px;");
+    label_->setAlignment(Qt::AlignCenter);
+
+    layout_->addWidget(label_, 1);  // Stretch document display
+    layout_->addWidget(scrollbar_); 
 
     setLayout(layout_);
     update_scrollbar_visibility();
