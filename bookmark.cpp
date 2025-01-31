@@ -133,7 +133,7 @@ std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline)
             logger::log_error("Unexpected non-zero chapter in fz_outline: " + std::to_string(outline->page.chapter));
         }
 
-        Bookmark bookmark(title, outline->page.page);
+        Bookmark bookmark(title, outline->page.page + 1); // page numbers are 0-based
 
         if (outline->down)
         {

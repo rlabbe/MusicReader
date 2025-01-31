@@ -31,6 +31,7 @@ signals:
 private:
 
     void closeEvent(QCloseEvent *event) override;
+    void update_bookmark_panel(int index);
 
 
     void setup_UI();

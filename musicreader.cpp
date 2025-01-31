@@ -45,13 +45,14 @@ void MusicReader::setup_UI()
 
     splitter_ = new QSplitter(Qt::Horizontal, this);
 
-    bookmark_panel_ = new BookmarkPanel(this);
+    create_bookmark_panel();
     splitter_->addWidget(bookmark_panel_);
 
     tab_widget_ = new QTabWidget();
     tab_widget_->setTabsClosable(true);
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
+    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_bookmark_panel);
 
 
     splitter_->addWidget(tab_widget_);
@@ -550,9 +551,18 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 void MusicReader::create_bookmark_panel()
 {
     bookmark_panel_ = new BookmarkPanel(this);
-    bookmark_panel_ = new BookmarkPanel(this);
-    connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
+    [[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
+    
     connect(bookmark_panel_, &BookmarkPanel::bookmark_visibility_changed, this, &MusicReader::update_menu_bookmark_visibility);
+}
+
+
+void MusicReader::update_bookmark_panel(int index)
+{
+    SAFE_METHOD;
+
+    bookmark_panel_->populate();
+    update_background();
 }
 
 
@@ -586,7 +596,26 @@ std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 
 
 void MusicReader::go_to_bookmark(int page_num)
-{}
+{
+    SAFE_METHOD;
+    std::cout << "going to page " << page_num<<std::endl;
+
+    if (page_num > 0) {
+        auto *viewer = current_viewer();
+        if (viewer)
+            viewer->get_page(page_num);
+        else
+            logger::log_error("No viewer to navigate to bookmark");
+    }
+
+    // Updates Undo and Redo menu states based on stack availability
+    /*TODO
+    bool enable_undo = !undo_stack_.empty();
+    bool enable_redo = !redo_stack_.empty();
+    undo_action_->setEnabled(enable_undo);
+    redo_action_->setEnabled(enable_redo);*/
+}
+
 
 void MusicReader::update_menu_bookmark_visibility()
 {
@@ -872,7 +901,7 @@ void MusicReader::update_background()
 {
     if (tab_widget_->count() == 0) {
         tab_widget_->setStyleSheet(R"(
-            background-image: url("gclef.png");
+            background-image: url(":/MusicReader/images/gclef.png");
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;

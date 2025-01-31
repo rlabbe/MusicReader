@@ -37,7 +37,7 @@ public:
     // True if the bookmark was removed, False if not found.
     bool remove_child(const std::string &handle);
 
-    // Recursively searches for a bookmark by handle.
+    // Searches for a bookmark by handle.
     //
     // Parameters:
     // handle - The unique handle of the bookmark to find.

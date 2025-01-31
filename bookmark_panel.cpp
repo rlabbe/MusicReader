@@ -138,7 +138,40 @@ void BookmarkPanel::show_context_menu(const QPoint &position)
     }
 }
 
+void BookmarkPanel::populate()
+{
+    tree_widget_->clear();
 
+    Document *doc = document();
+    if (!doc || doc->bookmarks().empty()) return;
+
+    std::function<void(const std::vector<Bookmark> &, QTreeWidgetItem *)> add_items =
+        [&](const std::vector<Bookmark> &bookmarks, QTreeWidgetItem *parent) {
+        for (const auto &bookmark : bookmarks) {
+            auto *item = new QTreeWidgetItem(QStringList() << QString::fromStdString(bookmark.title_));
+            item->setData(0, Qt::UserRole, bookmark.page_num_ ? QVariant(*bookmark.page_num_) : QVariant());
+            item->setData(0, Qt::UserRole + 1, QString::fromStdString(bookmark.handle_));
+            item->setFlags(item->flags() | Qt::ItemIsEditable);
+
+            if (parent)
+                parent->addChild(item);  // **Fix: Ensure items are added to the correct parent**
+            else
+                tree_widget_->addTopLevelItem(item);  // **Fix: Add top-level items correctly**
+
+            if (!bookmark.children_.empty()) {
+                add_items(bookmark.children_, item);
+            }
+        }
+    };
+
+    add_items(doc->bookmarks(), nullptr);  // Start with top-level bookmarks
+
+    tree_widget_->expandAll();
+    adjust_width();
+}
+
+
+/*
 void BookmarkPanel::populate()
 {
     tree_widget_->clear();
@@ -176,7 +209,7 @@ void BookmarkPanel::populate()
     tree_widget_->expandAll();
     adjust_width();
 }
-
+*/
 
 void BookmarkPanel::adjust_width()
 {
@@ -187,12 +220,8 @@ void BookmarkPanel::adjust_width()
 
 void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 {
-    auto page_num = page_num_of(item);
-    //TODO can there be no page-num?
-   // if (!page_num.isNull())
-    //{
-        emit bookmark_clicked(page_num);
-    //}
+    int page_num = page_num_of(item);
+    emit bookmark_clicked(page_num);
 }
 
 

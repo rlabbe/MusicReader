@@ -20,7 +20,8 @@ public:
     bool can_undo() const;
     bool can_redo() const;
 
-
+    // Populates the tree widget with the document's bookmarks
+    void populate();
 
     // Adjusts the panel width to fit content
     void adjust_width();
@@ -59,9 +60,6 @@ private:
     void setup_context_menu();
 
     void show_context_menu(const QPoint &position);
-
-    // Populates the tree widget with the document's bookmarks
-    void populate();
 
     void on_bookmark_clicked(QTreeWidgetItem *item, int);
     void on_bookmark_edited(QTreeWidgetItem *item, int);

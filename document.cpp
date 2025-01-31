@@ -68,7 +68,7 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
     }
     fz_catch(ctx)
     {
-        throw std::runtime_error("Failed to render page " + std::to_string(page_num));
+        logger::log_error("Failed to render page " + std::to_string(page_num));
     }
     if (temp_pixmap) fz_drop_pixmap(ctx, temp_pixmap);
 
