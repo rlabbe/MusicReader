@@ -62,7 +62,7 @@ void PDFViewer::replace_document(Document *document, int page)
 
 void PDFViewer::refresh()
 {
-    get_page(initial_page_num_);
+    get_page(current_page());
     update_scrollbar_visibility();
 }
 
