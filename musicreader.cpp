@@ -35,12 +35,13 @@ MusicReader::MusicReader(QWidget *parent)
 
 void MusicReader::setup_UI()
 {
+    // this will search the directories and create the fast search dialog
+    // asynchronously, because it can take many seconds to populate all the 
+    // files. Users of 
+    initialize_fast_search();
+
     this->resize(600, 400);
     this->setWindowTitle("MusicReader");
-
-    create_menus();
-    create_toolbar();
-    create_status_bar();
 
     splitter_ = new QSplitter(Qt::Horizontal, this);
 
@@ -69,17 +70,122 @@ void MusicReader::setup_UI()
 
     setCentralWidget(splitter_);
 
-
+    create_menus();
+    create_toolbar();
+    create_status_bar();
 
     setWindowIcon(QIcon(":/MusicReader/images/gclef.png"));
 
     restore_window_state();
 
-    // this will search the directories and create the fast search dialog
-    // asynchronously, because it can take many seconds to populate all the 
-    // files. Users of 
-    initialize_fast_search();
+    if (config_.restore_documents)
+        restore_open_documents();
+
+    // hides background image if there are open documents
+    update_background();
 }
+
+void MusicReader::closeEvent(QCloseEvent *event)
+{
+    SAFE_METHOD;
+
+    save_window_state_to_config();
+    save_config();
+
+    QMainWindow::closeEvent(event);  // Call base class implementation
+    logger::log_info("closing");
+    check_for_errors_on_exit();
+}
+
+void MusicReader::save_window_state_to_config()
+{
+    SAFE_METHOD;
+
+    // Save the currently open tab index
+    config_.open_tab = tab_widget_->currentIndex();
+
+    // Ensure position values are non-negative to prevent config errors
+    int x = std::max(0, pos().x());
+    int y = std::max(0, pos().y());
+    int width = size().width();
+    int height = size().height();
+
+    config_.app_size = { x, y, width, height };
+
+    // Save the toolbar location (Qt enum values match ToolbarLocation)
+    config_.toolbar_location = static_cast<ToolbarLocation>(toolBarArea(toolbar_));
+}
+
+void MusicReader::check_for_errors_on_exit()
+{
+    SAFE_METHOD;
+
+    if (logged_error()) {
+        QMessageBox msg_box(this);
+        msg_box.setWindowTitle("Internal Errors");
+        msg_box.setText("There were internal errors");
+        msg_box.setIcon(QMessageBox::Warning);
+
+        QPushButton *ok_button = msg_box.addButton("Ignore", QMessageBox::AcceptRole);
+        QPushButton *view_errors_button = msg_box.addButton("View errors", QMessageBox::ActionRole);
+        msg_box.setDefaultButton(view_errors_button);
+
+        msg_box.exec();
+
+        if (msg_box.clickedButton() == view_errors_button) {
+            show_log_content();
+        } else if (msg_box.clickedButton() == ok_button) {
+            msg_box.close();
+        }
+    }
+}
+
+void MusicReader::show_log_content()
+{
+    SAFE_METHOD;
+
+    QString log_content = QString::fromStdString(logger::get_log_content());
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Log Content");
+    dialog.setModal(true);
+
+    QVBoxLayout layout(&dialog);
+
+    QScrollArea scroll_area(&dialog);
+    scroll_area.setWidgetResizable(true);
+
+    QTextEdit text_edit;
+    text_edit.setText(log_content);
+    text_edit.setReadOnly(true);
+
+    scroll_area.setWidget(&text_edit);
+    layout.addWidget(&scroll_area);
+
+    QHBoxLayout button_layout;
+
+    // Future enhancement: Report button (commented out)
+    /*
+    QPushButton report_button("Report Issue");
+    QObject::connect(&report_button, &QPushButton::clicked, [&]() {
+        report_issue(log_content.toStdString());
+    });
+    button_layout.addWidget(&report_button);
+    */
+
+    QPushButton ok_button("OK");
+    QObject::connect(&ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    button_layout.addStretch();
+    button_layout.addWidget(&ok_button);
+
+    layout.addLayout(&button_layout);
+
+    dialog.setLayout(&layout);
+    dialog.resize(800, 600);
+    dialog.exec();
+}
+
 
 
 void MusicReader::create_menus()
@@ -349,6 +455,34 @@ PDFViewer *MusicReader::viewer_tab(int index) const
     return nullptr;
 }
 
+void MusicReader::save_config()
+{
+    save_open_documents_to_config();
+    config_.save();
+    logger::enable_debug_logging(config_.log_level == LogLevel::Diagnostic);
+}
+
+
+void MusicReader::save_open_documents_to_config()
+{
+    SAFE_METHOD;
+
+    std::vector<OpenDocument> open_documents;
+    open_documents.reserve(tab_widget_->count());
+    for (int index = 0; index < tab_widget_->count(); ++index) {
+        auto pdf_viewer = tab_widget_->widget(index)->findChild<PDFViewer *>();
+        if (pdf_viewer) {
+            auto doc = pdf_viewer->document();
+            auto name = doc->filename();
+            open_documents.push_back({
+                name, pdf_viewer->current_page(), doc->page_count()
+            });
+        }
+    }
+    config_.open_documents = std::move(open_documents);
+}
+
+
 
 void MusicReader::on_close_tab(int index)
 {
@@ -460,11 +594,6 @@ void MusicReader::update_menu_bookmark_visibility()
 }
 
 
-void MusicReader::save_open_documents_to_config()
-{
-    //TODO
-}
-
 void MusicReader::refresh_all_documents()
 {
     for (int index = 0; index < tab_widget_->count(); ++index) {
@@ -536,12 +665,12 @@ void MusicReader::open_file_dialog(const std::string &pathname)
     }
 }
 
-void MusicReader::open_pdf_in_tab(const std::string &filename, int page)
+PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 {
     SAFE_METHOD;
     if (auto i = doc_is_open(filename); i.has_value()) {
         focus_on_tab(i.value());
-        return;
+        return nullptr;
     }
 
     WaitCursor cursor;  // RAII-based wait cursor
@@ -549,7 +678,7 @@ void MusicReader::open_pdf_in_tab(const std::string &filename, int page)
     Document *doc = open_pdf_document(filename);
     if (!doc) {
         display_error_message("Can't open " + filename + ", is it a PDF?");
-        return;
+        return nullptr;
     }
 
     QWidget *tab = new QWidget();
@@ -568,6 +697,7 @@ void MusicReader::open_pdf_in_tab(const std::string &filename, int page)
     connect(this, &MusicReader::view_mode_signal_, viewer, &PDFViewer::refresh);
 
     save_open_documents_to_config();
+    return viewer;
 }
 
 
@@ -620,6 +750,9 @@ bool MusicReader::display_query(const std::string &msg)
     msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
     return msgBox.exec() == QMessageBox::Yes;
 }
+
+
+
 
 
 void MusicReader::create_status_bar()
@@ -706,7 +839,7 @@ void MusicReader::open_fast_search_dialog()
         logger::log_error("Failed to initialize fast search dialog");
         return;
     }
-    
+
     try {
         fast_search_dialog_->show();
         tab_widget_->setEnabled(false);
@@ -735,8 +868,67 @@ void MusicReader::open_fast_search_dialog()
     }
 }
 
+void MusicReader::update_background()
+{
+    if (tab_widget_->count() == 0) {
+        tab_widget_->setStyleSheet(R"(
+            background-image: url("gclef.png");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        )");
+    } else {
+        // Remove the background image only, without wiping other styles
+        tab_widget_->setStyleSheet(R"(
+            background: none;
+        )");
+    }
+}
 
 
+void MusicReader::reopen_all_documents()
+{
+    SAFE_METHOD;
+
+    while (tab_widget_->count() > 0)
+        // remove from back so qt doesn't spend time reindexing the tabs
+        tab_widget_->removeTab(tab_widget_->count() - 1);
+
+    restore_open_documents();
+}
+
+
+void MusicReader::restore_open_documents()
+{
+    auto &docs = config_.open_documents;
+    int num_docs = static_cast<int>(docs.size());
+
+    if (num_docs == 0) {
+        update_background();
+        return;
+    }
+
+    for (auto &doc : docs)
+        open_pdf_in_tab(doc.filename.string(), doc.page);
+
+
+    // Ensure the last open tab is focused
+    if (config_.open_tab > -1) {
+        if (config_.open_tab < tab_widget_->count())
+            focus_on_tab(config_.open_tab);
+        else
+            config_.open_tab = -1;
+    } else {
+        focus_on_tab(0);
+        config_.open_tab = 0;
+    }
+
+    if (tab_widget_->count() > 0) 
+        auto *first_viewer = viewer_tab(tab_widget_->currentIndex());
+
+    bookmark_panel_->adjust_width();
+    update_background();
+}
 
 
 void MusicReader::initialize_fast_search()

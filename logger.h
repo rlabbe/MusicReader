@@ -30,5 +30,7 @@ void log_error(const std::string &message);
 // Logs a DEBUG level message.
 void log_debug(const std::string &message);
 
+std::string get_log_content();
+
 }  // namespace logger
 

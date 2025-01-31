@@ -29,6 +29,10 @@ signals:
     void view_mode_signal_(int page_view_count);
 
 private:
+
+    void closeEvent(QCloseEvent *event) override;
+
+
     void setup_UI();
     void create_bookmark_panel();
     void create_menus();
@@ -36,6 +40,10 @@ private:
     void create_status_bar();
 
     void update_memory_usage();
+    void update_background();
+
+    bool logged_error() { return false; } //TODO
+    void show_log_content();
 
     void open_file_dialog(const std::string &pathname="");
     void open_fast_search_dialog();
@@ -49,20 +57,27 @@ private:
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
     void update_undo_redo_state() {/*TODO*/ }
+
     void initialize_fast_search();
 
     void refresh_all_documents();
+    void save_config();
     void save_open_documents_to_config();
     void restore_window_state();
     void on_page_selected(int index);
     void show_page_count();
+
+    void restore_open_documents();
+    void reopen_all_documents();
+    void save_window_state_to_config();
+    void check_for_errors_on_exit();
 
     PDFViewer *current_tab() const;
     std::string current_document_name() const;
     Document *document_at(int index) const;
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
-    void open_pdf_in_tab(const std::string &filename, int page=1);
+    PDFViewer *open_pdf_in_tab(const std::string &filename, int page=1);
     Document *open_pdf_document(const std::string &filename);
 
     void display_error_message(const std::string &msg);
@@ -96,7 +111,6 @@ private:
     QSplitter *splitter_;
     BookmarkPanel *bookmark_panel_;
     QTabWidget *tab_widget_;
-
 
 private:
     QMenu *open_recent_menu_;

@@ -1,10 +1,11 @@
 #include "logger.h"
 
-#include "logger.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <memory>
+#include <sstream>
+#include <fstream>
 
 namespace {
 std::shared_ptr<spdlog::logger> logger_;
@@ -69,5 +70,31 @@ void logger::enable_debug_logging(bool enable)
         }
     }
 }
+
+std::string get_log_content()
+{
+    if (!logger_) {
+        return "";
+    }
+
+    auto sinks = logger_->sinks();
+    for (const auto &sink : sinks) {
+        auto file_sink = std::dynamic_pointer_cast<spdlog::sinks::rotating_file_sink_mt>(sink);
+        if (file_sink) {
+            std::string log_path = file_sink->filename();
+            std::ifstream file(log_path);
+            if (!file.is_open()) {
+                return "";
+            }
+
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            return buffer.str();
+        }
+    }
+
+    return "";
+}
+
 
 }  // namespace logger
