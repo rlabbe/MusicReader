@@ -1,7 +1,10 @@
 #include "document.h"
 #include "logger.h"
+
 #include <format>
 #include <stdexcept>
+#include <thread>
+#include <future>
 #include <QImage>
 
 
@@ -24,7 +27,8 @@ std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename)
     if (!ctx)
         return { nullptr, nullptr };
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         fz_register_document_handlers(ctx); // ensure we can open pdfs
     } fz_catch(ctx)
     {
@@ -88,52 +92,74 @@ Document::Document(std::filesystem::path filename, int dpi)
 
 Page Document::get_page(int page_num) const
 {
-    if (page_num < 1 || page_num > page_count())
-    {
+    if (page_num < 1 || page_num > page_count()) {
         logger::log_error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
         return Page();
     }
-    return pages_[page_num-1];
+    return pages_[page_num - 1];
 }
-
 
 
 void Document::load_document()
 {
-    auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc)
-    {
-        throw std::runtime_error("Failed to open document: " + filename_.string());
-    }
+    int total_pages = 0;
 
-    fz_try(ctx)
+    // Open document once to get page count 
     {
-        int total_pages = fz_count_pages(ctx, doc);
-        pages_.reserve(total_pages);
-
-        for (int i = 0; i < total_pages; ++i)
-        {
-            auto page = render_page(ctx, doc, i, dpi_);
-            pages_.push_back(Page(page, i+1));
+        auto [ctx, doc] = open_fitz(filename_.string());
+        if (!ctx || !doc) {
+            logger::log_error("Failed to open document: " + filename_.string());
+            return;
         }
 
-        // Extract bookmarks from the document
-        fz_outline *outline = fz_load_outline(ctx, doc);
-        if (outline) {
-            bookmarks_ = convert_outline_to_bookmarks(outline);
+        total_pages = fz_count_pages(ctx, doc);
+        close_fitz(ctx, doc);
+    }
+
+    if (total_pages == 0) {
+        logger::log_error("Document has no pages: " + filename_.string());
+        return;
+    }
+
+    pages_.resize(total_pages);
+
+    // Launch threads for each page
+    std::vector<std::future<QPixmap>> futures;
+    for (int i = 0; i < total_pages; ++i) {
+        futures.push_back(std::async(std::launch::async, [this, i] {
+            auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
+            if (!thread_ctx || !thread_doc) {
+                logger::log_error("Failed to open document in thread for page " + std::to_string(i));
+                return QPixmap();
+            }
+
+            QPixmap pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+            close_fitz(thread_ctx, thread_doc);
+            return pixmap;
+        }));
+    }
+
+    // while these run we can get the bookmarks
+    {
+        auto [ctx, doc] = open_fitz(filename_.string());
+        if (ctx && doc) {
+            total_pages = fz_count_pages(ctx, doc);
+
+            fz_outline *outline = fz_load_outline(ctx, doc);
+            if (outline)
+                bookmarks_ = convert_outline_to_bookmarks(outline);
+
+            close_fitz(ctx, doc);
         }
     }
-    fz_always(ctx)
-    {
-        //close_fitz(ctx, doc);
-    }
-    fz_catch(ctx)
-    {
-        throw std::runtime_error("Failed to open document: " + filename_.string());
-    }
-    close_fitz(ctx, doc);
+
+    // Collect results
+    for (int i = 0; i < total_pages; ++i)
+        pages_[i] = Page(futures[i].get(), i + 1);
 }
+
+
 
 
 bool Document::save(const std::filesystem::path &filename)
