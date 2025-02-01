@@ -6,7 +6,7 @@
 #include <optional>
 #include <filesystem>
 #include "json.hpp"
-
+#include "utils.h"
 
 // Enum for Theme
 enum class Theme
@@ -37,6 +37,17 @@ struct OpenDocument
     std::filesystem::path filename;
     int page;
     int page_count;
+
+    // get filename as a string, cant use filename.string() because it's not 
+    // UTF-8 in Windows.
+    inline std::string u8filename() const
+    {
+#ifdef _WIN32
+        return wide_to_utf8(filename.wstring());
+#else
+        return doc.filename.string(); // Linux/macOS paths are already UTF-8
+#endif    
+    }
 };
 
 // ConfigFile Class Definition

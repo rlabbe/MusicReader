@@ -163,6 +163,7 @@
     <QtMoc Include="fast_file_search_dialog.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="qt_utils.h" />
+    <ClInclude Include="utils.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
     <ClInclude Include="document.h" />

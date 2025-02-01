@@ -288,7 +288,7 @@ void FastFileSearchDialog::on_select_directory()
 void FastFileSearchDialog::on_open_file_dialog()
 {
     selected_items_.clear();
-    selected_items_.append(QFileDialog::getOpenFileName(this, "Open File", path_, "PDF Files (*.pdf)"));
+    selected_items_ = QFileDialog::getOpenFileNames(this, "Open Files", path_, "PDF Files (*.pdf)");
     accept();
 }
 
@@ -334,14 +334,18 @@ void FastFileSearchDialog::show_help()
 
 std::pair<std::vector<std::string>, std::string> FastFileSearchDialog::selected_files() const
 {
-    std::vector<std::string> selected_files;
+    std::vector<std::string> selected_paths;
+    std::filesystem::path base_path = path_.toStdString();
 
-    // Convert from QStringList to std::vector<std::string>
-    for (const auto &item : selected_items_) {
-        selected_files.emplace_back(item.toStdString());
+    for (const QModelIndex &index : file_table_->selectionModel()->selectedRows()) {
+        auto *item = file_table_->item(index.row(), 0); // Get file name from first column
+        if (item) {
+            std::filesystem::path full_path = base_path / item->text().toStdString();
+            selected_paths.push_back(full_path.lexically_normal().string()); // Normalize the path
+        }
     }
 
-    return { selected_files, open_path_.toStdString() };
+    return { selected_paths, base_path.string() };
 }
 
 

@@ -23,7 +23,7 @@
 #include "config_dialog.h"
 #include "fast_file_search_dialog.h"
 #include "qt_utils.h"
-
+#include "utils.h"
 
 
 MusicReader::MusicReader(QWidget *parent)
@@ -927,9 +927,11 @@ void MusicReader::reopen_all_documents()
 }
 
 
+
 void MusicReader::restore_open_documents()
 {
-    auto &docs = config_.open_documents;
+    // make a copy, as we open tabs it modifies open_documents
+    const auto docs = config_.open_documents;
     int num_docs = static_cast<int>(docs.size());
 
     if (num_docs == 0) {
@@ -937,9 +939,11 @@ void MusicReader::restore_open_documents()
         return;
     }
 
-    for (auto &doc : docs)
-        open_pdf_in_tab(doc.filename.string(), doc.page);
-
+    for (const auto &doc : docs)
+    {
+        std::cout << doc.filename.string() << std::endl;
+        open_pdf_in_tab(doc.u8filename(), doc.page);
+    }
 
     // Ensure the last open tab is focused
     if (config_.open_tab > -1) {
