@@ -32,7 +32,7 @@ private:
 
     void closeEvent(QCloseEvent *event) override;
     void update_bookmark_panel(int index);
-
+    void add_bookmark();
 
     void setup_UI();
     void create_bookmark_panel();

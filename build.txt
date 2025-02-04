@@ -1,0 +1,34 @@
+
+https://www.youtube.com/watch?v=dfXZ7KE0GeE
+
+
+QT maintance tool:
+    ensure cmake and ninja are installed (), add to path
+    ensure sources are installed
+
+
+
+
+cd M:\Qt6.8\6.8.2\Src
+# this seems wrong, it caused a build of 32 bit. I changed by running the developer command prompt for VS 2022
+# instead of the one in the compiler, than just typed "vscars64"
+create qtvars.cmd
+    CALL "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" x64
+    SET PATH=M:\Qt6.8\6.8.2\Src;%PATH%
+
+cd M:\Qt6.8\6.8.2\Srcs
+c:\windows\system32\cmd.exe /E:ON /V:ON /k qtvars.cmd
+
+configure -release -opensource -static -static-runtime -platform win32-msvc -nomake examples -nomake tests -qt-tiff -skip qtdoc -skip qtdatavis3d -skip qtgamepad -skip qtwebview -skip qtwebengine -skip qtlocation -skip qtpurchasing -skip qtsensors -prefix m:\Qt6.8\static-6.8.2
+
+edit CMakeCashe.txt, added /EHsc to CMAKE_C_FLAGS after a build error sayitn it had to be defined. but after running build
+it is gone from the file, but the build was successful??
+
+
+cmake --build . --parallel
+ninja install
+
+
+much more robust configure:
+
+https://gist.github.com/b-epelbaum/a2a8128c0435dfab57bf3c812d555fb0

@@ -21,7 +21,7 @@ public:
 
     int page_count() const { return static_cast<int>(pages_.size()); }
     Page get_page(int page_num) const;
-    bool save(const std::filesystem::path &filename);
+    bool save(const std::filesystem::path &filename="");
 
     bool can_undo() const { return false; }
     bool can_redo() const { return false; }
@@ -44,7 +44,8 @@ public:
     void remove_bookmark(const std::string handle);
 
     Bookmark add_bookmark(const std::string &title,
-                          int page_num);
+                          int page_num,
+                          const std::string &handle="");
 
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
 private:
@@ -56,5 +57,8 @@ private:
 
     int dpi_;
     std::vector<Page> pages_;
+
+    std::vector<std::vector<Bookmark>> undo_stack_;
+    std::vector<std::vector<Bookmark>> redo_stack_;
 };
 

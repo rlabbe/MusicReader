@@ -239,8 +239,46 @@ void Document::remove_bookmark(const std::string handle)
     //TODO
 }
 
-Bookmark Document::add_bookmark(const std::string &title, int page_num)
+
+inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 {
-    //TODO
-    return Bookmark("", 1);
+    bool a_is_folder = !a.page_num_.has_value();
+    bool b_is_folder = !b.page_num_.has_value();
+
+    if (a_is_folder != b_is_folder) {
+        return !a_is_folder;  // Bookmarks with pages come first
+    }
+    if (!a_is_folder && !b_is_folder) {
+        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
+    }
+    return false;  // Both are folders, maintain insertion order
 }
+
+Bookmark Document::add_bookmark(const std::string &title, int page_num, const std::string &parent_handle)
+{
+    undo_stack_.push_back(bookmarks_);  // Save for undo
+
+    // Treat page_num == 0 as no page number (folder)
+    std::optional<int> page_num_opt = (page_num == 0) ? std::nullopt : std::optional<int>(page_num);
+
+    Bookmark new_bookmark(title, page_num_opt.has_value() ? page_num_opt.value() : 0);
+    if (!parent_handle.empty()) {
+        new_bookmark.parent_handle_ = parent_handle;
+    }
+
+    if (parent_handle.empty()) {
+        bookmarks_.emplace_back(new_bookmark);
+        std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
+    } else {
+        Bookmark *parent = find_bookmark(parent_handle);
+        if (parent) {
+            parent->add_child(new_bookmark);
+            std::sort(parent->children_.begin(), parent->children_.end(), bookmark_sort);
+        }
+    }
+
+    save();
+    return new_bookmark;
+}
+
+

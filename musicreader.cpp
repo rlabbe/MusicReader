@@ -288,6 +288,18 @@ void MusicReader::create_menus()
             color: gray;
         }
     )");
+
+    QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
+}
+
+void MusicReader::add_bookmark()
+{
+    SAFE_METHOD;
+
+    if (bookmark_panel_) 
+        bookmark_panel_->add_bookmark();
 }
 
 

@@ -84,7 +84,7 @@ void BookmarkPanel::init_ui()
 void BookmarkPanel::setup_shortcuts()
 {
     new QShortcut(QKeySequence("Ctrl+B"), this, SLOT(toggle_visibility()));
-    new QShortcut(QKeySequence("Ctrl+D"), this, SLOT(add_bookmark()));
+    //new QShortcut(QKeySequence("Ctrl+D"), this, SLOT(add_bookmark()));
     new QShortcut(QKeySequence("Del"), this, SLOT(delete_selected_bookmark()));
     new QShortcut(QKeySequence("Ctrl+Z"), this, SLOT(undo()));
     new QShortcut(QKeySequence("Ctrl+Y"), this, SLOT(redo()));
