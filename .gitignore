@@ -1,5 +1,6 @@
 mupdf/
 qpdf/
+qpdf_wrapper/
 *.pdf
 
 ## Ignore Visual Studio temporary files, build results, and

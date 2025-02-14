@@ -5,22 +5,19 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MusicReader", "MusicReader.vcxproj", "{159B60F5-8B41-42AB-97DC-B081762FA6C1}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qpdf_wrapper", "..\qpdf_wrapper\qpdf_wrapper.vcxproj", "{B535924B-E9FD-45FD-AF9D-04DF016AFB23}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
+		ReleaseWDebInfo|x64 = ReleaseWDebInfo|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.Debug|x64.ActiveCfg = Debug|x64
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.Debug|x64.Build.0 = Debug|x64
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.Release|x64.ActiveCfg = Release|x64
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.Release|x64.Build.0 = Release|x64
-		{B535924B-E9FD-45FD-AF9D-04DF016AFB23}.Debug|x64.ActiveCfg = Debug|x64
-		{B535924B-E9FD-45FD-AF9D-04DF016AFB23}.Debug|x64.Build.0 = Debug|x64
-		{B535924B-E9FD-45FD-AF9D-04DF016AFB23}.Release|x64.ActiveCfg = Release|x64
-		{B535924B-E9FD-45FD-AF9D-04DF016AFB23}.Release|x64.Build.0 = Release|x64
+		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.ReleaseWDebInfo|x64.ActiveCfg = ReleaseWDebInfo|x64
+		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.ReleaseWDebInfo|x64.Build.0 = ReleaseWDebInfo|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

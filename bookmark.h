@@ -44,7 +44,7 @@ public:
     //
     // Returns:
     // The found Bookmark object if it exists, otherwise std::nullopt.
-    std::optional<Bookmark> find(const std::string &handle);
+    Bookmark *find(const std::string &handle);
 
     // Moves this bookmark to a new parent or to the top level.
     //

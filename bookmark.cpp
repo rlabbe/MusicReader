@@ -1,6 +1,4 @@
 #include "bookmark.h"
-#include <random>
-#include <sstream>
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
 #pragma warning(pop)
@@ -48,11 +46,11 @@ bool Bookmark::remove_child(const std::string &handle)
     return false;
 }
 
-std::optional<Bookmark> Bookmark::find(const std::string &handle)
+Bookmark* Bookmark::find(const std::string &handle)
 {
     if (this->handle_ == handle)
     {
-        return *this;
+        return this;
     }
     for (auto &child : children_)
     {
@@ -61,8 +59,9 @@ std::optional<Bookmark> Bookmark::find(const std::string &handle)
             return result;
         }
     }
-    return std::nullopt;
+    return nullptr;
 }
+
 
 bool Bookmark::reparent(std::optional<std::string> new_parent, std::vector<Bookmark> &top_level_bookmarks)
 {
@@ -107,17 +106,9 @@ bool Bookmark::reparent(std::optional<std::string> new_parent, std::vector<Bookm
 
 std::string Bookmark::generate_uuid()
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> dist(0, 15);
-
-    std::ostringstream oss;
-    oss << std::hex;
-    for (int i = 0; i < 32; ++i)
-    {
-        oss << dist(gen);
-    }
-    return oss.str();
+    static int id = 0;
+    ++id;
+    return std::to_string(id);
 }
 
 
