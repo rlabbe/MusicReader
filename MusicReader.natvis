@@ -1,0 +1,5 @@
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="Bookmark">
+    <DisplayString>{title_} {page_num_} {handle_}</DisplayString>
+  </Type>
+</AutoVisualizer>

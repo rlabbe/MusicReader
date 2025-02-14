@@ -6,7 +6,7 @@
 #include <thread>
 #include <future>
 #include <QImage>
-
+#include "qpdf_document.h"
 
 namespace {
 
@@ -79,6 +79,23 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
     return pixmap;
 }
 
+
+
+
+}
+
+inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
+{
+    bool a_is_folder = !a.page_num_.has_value();
+    bool b_is_folder = !b.page_num_.has_value();
+
+    if (a_is_folder != b_is_folder) {
+        return !a_is_folder;  // Bookmarks with pages come first
+    }
+    if (!a_is_folder && !b_is_folder) {
+        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
+    }
+    return false;  // Both are folders, maintain insertion order
 }
 
 
@@ -159,38 +176,61 @@ void Document::load_document()
         pages_[i] = Page(futures[i].get(), i + 1);
 }
 
-
-bool Document::save(const std::filesystem::path &filename)
+/*
+bool Document::save(const std::filesystem::path &output_filename, bool block)
 {
-    /*auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc)
-    {
-        throw std::runtime_error("Failed to save document to " + filename.string());
-    }
-    fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
-    if (!ctx)
-    {
-        throw std::runtime_error("Failed to create MuPDF context");
+    // just housekeeping, remove any futures that are done
+    clear_completed_features();
+
+    std::lock_guard<std::mutex> lock(save_mutex_);
+
+    std::string filename_to_save = output_filename.empty() ? filename_.string() : output_filename.string();
+
+    auto save_task = [this, filename_to_save]() {
+        try {
+            auto [ctx, doc] = open_fitz(filename_.string());
+            if (!ctx || !doc) {
+                logger::log_error("Failed to open document for saving: " + filename_to_save);
+                return;
+            }
+
+            fz_outline *outline = bookmarks_.empty() ? nullptr : convert_bookmarks_to_outline(bookmarks_);
+            fz_set_outline(ctx, doc, outline);
+            if (outline) {
+                fz_drop_outline(ctx, outline);
+            }
+
+            fz_try(ctx)
+            {
+                if (filename_to_save == filename_.string()) {
+                    fz_save_document(ctx, doc, filename_to_save.c_str(), nullptr);
+                } else {
+                    fz_save_document(ctx, doc, filename_to_save.c_str(), "compress");
+                }
+            }
+            fz_catch(ctx)
+            {
+                logger::log_error("Error saving document: " + filename_to_save);
+            }
+
+            close_fitz(ctx, doc);
+            logger::log_info("Document saved: " + filename_to_save);
+        } catch (const std::exception &e) {
+            logger::log_error("Exception during save: " + std::string(e.what()));
+        }
+    };
+
+
+    if (block) {
+        save_task();  // Run synchronously
+    } else {
+        save_futures_.emplace_back(std::async(std::launch::async, save_task));  // Run asynchronously
     }
 
-    fz_document *doc = nullptr;
-    fz_try(ctx)
-    {
-        // TODO makes no sense, open just to close, add code here for bookmarks and annotations
-        doc = fz_open_document(ctx, filename_.string().c_str());
-        fz_save_document(ctx, doc, filename.string().c_str(), nullptr);
-    }
-    fz_catch(ctx)
-    {
-        throw std::runtime_error("Failed to save document to " + filename.string());
-    }
-    close_fitz(ctx, doc);
-
-    */
     return true;
 }
 
-
+*/
 
 /*
 TODO reparent_bookmark (add the checks inside the call)
@@ -207,21 +247,94 @@ if (auto *bookmark = doc->find_bookmark(handle))
 
 Bookmark *Document::find_bookmark(const std::string &handle)
 {
-    //TODO
+    for (auto &bookmark : bookmarks_) {
+        if (bookmark.handle_ == handle) return &bookmark;
+        auto child = bookmark.find(handle);
+        if (child.has_value()) return &child.value();
+    }
     return nullptr;
 }
 
+
+
 bool Document::reparent_bookmark(const std::string &handle, const std::string &parent_handle, bool internal_call)
 {
-    //TODO
-    return false;
+    std::lock_guard<std::mutex> lock(save_mutex_);
+    if (bookmarks_.empty()) return false;
+
+    if (!internal_call) {
+        undo_stack_.push_back(bookmarks_);
+    }
+
+    Bookmark *bookmark = find_bookmark(handle);
+    if (!bookmark) return false;
+
+    Bookmark temp = *bookmark;  // Copy the bookmark data before removing it
+
+    // Remove from current parent if it had one
+    if (bookmark->parent_handle_.has_value()) {
+        Bookmark *old_parent = find_bookmark(bookmark->parent_handle_.value());
+        if (old_parent) old_parent->remove_child(handle);
+    } else {
+        auto it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
+                               [&](const Bookmark &b) { return b.handle_ == handle; });
+        if (it != bookmarks_.end()) bookmarks_.erase(it);
+    }
+
+    // Assign new parent or move to top level
+    if (!parent_handle.empty()) {
+        Bookmark *new_parent = find_bookmark(parent_handle);
+        if (!new_parent) return false;
+        new_parent->add_child(temp);
+        temp.parent_handle_ = parent_handle;
+        std::sort(new_parent->children_.begin(), new_parent->children_.end(), bookmark_sort);
+    } else {
+        bookmarks_.push_back(temp);
+        temp.parent_handle_.reset();
+        std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
+    }
+
+    save();
+    return true;
 }
+
+
+
 
 bool Document::indent_bookmark(const std::string &handle)
 {
-    //TODO
-    return false;
+    std::lock_guard<std::mutex> lock(save_mutex_);
+    if (bookmarks_.empty()) return false;
+
+    undo_stack_.push_back(bookmarks_);
+
+    Bookmark *bookmark = find_bookmark(handle);
+    if (!bookmark) return false;
+
+    // If the bookmark is already top-level, find its previous sibling
+    if (!bookmark->parent_handle_.has_value()) {
+        auto it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
+                               [&](const Bookmark &b) { return b.handle_ == handle; });
+        if (it == bookmarks_.begin()) return false;  // Cannot indent first item (no previous sibling)
+
+        auto new_parent = std::prev(it);  // Move under previous sibling
+        bookmarks_.erase(it);              // Remove from top-level list before reparenting
+        return reparent_bookmark(handle, new_parent->handle_, true);
+    } else {
+        // Find the current parent and locate the previous sibling within that parent
+        Bookmark *parent = find_bookmark(bookmark->parent_handle_.value());
+        if (!parent) return false;  // Parent not found (shouldn't happen)
+
+        auto it = std::find_if(parent->children_.begin(), parent->children_.end(),
+                               [&](const Bookmark &b) { return b.handle_ == handle; });
+        if (it == parent->children_.begin()) return false;  // Cannot indent first child (no previous sibling)
+
+        auto new_parent = std::prev(it);   // Move under previous sibling
+        parent->children_.erase(it);       // Remove from old parent before reparenting
+        return reparent_bookmark(handle, new_parent->handle_, true);
+    }
 }
+
 
 bool Document::unindent_bookmark(const std::string &handle)
 {
@@ -231,27 +344,36 @@ bool Document::unindent_bookmark(const std::string &handle)
 
 void Document::rename_bookmark(const std::string &handle, const std::string &title)
 {
-    //TODO
+    std::lock_guard<std::mutex> lock(save_mutex_);
+    if (bookmarks_.empty()) return;
+
+    Bookmark *bookmark = find_bookmark(handle);
+    if (bookmark && bookmark->title_ != title) {
+        undo_stack_.push_back(bookmarks_);
+        bookmark->title_ = title;
+        save();
+    }
 }
 
-void Document::remove_bookmark(const std::string handle)
+
+void Document::remove_bookmark(const std::string &handle)
 {
-    //TODO
-}
+    std::lock_guard<std::mutex> lock(save_mutex_);
+    if (bookmarks_.empty()) return;
 
-
-inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
-{
-    bool a_is_folder = !a.page_num_.has_value();
-    bool b_is_folder = !b.page_num_.has_value();
-
-    if (a_is_folder != b_is_folder) {
-        return !a_is_folder;  // Bookmarks with pages come first
+    for (auto it = bookmarks_.begin(); it != bookmarks_.end(); ++it) {
+        if (it->handle_ == handle) {
+            undo_stack_.push_back(bookmarks_);
+            bookmarks_.erase(it);
+            save();
+            return;
+        }
+        if (it->remove_child(handle)) {
+            undo_stack_.push_back(bookmarks_);
+            save();
+            return;
+        }
     }
-    if (!a_is_folder && !b_is_folder) {
-        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
-    }
-    return false;  // Both are folders, maintain insertion order
 }
 
 Bookmark Document::add_bookmark(const std::string &title, int page_num, const std::string &parent_handle)
@@ -280,5 +402,37 @@ Bookmark Document::add_bookmark(const std::string &title, int page_num, const st
     save();
     return new_bookmark;
 }
+
+
+bool Document::save(const std::filesystem::path &filename, bool block )
+{
+    filename;
+    block;
+    add_bookmarks_to_pdf(filename_.string(), bookmarks_);
+    return true;
+}
+
+
+
+void save_annotations(fz_context *, fz_document *)
+{
+    //TODO
+}
+
+
+
+
+void Document::clear_completed_features()
+{
+    std::lock_guard<std::mutex> lock(save_mutex_);
+
+    // Remove completed futures
+    save_futures_.erase(std::remove_if(save_futures_.begin(), save_futures_.end(),
+                                       [](std::future<void> &f) {
+        return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+    }),
+        save_futures_.end());
+}
+
 
 

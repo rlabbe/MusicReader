@@ -292,6 +292,10 @@ void MusicReader::create_menus()
     QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
     shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
     connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
+
+    shortcut = new QShortcut(QKeySequence("PageUp"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
 }
 
 void MusicReader::add_bookmark()

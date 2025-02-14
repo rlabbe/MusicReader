@@ -5,6 +5,7 @@
 #include <mupdf/fitz.h>
 #pragma warning(pop)
 #include "logger.h"
+#include "json.hpp"
 
 
 Bookmark::Bookmark(std::string title)
@@ -151,3 +152,55 @@ std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline)
 
     return bookmarks;
 }
+
+
+std::string to_json(std::vector<Bookmark> &bookmarks) noexcept
+{
+    try {
+        nlohmann::json j;
+
+        std::function<nlohmann::json(const std::vector<Bookmark> &, int)> convert = [&](const std::vector<Bookmark> &bmarks, int level) {
+            nlohmann::json arr = nlohmann::json::array();
+            for (const auto &b : bmarks) {
+                nlohmann::json obj;
+                obj["title"] = b.title_;
+                if (b.page_num_.has_value()) obj["page_num"] = b.page_num_.value();
+                obj["children"] = convert(b.children_, level + 1);
+                arr.push_back(obj);
+            }
+            return arr;
+        };
+
+        j = convert(bookmarks, 0);
+        return j.dump(4);  // Pretty-print with 4 spaces
+    } catch (...) {
+        return "";
+    }
+}
+
+
+std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks)
+{
+    try {
+        auto j = nlohmann::json::parse(bookmarks);
+
+        std::function<std::vector<Bookmark>(const nlohmann::json &)> convert = [&](const nlohmann::json &arr) {
+            std::vector<Bookmark> bmarks;
+            for (const auto &item : arr) {
+                std::string title = item.at("title").get<std::string>();
+                std::optional<int> page_num;
+                if (item.contains("page_num")) page_num = item.at("page_num").get<int>();
+
+                Bookmark b = page_num.has_value() ? Bookmark(title, page_num.value()) : Bookmark(title);
+                if (item.contains("children")) b.children_ = convert(item.at("children"));
+                bmarks.push_back(b);
+            }
+            return bmarks;
+        };
+
+        return convert(j);
+    } catch (...) {
+        return {};
+    }
+}
+

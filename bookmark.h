@@ -91,3 +91,6 @@ public:
 struct fz_outline;
 std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline);
 
+
+std::string to_json(std::vector<Bookmark> &bookmarks) noexcept;
+std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks);

@@ -45,7 +45,7 @@ void BookmarkPanel::init_ui()
     layout->addWidget(title_bar_);
 
     tree_widget_ = new BookmarkTreeWidget(this);
-    tree_widget_->setHeaderHidden(true);
+
     connect(tree_widget_, &QTreeWidget::itemClicked, this, &BookmarkPanel::on_bookmark_clicked);
     connect(tree_widget_, &QTreeWidget::itemChanged, this, &BookmarkPanel::on_bookmark_edited);
     tree_widget_->setEditTriggers(QTreeWidget::DoubleClicked);
@@ -53,6 +53,9 @@ void BookmarkPanel::init_ui()
     tree_widget_->setDefaultDropAction(Qt::MoveAction);
     tree_widget_->setDropIndicatorShown(true);
     tree_widget_->setDragDropMode(QAbstractItemView::DragDrop);
+    tree_widget_->setItemsExpandable(false);
+    tree_widget_->setHeaderHidden(true);
+    tree_widget_->setRootIsDecorated(false);
     tree_widget_->viewport()->setAcceptDrops(true);
     layout->addWidget(tree_widget_);
 
@@ -214,12 +217,12 @@ void BookmarkPanel::populate()
 */
 void BookmarkPanel::return_focus_to_main()
 {
-    if (!main_window_) 
+    /*if (!main_window_) 
         return;
 
     auto *current_viewer = main_window_->current_viewer();
     if (current_viewer) 
-        current_viewer->setFocus();
+        current_viewer->setFocus();*/
     
 }
 

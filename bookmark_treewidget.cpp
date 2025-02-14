@@ -21,7 +21,6 @@ BookmarkTreeWidget::BookmarkTreeWidget(BookmarkPanel *parent)
 
 void BookmarkTreeWidget::dropEvent(QDropEvent *event)
 {
-
     parent_panel_->dropEvent(event);
 }
 
