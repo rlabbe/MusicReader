@@ -258,15 +258,12 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
 
 void FastFileSearchDialog::class_file_changed()
 {
-    std::cout << "class_file_changed" << std::endl;
-
     instance_->files_ = instance_->find_files();
     emit UpdateSignal::instance().filesUpdated();
 }
 
 void FastFileSearchDialog::instance_update_files()
 {
-    std::cout << "instance_update_files" << std::endl;
     display_files(files_, true);
 }
 

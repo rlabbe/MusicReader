@@ -1,11 +1,12 @@
 #pragma once
 
 #include <QtWidgets>
+#include "bookmark.h"
+
 
 class BookmarkTitleBar;
 class BookmarkTreeWidget;
 class MusicReader;
-class Bookmark;
 class Document;
 
 
@@ -43,14 +44,16 @@ private:
 
     void return_focus_to_main();
 
+    void add_items(const std::vector<Bookmark> &bookmarks, QTreeWidgetItem *parent);
+    QTreeWidgetItem *find_item_recursive(QTreeWidgetItem *item, const BookmarkHandle &handle);
 
     // extract info stored with tree item
-    std::string handle_of(QTreeWidgetItem *item) const;
+    BookmarkHandle handle_of(QTreeWidgetItem *item) const;
     int page_num_of(QTreeWidgetItem *item) const;
     std::string title_of(QTreeWidgetItem *item) const;
 
     // and set them
-    void set_item_info(QTreeWidgetItem *item, int page_num,const std::string &handle);
+    void set_item_info(QTreeWidgetItem *item, const Bookmark &bookmark);
 
     // Moves selected bookmarks one level deeper (into the previous bookmark)
     void indent_selected_bookmarks();
@@ -68,7 +71,7 @@ private:
     void on_bookmark_edited(QTreeWidgetItem *item, int);
 
     // Finds a tree widget item by its bookmark handle.
-    QTreeWidgetItem *find_item_by_handle(const std::string &handle);
+    QTreeWidgetItem *find_item_by_handle(const BookmarkHandle &handle);
 
     Document *document() const;
 

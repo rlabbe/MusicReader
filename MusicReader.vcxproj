@@ -139,6 +139,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
+      <TreatSpecificWarningsAsErrors>4715</TreatSpecificWarningsAsErrors>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
@@ -179,7 +180,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>

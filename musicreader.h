@@ -116,6 +116,9 @@ private:
     QTabWidget *tab_widget_;
 
 private:
+
+    void keyPressEvent(QKeyEvent *event) override;
+
     QMenu *open_recent_menu_;
     QMenu *edit_menu_;
     QAction *edit_margin_action_;

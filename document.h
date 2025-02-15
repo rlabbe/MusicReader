@@ -34,29 +34,31 @@ public:
     void redo() {}
 
 
-    bool reparent_bookmark(const std::string &handle,
-                       const std::string &new_parent_handle);
+    bool reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle);
 
-    bool indent_bookmark(const std::string &handle);
-    bool unindent_bookmark(const std::string &handle);
+    bool indent_bookmark(const BookmarkHandle &handle);
+    bool unindent_bookmark(const BookmarkHandle &handle);
 
-    void rename_bookmark(const std::string &handle,
+    void rename_bookmark(const BookmarkHandle &handle,
                          const std::string &title);
 
-    void remove_bookmark(const std::string &handle);
+    void remove_bookmark(const BookmarkHandle &handle);
+
+    Bookmark add_bookmark(const std::string &title,
+                          int page_num);
 
     Bookmark add_bookmark(const std::string &title,
                           int page_num,
-                          const std::string &handle = "");
+                          const BookmarkHandle &handle);
 
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
 private:
 
     bool reparent_bookmark(Bookmark bookmark,
-                           const std::string &new_parent_handle,
+                           const BookmarkHandle &new_parent_handle,
                            bool internal_call);
 
-    Bookmark *find_bookmark(const std::string &handle);
+    Bookmark *find_bookmark(const BookmarkHandle &handle);
 
     void save_annotations(fz_context *, fz_document *);
 

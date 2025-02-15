@@ -74,7 +74,7 @@ void copy_pdf_with_bookmarks(const std::string &input_filename,
     // Build page reference vector.
     std::vector<std::pair<int, int>> page_refs;
     QPDFPageDocumentHelper page_helper(qpdf);
-    for (auto const &page : page_helper.getAllPages()) {
+    for (auto &page : page_helper.getAllPages()) {
         auto handle = page.getObjectHandle();
         page_refs.push_back({ handle.getObjectID(), handle.getGeneration() });
     }
@@ -105,13 +105,16 @@ void copy_pdf_with_bookmarks(const std::string &input_filename,
     writer.write();
 }
 
+
+
 // Wrapper that writes to a temporary file then renames it over the original.
 void add_bookmarks_to_pdf(const std::string &filename,
                           const std::vector<Bookmark> &bookmarks)
 {
-    std::string temp_filename = filename + ".tmp";
-    copy_pdf_with_bookmarks(filename, temp_filename, bookmarks);
-    fs::rename(temp_filename, filename);
+    std::string temp_filename = filename + ".tmp.pdf";
+    fs::copy(filename, temp_filename, std::filesystem::copy_options::overwrite_existing);
+    copy_pdf_with_bookmarks(temp_filename, filename, bookmarks);
+    fs::remove(temp_filename);
 }
 #else
 // no qpdf in debug mode :<

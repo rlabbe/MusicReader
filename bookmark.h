@@ -4,6 +4,39 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <assert.h>
+
+
+class BookmarkHandle {
+public:
+    static constexpr inline int NO_HANDLE = -1;
+
+private:
+    int handle_ = -1;
+
+public:
+    BookmarkHandle() = default;
+    explicit BookmarkHandle(int h) : handle_(h) 
+    {
+        assert(h != NO_HANDLE);
+    }
+
+    BookmarkHandle &operator=(int h)
+    {
+        handle_ = h;
+        return *this;
+    }
+
+    operator int() const { return handle_; }
+    operator bool() const { return handle_ != NO_HANDLE; }
+    void clear() { handle_ = NO_HANDLE; }
+};
+
+inline bool operator==(const BookmarkHandle &lhs, const BookmarkHandle &rhs)
+{
+    return static_cast<int>(lhs) == static_cast<int>(rhs);
+}
+
 
 // A class representing a PDF bookmark.
 class Bookmark
@@ -35,7 +68,7 @@ public:
     //
     // Returns:
     // True if the bookmark was removed, False if not found.
-    bool remove_child(const std::string &handle);
+    bool remove_child(const BookmarkHandle &handle);
 
     // Searches for a bookmark by handle.
     //
@@ -44,7 +77,8 @@ public:
     //
     // Returns:
     // The found Bookmark object if it exists, otherwise std::nullopt.
-    Bookmark *find(const std::string &handle);
+    Bookmark *find(const BookmarkHandle &handle);
+
 
     // Moves this bookmark to a new parent or to the top level.
     //
@@ -54,14 +88,15 @@ public:
     //
     // Returns:
     // True if reparenting was successful, False otherwise.
-    bool reparent(std::optional<std::string> new_parent, std::vector<Bookmark> &top_level_bookmarks);
+    bool reparent(const BookmarkHandle& parent_handle, std::vector<Bookmark> &top_level_bookmarks);
+    bool reparent_top(std::vector<Bookmark> &top_level_bookmarks);
 
 private:
     // Generates a unique handle for bookmarks.
     //
     // Returns:
     // A unique string that serves as the bookmark's handle.
-    static std::string generate_uuid();
+    int generate_uuid();
 
 public:
     // The UTF-8 encoded title of the bookmark.
@@ -74,10 +109,10 @@ public:
     std::vector<Bookmark> children_;
 
     // A unique handle identifying this bookmark.
-    std::string handle_;
+    BookmarkHandle handle_;
 
     // Handle to the parent bookmark, if any (used for nesting).
-    std::optional<std::string> parent_handle_;
+    BookmarkHandle parent_handle_;
 };
 
 

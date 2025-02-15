@@ -247,7 +247,7 @@ if (auto *bookmark = doc->find_bookmark(handle))
 
   */
 
-Bookmark *Document::find_bookmark(const std::string &handle)
+Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
 {
     for (auto &bookmark : bookmarks_) {
         if (bookmark.handle_ == handle) return &bookmark;
@@ -258,17 +258,15 @@ Bookmark *Document::find_bookmark(const std::string &handle)
 }
 
 
-bool Document::reparent_bookmark(const std::string &handle,
-                                 const std::string &new_parent_handle)
+bool Document::reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle)
 {
     auto *bookmark = find_bookmark(handle);
     if (!bookmark) return false;
-    reparent_bookmark(*bookmark, new_parent_handle, false);
-    
+    return reparent_bookmark(*bookmark, new_parent_handle, false);
 }
 
 
-bool Document::reparent_bookmark(Bookmark bookmark, const std::string &new_parent_handle, bool internal_call)
+bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_parent_handle, bool internal_call)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
     if (bookmarks_.empty()) return false;
@@ -278,8 +276,8 @@ bool Document::reparent_bookmark(Bookmark bookmark, const std::string &new_paren
     }
 
     // Remove from current parent if it had one
-    if (bookmark.parent_handle_.has_value()) {
-        auto *old_parent = find_bookmark(bookmark.parent_handle_.value());
+    if (bookmark.parent_handle_) {
+        auto *old_parent = find_bookmark(bookmark.parent_handle_);
         if (old_parent) old_parent->remove_child(bookmark.handle_);
     } else {
         auto it = std::remove_if(bookmarks_.begin(), bookmarks_.end(),
@@ -288,14 +286,14 @@ bool Document::reparent_bookmark(Bookmark bookmark, const std::string &new_paren
     }
 
     // Assign to new parent or move to top level
-    if (!new_parent_handle.empty()) {
+    if (new_parent_handle) {
         auto *new_parent = find_bookmark(new_parent_handle);
         if (!new_parent) return false;
         new_parent->add_child(bookmark);
         bookmark.parent_handle_ = new_parent_handle;
         std::sort(new_parent->children_.begin(), new_parent->children_.end(), bookmark_sort);
     } else {
-        bookmark.parent_handle_.reset();
+        bookmark.parent_handle_.clear();
         bookmarks_.push_back(std::move(bookmark));
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
@@ -305,9 +303,7 @@ bool Document::reparent_bookmark(Bookmark bookmark, const std::string &new_paren
 }
 
 
-
-
-bool Document::indent_bookmark(const std::string &handle)
+bool Document::indent_bookmark(const BookmarkHandle &handle)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
     if (bookmarks_.empty()) return false;
@@ -323,7 +319,7 @@ bool Document::indent_bookmark(const std::string &handle)
     assert(handle == bookmark->handle_);
 
     // If the bookmark is already top-level, find its previous sibling
-    if (!bookmark->parent_handle_.has_value()) {
+    if (!bookmark->parent_handle_) {
         auto it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
                                [&](const Bookmark &b) { return b.handle_ == handle; });
         if (it == bookmarks_.begin()) return false;  // Cannot indent first item (no previous sibling)
@@ -333,7 +329,7 @@ bool Document::indent_bookmark(const std::string &handle)
         return reparent_bookmark(bookmark_copy, new_parent->handle_, true);
     } else {
         // Find the current parent and locate the previous sibling within that parent
-        auto parent = find_bookmark(bookmark->parent_handle_.value());
+        auto parent = find_bookmark(bookmark->parent_handle_);
         if (!parent) return false;  // Parent not found (shouldn't happen)
 
         auto it = std::find_if(parent->children_.begin(), parent->children_.end(),
@@ -347,7 +343,7 @@ bool Document::indent_bookmark(const std::string &handle)
 }
 
 
-bool Document::unindent_bookmark(const std::string &handle)
+bool Document::unindent_bookmark(const BookmarkHandle &handle)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
     if (bookmarks_.empty()) return false;
@@ -358,25 +354,25 @@ bool Document::unindent_bookmark(const std::string &handle)
     // make a copy before we start deleting things!
     Bookmark bookmark = *bookmark_ptr;
 
-    if (!bookmark.parent_handle_.has_value()) return false;  // Already top-level, can't unindent
+    if (!bookmark.parent_handle_) return false;  // Already top-level, can't unindent
 
     undo_stack_.push_back(bookmarks_);
 
-    auto parent = find_bookmark(bookmark.parent_handle_.value());
+    auto parent = find_bookmark(bookmark.parent_handle_);
     if (!parent) return false;
 
     // Remove the bookmark from its current parent
     if (!parent->remove_child(handle)) return false;
 
     // Move to grandparent or top level
-    if (parent->parent_handle_.has_value()) {
-        auto grandparent = find_bookmark(parent->parent_handle_.value());
+    if (parent->parent_handle_) {
+        auto grandparent = find_bookmark(parent->parent_handle_);
         if (!grandparent) return false;
         grandparent->add_child(bookmark);
         bookmark.parent_handle_ = parent->parent_handle_;
     } else {
         bookmarks_.push_back(bookmark);
-        bookmark.parent_handle_.reset();
+        bookmark.parent_handle_.clear();
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
 
@@ -385,7 +381,7 @@ bool Document::unindent_bookmark(const std::string &handle)
 }
 
 
-void Document::rename_bookmark(const std::string &handle, const std::string &title)
+void Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
     if (bookmarks_.empty()) return;
@@ -399,7 +395,7 @@ void Document::rename_bookmark(const std::string &handle, const std::string &tit
 }
 
 
-void Document::remove_bookmark(const std::string &handle)
+void Document::remove_bookmark(const BookmarkHandle &handle)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
     if (bookmarks_.empty()) return;
@@ -419,7 +415,13 @@ void Document::remove_bookmark(const std::string &handle)
     }
 }
 
-Bookmark Document::add_bookmark(const std::string &title, int page_num, const std::string &parent_handle)
+Bookmark Document::add_bookmark(const std::string &title, int page_num)
+{
+    return add_bookmark(title, page_num, BookmarkHandle());
+}
+
+
+Bookmark Document::add_bookmark(const std::string &title, int page_num, const BookmarkHandle &parent_handle)
 {
     undo_stack_.push_back(bookmarks_);  // Save for undo
 
@@ -427,11 +429,11 @@ Bookmark Document::add_bookmark(const std::string &title, int page_num, const st
     std::optional<int> page_num_opt = (page_num == 0) ? std::nullopt : std::optional<int>(page_num);
 
     Bookmark new_bookmark(title, page_num_opt.has_value() ? page_num_opt.value() : 0);
-    if (!parent_handle.empty()) {
+    if (parent_handle) {
         new_bookmark.parent_handle_ = parent_handle;
     }
 
-    if (parent_handle.empty()) {
+    if (!parent_handle) {
         bookmarks_.emplace_back(new_bookmark);
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     } else {

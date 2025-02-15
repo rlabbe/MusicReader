@@ -533,7 +533,22 @@ void MusicReader::update_title(int index)
         setWindowTitle("MusicReader");
     }
 }
+void MusicReader::keyPressEvent(QKeyEvent *event)
+{
+    auto tab = current_viewer();
+    if (!tab) {
+        QMainWindow::keyPressEvent(event);
+        return;
+    }
 
+    switch (event->key()) {
+    case Qt::Key_PageUp: tab->page_up(); event->accept(); return;
+    case Qt::Key_PageDown: tab->page_down(); event->accept(); return;
+    case Qt::Key_Left: tab->change_page(-1); event->accept(); return;
+    case Qt::Key_Right: tab->change_page(1); event->accept(); return;
+    default: QMainWindow::keyPressEvent(event);
+    }
+}
 
 void MusicReader::on_page_up()
 {
@@ -614,7 +629,6 @@ std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 void MusicReader::go_to_bookmark(int page_num)
 {
     SAFE_METHOD;
-    std::cout << "going to page " << page_num<<std::endl;
 
     if (page_num > 0) {
         auto *viewer = current_viewer();
