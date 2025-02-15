@@ -231,6 +231,7 @@
     <ClInclude Include="page.h" />
     <ClInclude Include="qpdf_document.h" />
     <ClInclude Include="qt_utils.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
@@ -243,6 +244,12 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="MusicReader.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="MusicReader.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="gclef.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

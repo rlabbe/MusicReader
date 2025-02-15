@@ -27,6 +27,8 @@ void configure_logger(const std::string &filename, size_t max_size, bool log_to_
     spdlog::register_logger(logger_);
     logger_->set_level(spdlog::level::info);
     logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
+    logger_->flush_on(spdlog::level::err);
+    spdlog::flush_every(std::chrono::seconds(10));
 }
 }
 
@@ -36,6 +38,16 @@ void initialize(const std::string &filename, size_t max_size_kb, bool log_to_con
 {
     configure_logger(filename, max_size_kb, log_to_console);
 }
+
+void shutdown()
+{
+    if (logger_) {
+        logger_->flush();
+        spdlog::shutdown();
+        logger_ = nullptr;
+    }
+}
+
 
 void log_info(const std::string &message)
 {

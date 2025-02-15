@@ -16,6 +16,8 @@ void initialize(const std::string &filename,
                 size_t max_size_kb = 4, 
                 bool log_to_console = false);
 
+void shutdown();
+
 void enable_debug_logging(bool enable);
 
 // Logs an INFO level message.

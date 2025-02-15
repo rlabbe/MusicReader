@@ -139,7 +139,9 @@ int main(int argc, char *argv[])
 
     MusicReader w;
     w.show();
-    return app.exec();
+    int result = app.exec();
+    logger::shutdown();
+    return result;
 }
 
 

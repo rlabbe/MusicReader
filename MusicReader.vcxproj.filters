@@ -137,11 +137,24 @@
     <ClInclude Include="qpdf_document.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="MusicReader.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="MusicReader.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="gclef.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

@@ -154,10 +154,7 @@ bool add_bookmarks_to_pdf(const std::string &filename,
 #else
 // no qpdf in debug mode :<
 
-void add_bookmarks_to_pdf(const std::string &,
-                          const std::vector<Bookmark> &)
-{
-    ;
-}
+extern bool add_bookmarks_to_pdf(const std::string &,
+                                 const std::vector<Bookmark> &) {}
 #endif
 

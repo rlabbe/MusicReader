@@ -367,15 +367,6 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);
     margin_action_ = action;
 
-    {
-    QPixmap pixmap(":/MusicReader/images/left.ico");
-    if (pixmap.isNull()) {
-        qDebug() << "Failed to load icon.";
-    } else {
-        qDebug() << "Icon loaded successfully.";
-    }
-    }
-
     action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
     action->setToolTip("Previous page");
     connect(action, &QAction::triggered, this, &MusicReader::on_page_up);
