@@ -1,5 +1,5 @@
 #include "bookmark_treewidget.h"
-
+#include <iostream>
 #include "bookmark_panel.h"
 #include "musicreader.h"
 
@@ -38,6 +38,7 @@ void BookmarkTreeWidget::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Left:
     case Qt::Key_Right:
         QCoreApplication::sendEvent(main_window_, event);
+        break;
     default:
         QTreeWidget::keyPressEvent(event);
     }

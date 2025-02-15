@@ -25,8 +25,17 @@ public:
     Document *current_document(const std::string &log_msg = "") const;
     std::pair<int, bool> current_page(const std::string &log_msg="") const;
 
+
+    void on_page_down();
+    void on_page_up();
+    void on_page_left();
+    void on_page_right();
+
+
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
+
+
 
 signals:
     void view_mode_signal_(int page_view_count);
@@ -91,8 +100,6 @@ private:
 
     bool in_single_page_mode() const;
     void toggle_page_zoom();
-    void on_page_down();
-    void on_page_up();
 
     void on_close_tab(int index);
     void update_title(int index=0);

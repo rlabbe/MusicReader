@@ -367,6 +367,15 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);
     margin_action_ = action;
 
+    {
+    QPixmap pixmap(":/MusicReader/images/left.ico");
+    if (pixmap.isNull()) {
+        qDebug() << "Failed to load icon.";
+    } else {
+        qDebug() << "Icon loaded successfully.";
+    }
+    }
+
     action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
     action->setToolTip("Previous page");
     connect(action, &QAction::triggered, this, &MusicReader::on_page_up);
@@ -971,7 +980,6 @@ void MusicReader::restore_open_documents()
 
     for (const auto &doc : docs)
     {
-        std::cout << doc.filename.string() << std::endl;
         open_pdf_in_tab(doc.u8filename(), doc.page);
     }
 
