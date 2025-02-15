@@ -298,8 +298,7 @@ bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_pa
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
 
-    save();
-    return true;
+    return save();
 }
 
 
@@ -340,6 +339,7 @@ bool Document::indent_bookmark(const BookmarkHandle &handle)
         parent->children_.erase(it);       // Remove from old parent before reparenting
         return reparent_bookmark(bookmark_copy, new_parent->handle_, true);
     }
+    return false;
 }
 
 
@@ -376,52 +376,54 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
 
-    save();
-    return true;
+    return save();
 }
 
 
-void Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
+bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
-    if (bookmarks_.empty()) return;
+    if (bookmarks_.empty()) return false;
 
     auto bookmark = find_bookmark(handle);
     if (bookmark && bookmark->title_ != title) {
         undo_stack_.push_back(bookmarks_);
         bookmark->title_ = title;
-        save();
+        return save();
     }
+    return false;
 }
 
 
-void Document::remove_bookmark(const BookmarkHandle &handle)
+bool Document::remove_bookmark(const BookmarkHandle &handle)
 {
     std::lock_guard<std::recursive_mutex> lock(save_mutex_);
-    if (bookmarks_.empty()) return;
+    if (bookmarks_.empty()) return false;
 
     for (auto it = bookmarks_.begin(); it != bookmarks_.end(); ++it) {
         if (it->handle_ == handle) {
             undo_stack_.push_back(bookmarks_);
             bookmarks_.erase(it);
-            save();
-            return;
+            return save();
         }
         if (it->remove_child(handle)) {
             undo_stack_.push_back(bookmarks_);
-            save();
-            return;
+            return save();
         }
     }
+    return false;
 }
 
-Bookmark Document::add_bookmark(const std::string &title, int page_num)
+
+std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title, int page_num)
 {
     return add_bookmark(title, page_num, BookmarkHandle());
 }
 
 
-Bookmark Document::add_bookmark(const std::string &title, int page_num, const BookmarkHandle &parent_handle)
+std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title, 
+                                                       int page_num, 
+                                                       const BookmarkHandle &parent_handle)
 {
     undo_stack_.push_back(bookmarks_);  // Save for undo
 
@@ -443,9 +445,8 @@ Bookmark Document::add_bookmark(const std::string &title, int page_num, const Bo
             std::sort(parent->children_.begin(), parent->children_.end(), bookmark_sort);
         }
     }
-
-    save();
-    return new_bookmark;
+    bool success = save();
+    return { new_bookmark.handle_, success };
 }
 
 
@@ -453,8 +454,7 @@ bool Document::save(const std::filesystem::path &filename, bool block)
 {
     filename;
     block;
-    add_bookmarks_to_pdf(filename_.string(), bookmarks_);
-    return true;
+    return add_bookmarks_to_pdf(filename_.string(), bookmarks_);
 }
 
 

@@ -141,12 +141,10 @@ void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidge
         else
             tree_widget_->addTopLevelItem(item);
 
-        if (!bookmark.children_.empty()) {
+        if (!bookmark.children_.empty())
             add_items(bookmark.children_, item);
-        }
     }
 }
-
 
 
 void BookmarkPanel::populate()
@@ -244,14 +242,19 @@ void BookmarkPanel::add_bookmark()
         return;
 
     auto [page_num, valid] = main_window_->current_page("no current page in add_bookmark");
-
-    auto new_bookmark = doc->add_bookmark("Untitled", page_num);
+    auto [handle, save_succcess] = doc->add_bookmark("Untitled", page_num);
     setVisible(true);
     populate();
-    auto *item = find_item_by_handle(new_bookmark.handle_);
 
+
+    if (!save_succcess) {
+        logger::log_error("Failed to save bookmark");
+        main_window_->display_error_message("Failed to save bookmark");
+        return;
+    }
+
+    auto *item = find_item_by_handle(handle);
     if (item) {
-        item->setFlags(item->flags() | Qt::ItemIsEditable);
         tree_widget_->setCurrentItem(item);
         tree_widget_->editItem(item, 0);
     }

@@ -25,6 +25,9 @@ public:
     Document *current_document(const std::string &log_msg = "") const;
     std::pair<int, bool> current_page(const std::string &log_msg="") const;
 
+    void display_error_message(const std::string &msg);
+    bool display_query(const std::string &msg);
+
 signals:
     void view_mode_signal_(int page_view_count);
 
@@ -83,10 +86,6 @@ public:
     Document *open_pdf_document(const std::string &filename);
 
 private:
-    void display_error_message(const std::string &msg);
-    bool display_query(const std::string &msg);
-
-
     // Focuses on the specified tab
     void focus_on_tab(int index);
 

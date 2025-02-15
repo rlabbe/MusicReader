@@ -1,6 +1,7 @@
 #include "pdf_viewer.h"
 #include <QApplication>
 #include <QDebug>
+#include <iostream>
 #include "border.h"
 
 
@@ -64,16 +65,19 @@ void PDFViewer::refresh()
 
 void PDFViewer::page_up()
 {
+    std::cout << "Page up" << std::endl;
     change_page(single_page_view() ? -1 : -2);
 }
 
 void PDFViewer::page_down()
 {
+    std::cout << "Page down" << std::endl;
     change_page(single_page_view() ? 1 : 2);
 }
 
 void PDFViewer::change_page(int step)
 {
+    std::cerr << "Change page " << step << std::endl;
     int new_page = qBound(1, current_page() + step, page_count());
     scrollbar_->setValue(new_page);
     get_page(new_page);
@@ -85,17 +89,21 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     case Qt::Key_PageUp:
     case Qt::Key_Up:
         page_up();
+        event->accept();
         break;
     case Qt::Key_PageDown:
     case Qt::Key_Down:
     case Qt::Key_Space:
         page_down();
+        event->accept();
         break;
     case Qt::Key_Left:
         change_page(-1);
+        event->accept();
         break;
     case Qt::Key_Right:
         change_page(1);
+        event->accept();
         break;
     default:
         QWidget::keyPressEvent(event);

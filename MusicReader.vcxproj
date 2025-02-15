@@ -122,6 +122,9 @@
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <Optimization>MaxSpeed</Optimization>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">
     <Link>

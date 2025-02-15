@@ -357,6 +357,7 @@ void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_F1) {
         show_help();
+        event->accept();
     } else {
         QDialog::keyPressEvent(event);
     }

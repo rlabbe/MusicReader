@@ -39,17 +39,20 @@ public:
     bool indent_bookmark(const BookmarkHandle &handle);
     bool unindent_bookmark(const BookmarkHandle &handle);
 
-    void rename_bookmark(const BookmarkHandle &handle,
+    bool rename_bookmark(const BookmarkHandle &handle,
                          const std::string &title);
 
-    void remove_bookmark(const BookmarkHandle &handle);
+    bool remove_bookmark(const BookmarkHandle &handle);
 
-    Bookmark add_bookmark(const std::string &title,
-                          int page_num);
 
-    Bookmark add_bookmark(const std::string &title,
-                          int page_num,
-                          const BookmarkHandle &handle);
+    // Creates bookmark; bool is for whether the save worked or not, not
+    // whether the bookmark was added
+    std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title,
+                                                 int page_num);
+
+    std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title,
+                                                 int page_num,
+                                                 const BookmarkHandle &parent_handle);
 
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
 private:
