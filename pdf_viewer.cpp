@@ -175,16 +175,15 @@ void PDFViewer::get_page(int page_num, bool first_call)
 {
     if (document_->page_count() == 0) return;
 
-    if (single_page_view() || page_num == document_->page_count()) {
+    if (single_page_view() || page_num == document_->page_count())
         page_ = get_single_page(page_num);
-    } else {
+    else
         page_ = get_double_page(page_num);
-    }
 
     _update_image();
-    if (first_call) {
+    if (first_call)
         adjust_initial_subwindow_size();
-    }
+
 }
 
 Page PDFViewer::get_single_page(int page_num)
@@ -262,7 +261,7 @@ void PDFViewer::_update_image(const QString &message)
     label_->setStyleSheet("");
 
     QSize max_size;
-    
+
     if (config_->allow_oversize()) {
         max_size = label_->size();
         std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
@@ -286,13 +285,4 @@ void PDFViewer::adjust_initial_subwindow_size()
     resize(scaled_size);
     label_->resize(scaled_size);
     setMinimumSize(1, 1);
-}
-
-void PDFViewer::adjust_subwindow_size()
-{
-    /*if (page_.is_empty()) return;
-
-    QSize max_size = parentWidget()->size();
-    QSize new_size = QSize(std::min(page_.width(), max_size.width()), std::min(page_.height(), max_size.height()));
-    resize(new_size);*/
 }
