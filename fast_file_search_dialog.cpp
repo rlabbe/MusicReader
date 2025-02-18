@@ -17,6 +17,7 @@ static std::string to_lower(const std::string &str)
     return result;
 }
 
+
 static std::string strip_accents(const std::string &text)
 {
     QString qtext = QString::fromStdString(text).normalized(QString::NormalizationForm_D);
@@ -28,6 +29,7 @@ static std::string strip_accents(const std::string &text)
     return qtext.toStdString();
 }
 
+
 static bool human_search(const std::string &search_term, const std::string &search_string)
 {
     std::string normalized_search_term = strip_accents(to_lower(search_term));
@@ -35,6 +37,7 @@ static bool human_search(const std::string &search_term, const std::string &sear
 
     return normalized_search_string.find(normalized_search_term) != std::string::npos;
 }
+
 
 static std::string human_size(long size)
 {
@@ -50,7 +53,9 @@ static std::string human_size(long size)
 
 SortableTableWidgetItem::SortableTableWidgetItem(int sort_value, const QString &text)
     : QTableWidgetItem(text), sort_value_(sort_value)
-{}
+{
+}
+
 
 bool SortableTableWidgetItem::operator<(const QTableWidgetItem &other) const
 {
@@ -58,11 +63,16 @@ bool SortableTableWidgetItem::operator<(const QTableWidgetItem &other) const
     return other_item ? sort_value_ < other_item->sort_value_ : QTableWidgetItem::operator<(other);
 }
 
+
 FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &directory_path, const QRect &size)
     : QDialog(parent)
 {
     instance_ = this;
     QString path = QDir::toNativeSeparators(QString::fromStdString(directory_path));
+
+    // Wait until the file-loading thread signals completion
+    std::unique_lock<std::mutex> lk(files_mutex_);
+    files_cv_.wait(lk, [] { return files_ready_; });
 
     if (path != path_) {
         // This is slightly inefficient but should only occur if the user manually edits the music_directory in settings.
@@ -70,31 +80,22 @@ FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &d
         files_.clear(); // Trigger a refresh of the files
     }
 
-    if (!file_ending_.isEmpty()) {
+    if (!file_ending_.isEmpty()) 
         file_ending_ = file_ending_.toLower();
-    }
-
+    
     selected_items_.clear();
     open_path_.clear(); // Used to browse to a directory
 
     init_ui(size);
 
-    if (files_.empty()) {
-        update_files();
-    }
 
-    if (!watcher_) {
-        watcher_ = new DirectoryWatcher(file_ending_);
-        connect(watcher_, &DirectoryWatcher::file_changed, this, &FastFileSearchDialog::class_file_changed);
-        watcher_->start(path_);
-    }
+    if (files_.empty()) 
+        update_files();
+
+    display_files(files_);
 
     connect(&UpdateSignal::instance(), &UpdateSignal::filesUpdated, this, &FastFileSearchDialog::instance_update_files);
 }
-
-
-
-
 
 
 void FastFileSearchDialog::init_ui(const QRect &size)
@@ -177,21 +178,41 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 }
 
 
-void FastFileSearchDialog::initialize_watcher(const std::string &directory)
+void FastFileSearchDialog::initialize_data(const std::string &directory)
 {
-    if (watcher_) return;
 
-    path_ = QString::fromStdString(directory);
-    watcher_ = new DirectoryWatcher(file_ending_);
-    connect(watcher_, &DirectoryWatcher::file_changed, &FastFileSearchDialog::class_file_changed);
+        // this must be called before the class is created. It sets up the directory 
+        // watcher to monitor the directory for changes, and reads the files in the
+        // directory, if any.
+        if (watcher_) {
+            logger::log_error("FastFileSearchDialog::initialize_data called more than once");
+            return;
+        }
 
-    if (!directory.empty()) {
-        watcher_->start(path_);
-    }
+        path_ = QString::fromStdString(directory);
+        watcher_ = new DirectoryWatcher(file_ending_);
+        connect(watcher_, &DirectoryWatcher::file_changed, &FastFileSearchDialog::class_file_changed);
+
+        if (!directory.empty()) 
+            watcher_->start(path_);
 
     std::thread([] {
-        FastFileSearchDialog::find_files_async(FastFileSearchDialog::instance_);
+        auto files = find_files(FastFileSearchDialog::path_, FastFileSearchDialog::file_ending_);
+        {
+            std::lock_guard lk(files_mutex_);
+            files_ = std::move(files);
+            files_ready_ = true;
+        }
+        files_cv_.notify_one();
     }).detach();
+}
+
+
+void FastFileSearchDialog::show_dialog()
+{
+    show();
+    file_table_->clearSelection();
+    exec();
 }
 
 void FastFileSearchDialog::on_search()
@@ -258,7 +279,7 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
 
 void FastFileSearchDialog::class_file_changed()
 {
-    instance_->files_ = instance_->find_files();
+    instance_->files_ = instance_->find_files(path_, file_ending_);
     emit UpdateSignal::instance().filesUpdated();
 }
 
@@ -269,7 +290,7 @@ void FastFileSearchDialog::instance_update_files()
 
 void FastFileSearchDialog::update_files()
 {
-    files_ = find_files();
+    files_ = find_files(path_, file_ending_);
     display_files(files_, true);
     set_title();
 }
@@ -346,12 +367,21 @@ std::pair<std::vector<std::string>, std::string> FastFileSearchDialog::selected_
 }
 
 
+void FastFileSearchDialog::reject()
+{
+    // handle esc or whatever; clear the selection (if any) so the app 
+    // doesn't try to open the file, and of course hide the dialog.
+    file_table_->clearSelection();
+    hide();
+}
+
 
 void FastFileSearchDialog::closeEvent(QCloseEvent *event)
 {
     hide();
     event->ignore();
 }
+
 
 void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
 {
@@ -373,31 +403,20 @@ bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
 }
 
 
-QStringList FastFileSearchDialog::find_files()
+QStringList FastFileSearchDialog::find_files(const QString &path, QString &file_ending)
 {
     QStringList file_paths;
-    QDirIterator it(path_, QDir::Files, QDirIterator::Subdirectories);
+    QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString file_path = it.next();
-        if (file_ending_.isEmpty() || file_path.endsWith(file_ending_, Qt::CaseInsensitive)) {
+        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive)) {
             file_paths.append(file_path);
         }
     }
     return file_paths;
 }
 
-void FastFileSearchDialog::find_files_async(FastFileSearchDialog *instance)
-{
-    std::thread([instance]() {
-        auto files = instance->find_files();  // Call on instance
 
-        // Ensure UI update happens in the main thread
-        QMetaObject::invokeMethod(instance, [instance, files = std::move(files)]() {
-            instance->files_ = files;
-            instance->display_files(instance->files_);
-        }, Qt::QueuedConnection);
-    }).detach();
-}
 
 void FastFileSearchDialog::directory_changed(const std::string &new_search_path, FastFileSearchDialog *self)
 {

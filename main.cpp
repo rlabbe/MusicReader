@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
     //m2();
     //m3();
     //return 0;
-    logger::initialize("./mr.log");
+    logger::initialize();
 
     app.setStyle("fusion");
 

@@ -146,7 +146,7 @@ private:
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;
 
-    FastFileSearchDialog *fast_search_dialog_;
+    FastFileSearchDialog *fast_search_dialog_ = nullptr;
     // used to wait until the fast search dialog is ready
     std::mutex fast_search_mutex_;
     std::condition_variable fast_search_cv_;

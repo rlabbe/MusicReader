@@ -3,6 +3,14 @@
 #include <iostream>
 #include <format>
 
+#include <cstdio>
+#include <stdexcept>
+
+#define NOMINMAX
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+
 #ifdef NDEBUG
 #include <qpdf/QPDF.hh>
 #include <qpdf/QPDFObjectHandle.hh>
@@ -13,6 +21,108 @@
 
 using namespace std::string_literals;
 namespace fs = std::filesystem;
+
+
+
+FILE *fopen_with_delete_share(const char *filename, const char *mode)
+{
+    // Convert mode string to appropriate access flags
+    DWORD access = 0;
+    DWORD creation = OPEN_EXISTING;
+
+    if (std::strcmp(mode, "rb") == 0) {
+        access = GENERIC_READ;
+    } else if (std::strcmp(mode, "wb") == 0) {
+        access = GENERIC_WRITE;
+        creation = CREATE_ALWAYS;
+    } else if (std::strcmp(mode, "r+b") == 0) {
+        access = GENERIC_READ | GENERIC_WRITE;
+    } else if (std::strcmp(mode, "w+b") == 0) {
+        access = GENERIC_READ | GENERIC_WRITE;
+        creation = CREATE_ALWAYS;
+    } else {
+        throw std::invalid_argument("Unsupported mode");
+    }
+
+    // Open file with FILE_SHARE_DELETE
+    HANDLE h = CreateFileA(filename, access,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, creation, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        throw std::runtime_error("Failed to open file with delete sharing");
+    }
+
+    // Convert HANDLE to FILE*
+    int fd = _open_osfhandle(reinterpret_cast<intptr_t>(h), _O_BINARY);
+    if (fd == -1) {
+        CloseHandle(h);
+        throw std::runtime_error("Failed to open OS file handle");
+    }
+
+    FILE *file = _fdopen(fd, mode);
+    if (!file) {
+        CloseHandle(h);
+        throw std::runtime_error("Failed to associate file descriptor with FILE*");
+    }
+
+    return file;
+}
+
+
+class FileHandle {
+public:
+    // Constructor: Opens a file with the given mode
+    FileHandle(const char *filename, const char *mode)
+    {
+        file_ = std::fopen(filename, mode);
+        if (!file_) {
+            throw std::runtime_error("Failed to open "s + filename);
+        }
+    }
+
+    ~FileHandle()
+    {
+        close();
+    }
+
+
+    // Disable copy construction and assignment to avoid ownership issues
+    FileHandle(const FileHandle &) = delete;
+    FileHandle &operator=(const FileHandle &) = delete;
+
+    // Move constructor
+    FileHandle(FileHandle &&other) noexcept : file_(other.file_)
+    {
+        other.file_ = nullptr;
+    }
+
+    // Move assignment
+    FileHandle &operator=(FileHandle &&other) noexcept
+    {
+        if (this != &other) {
+            close();
+            file_ = other.file_;
+            other.file_ = nullptr;
+        }
+        return *this;
+    }
+
+    // Provides access to the underlying FILE* for I/O operations
+    FILE *get() const noexcept { return file_; }
+
+
+    // Explicit close method
+    void close() noexcept
+    {
+        if (file_) {
+            std::fclose(file_);
+            file_ = nullptr;
+        }
+    }
+
+private:
+    FILE *file_;
+};
 
 
 std::vector<QPDFObjectHandle> process_outline_level(QPDF &qpdf,
@@ -66,13 +176,20 @@ std::vector<QPDFObjectHandle> process_outline_level(QPDF &qpdf,
 }
 
 
+
+
 bool copy_pdf_with_bookmarks(const std::string &input_filename,
                              const std::string &output_filename,
                              const std::vector<Bookmark> &bookmarks)
 {
     QPDF qpdf;
+    FileHandle input_file(input_filename.c_str(), "rb");
+
     try {
-        qpdf.processFile(input_filename.c_str(), "");
+
+        qpdf.processFile(input_filename.c_str(), input_file.get(), false);
+        //input_file.close();
+
 
         // Build page reference vector.
         std::vector<std::pair<int, int>> page_refs;
@@ -106,10 +223,12 @@ bool copy_pdf_with_bookmarks(const std::string &input_filename,
         logger::log_error(std::format("Error processing PDF: {}", e.what()));
         return false;
     }
+    input_file.close();
 
 
     try {
-        QPDFWriter writer(qpdf, output_filename.c_str());
+        FileHandle input_file(input_filename.c_str(), "wb");
+        QPDFWriter writer(qpdf, input_filename.c_str(), input_file.get(), false);
         writer.setStaticID(false);
 
         try {
@@ -133,28 +252,31 @@ bool copy_pdf_with_bookmarks(const std::string &input_filename,
 bool add_bookmarks_to_pdf(const std::string &filename,
                           const std::vector<Bookmark> &bookmarks)
 {
-    std::string temp_filename = filename + ".tmp.pdf";
+    /*std::string temp_filename = filename + ".tmp.pdf";
     try {
         fs::copy(filename, temp_filename, std::filesystem::copy_options::overwrite_existing);
     } catch (const fs::filesystem_error &e) {
         logger::log_error(std::format("Error copying file: {} {}", temp_filename, e.what()));
         return false;
-    }
+    }*/
 
-    copy_pdf_with_bookmarks(temp_filename, filename, bookmarks);
+    copy_pdf_with_bookmarks(filename, filename, bookmarks);
 
-    try {
-        fs::remove(temp_filename);
-    } catch (const fs::filesystem_error &e) {
-        logger::log_error(std::format("Error removing temporary file: {} {}", temp_filename, e.what()));
-        return false;
-    }
+    /*    try {
+            fs::remove(temp_filename);
+        } catch (const fs::filesystem_error &e) {
+            logger::log_error(std::format("Error removing temporary file: {} {}", temp_filename, e.what()));
+            return false;
+        }*/
     return true;
 }
 #else
 // no qpdf in debug mode :<
 
 extern bool add_bookmarks_to_pdf(const std::string &,
-                                 const std::vector<Bookmark> &) {}
+                                 const std::vector<Bookmark> &)
+{
+    return false;
+}
 #endif
 

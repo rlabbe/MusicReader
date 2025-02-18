@@ -116,18 +116,18 @@ void ConfigDialog::setup_ui()
 void ConfigDialog::load_settings()
 {
     // Load values from config_
-    spin_max_recent_documents_->setValue(config_.max_recent_documents);
-    spin_page_view_count_->setValue(config_.page_view_count);
+    spin_max_recent_documents_->setValue(config_.max_recent_documents());
+    spin_page_view_count_->setValue(config_.page_view_count());
 
-    combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme)));
-    combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level)));
+    combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme())));
+    combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
 
-    check_restore_window_position_->setChecked(config_.restore_window_position);
-    check_restore_documents_->setChecked(config_.restore_documents);
-    check_zoom_to_content_->setChecked(config_.zoom_to_content);
-    check_allow_oversize_->setChecked(config_.allow_oversize);
+    check_restore_window_position_->setChecked(config_.restore_window_position());
+    check_restore_documents_->setChecked(config_.restore_documents());
+    check_zoom_to_content_->setChecked(config_.zoom_to_content());
+    check_allow_oversize_->setChecked(config_.allow_oversize());
 
-    edit_music_directory_->setText(QString::fromStdString(config_.music_directory.string()));
+    edit_music_directory_->setText(QString::fromStdString(config_.music_directory().string()));
 }
 
 void ConfigDialog::setup_connections()
@@ -169,21 +169,18 @@ void ConfigDialog::save_settings()
     }
 
     // Apply settings to config_
-    config_.max_recent_documents = spin_max_recent_documents_->value();
-    config_.page_view_count = spin_page_view_count_->value();
+    ConfigFileGroupSave group_saver(config_);
 
-    config_.theme = static_cast<Theme>(combo_theme_->currentData().toInt());
-    config_.log_level = static_cast<LogLevel>(combo_log_level_->currentData().toInt());
+    config_.set_max_recent_documents(spin_max_recent_documents_->value());
+    config_.set_page_view_count(spin_page_view_count_->value());
+    config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));
+    config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
+    config_.set_restore_window_position(check_restore_window_position_->isChecked());
+    config_.set_restore_documents (check_restore_documents_->isChecked());
+    config_.set_zoom_to_content(check_zoom_to_content_->isChecked());
+    config_.set_allow_oversize(check_allow_oversize_->isChecked());
+    config_.set_music_directory(std::filesystem::path(edit_music_directory_->text().toStdString()));
 
-    config_.restore_window_position = check_restore_window_position_->isChecked();
-    config_.restore_documents = check_restore_documents_->isChecked();
-    config_.zoom_to_content = check_zoom_to_content_->isChecked();
-    config_.allow_oversize = check_allow_oversize_->isChecked();
-
-    config_.music_directory = std::filesystem::path(edit_music_directory_->text().toStdString());
-
-    // Save to file
-    config_.save();
 
     accept(); // Close dialog with Accepted status
 }

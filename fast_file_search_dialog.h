@@ -21,6 +21,8 @@
 #include <QApplication>
 #include <QTimer>
 #include <QStringList>
+#include <mutex>
+#include <condition_variable>
 #include <QFileSystemWatcher>
 #include "directory_watcher.h"
 
@@ -54,11 +56,16 @@ class FastFileSearchDialog : public QDialog {
     Q_OBJECT
 
 public:
+
+    // DO NOT constrcut until initialize_data has been called
     FastFileSearchDialog(QWidget *parent, const std::string &directory_path, const QRect &size);
-    static void initialize_watcher(const std::string &directory);
+
+    static void initialize_data(const std::string &directory);
+
     static void directory_changed(const std::string &new_search_path, FastFileSearchDialog *self = nullptr);
-    static void read_files();
     static void class_file_changed();
+
+    void show_dialog();
 
     std::string path() const { return path_.toStdString(); }
     std::pair<std::vector<std::string>, std::string> selected_files() const;
@@ -67,6 +74,7 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     bool eventFilter(QObject *object, QEvent *event) override;
+    void reject();
 
 private slots:
     void instance_update_files();
@@ -85,13 +93,16 @@ private:
     void init_ui(const QRect &size);
     void display_files(const QStringList &file_paths, bool resize=false);
     void size_button(QPushButton *button);
-    QStringList find_files();
-    static void find_files_async(FastFileSearchDialog *instance);
+    static QStringList find_files(const QString& path, QString& extension);
 
     void _open_help();
 
     static inline QString path_;
     static inline QStringList files_;
+    static inline std::mutex files_mutex_;
+    static inline std::condition_variable files_cv_;
+    static inline bool files_ready_ = false;
+
     static inline DirectoryWatcher *watcher_ = nullptr;
     static inline QString file_ending_ = "pdf";
 

@@ -175,39 +175,32 @@ void ConfigFile::read(bool reset_on_error)
     // Begin parsing each key with specific error checks
     // file_version
     if (j.contains("file_version") && j["file_version"].is_number_integer()) {
-        file_version = j["file_version"].get<int>();
+        file_version_ = j["file_version"].get<int>();
     } else {
         log_error("Invalid or missing 'file_version'");
         goto CLEANUP;
     }
 
-    // restore_window_position
     if (j.contains("restore_window_position") && j["restore_window_position"].is_boolean()) {
-        restore_window_position = j["restore_window_position"].get<bool>();
+        restore_window_position_ = j["restore_window_position"].get<bool>();
     } else {
         log_error("Invalid or missing 'restore_window_position'");
-        goto CLEANUP;
     }
 
-    // restore_documents
     if (j.contains("restore_documents") && j["restore_documents"].is_boolean()) {
-        restore_documents = j["restore_documents"].get<bool>();
+        restore_documents_ = j["restore_documents"].get<bool>();
     } else {
         log_error("Invalid or missing 'restore_documents'");
-        goto CLEANUP;
     }
 
-    // zoom_to_content
     if (j.contains("zoom_to_content") && j["zoom_to_content"].is_boolean()) {
-        zoom_to_content = j["zoom_to_content"].get<bool>();
+        zoom_to_content_ = j["zoom_to_content"].get<bool>();
     } else {
         log_error("Invalid or missing 'zoom_to_content'");
-        goto CLEANUP;
     }
 
-    // open_documents
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
-        open_documents.clear();
+        open_documents_.clear();
         for (const auto &doc : j["open_documents"]) {
             if (doc.contains("filename") && doc["filename"].is_string() &&
                 doc.contains("page") && doc["page"].is_number_integer() &&
@@ -217,7 +210,7 @@ void ConfigFile::read(bool reset_on_error)
                 od.filename = std::filesystem::path(doc["filename"].get<std::string>());
                 od.page = doc["page"].get<int>();
                 od.page_count = doc["page_count"].get<int>();
-                open_documents.push_back(od);
+                open_documents_.push_back(od);
             } else {
                 log_error("Invalid entry in 'open_documents'");
                 goto CLEANUP;
@@ -225,15 +218,14 @@ void ConfigFile::read(bool reset_on_error)
         }
     } else {
         log_error("Invalid or missing 'open_documents'");
-        goto CLEANUP;
+        open_documents_.clear();
     }
 
-    // recent_documents
     if (j.contains("recent_documents") && j["recent_documents"].is_array()) {
-        recent_documents.clear();
+        recent_documents_.clear();
         for (const auto &path : j["recent_documents"]) {
             if (path.is_string()) {
-                recent_documents.emplace_back(std::filesystem::path(path.get<std::string>()));
+                recent_documents_.emplace_back(std::filesystem::path(path.get<std::string>()));
             } else {
                 log_error("Invalid entry in 'recent_documents'");
                 goto CLEANUP;
@@ -241,16 +233,14 @@ void ConfigFile::read(bool reset_on_error)
         }
     } else {
         log_error("Invalid or missing 'recent_documents'");
-        goto CLEANUP;
     }
 
-    // app_size
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
         bool app_size_valid = true;
-        app_size.clear();
+        app_size_.clear();
         for (const auto &size : j["app_size"]) {
             if (size.is_number_integer()) {
-                app_size.push_back(size.get<int>());
+                app_size_.push_back(size.get<int>());
             } else {
                 app_size_valid = false;
                 break;
@@ -258,87 +248,70 @@ void ConfigFile::read(bool reset_on_error)
         }
         if (!app_size_valid) {
             log_error("Invalid entries in 'app_size'");
-            goto CLEANUP;
+            app_size_ = { 0, 0, 640, 480 };
         }
     } else {
         log_error("Invalid or missing 'app_size'");
-        goto CLEANUP;
     }
 
-    // toolbar_location
     if (j.contains("toolbar_location") && j["toolbar_location"].is_number_integer()) {
         int toolbar_int = j["toolbar_location"].get<int>();
         if (toolbar_int < 1 || toolbar_int > 4) {
             log_error("Invalid value for 'toolbar_location': " + std::to_string(toolbar_int));
-            goto CLEANUP;
         }
-        toolbar_location = (ToolbarLocation)toolbar_int;
+        toolbar_location_ = (ToolbarLocation)toolbar_int;
     } else {
         log_error("Invalid or missing 'toolbar_location'");
-        goto CLEANUP;
     }
 
-    // page_view_count
     if (j.contains("page_view_count") && j["page_view_count"].is_number_integer()) {
-        page_view_count = j["page_view_count"].get<int>();
+        page_view_count_ = j["page_view_count"].get<int>();
     } else {
         log_error("Invalid or missing 'page_view_count'");
-        goto CLEANUP;
     }
 
-    // open_tab
     if (j.contains("open_tab") && j["open_tab"].is_number_integer()) {
-        open_tab = j["open_tab"].get<int>();
+        open_tab_ = j["open_tab"].get<int>();
     } else {
         log_error("Invalid or missing 'open_tab'");
-        goto CLEANUP;
     }
 
-    // max_recent_documents
     if (j.contains("max_recent_documents") && j["max_recent_documents"].is_number_integer()) {
-        max_recent_documents = j["max_recent_documents"].get<int>();
+        max_recent_documents_ = j["max_recent_documents"].get<int>();
     } else {
         log_error("Invalid or missing 'max_recent_documents'");
-        goto CLEANUP;
     }
 
-    // dpi
-    dpi = 96; // Default value
     if (j.contains("dpi")) {
         if (j["dpi"].is_number_integer())
-            dpi = j["dpi"].get<int>();
+            dpi_ = j["dpi"].get<int>();
         else
             log_error("Invalid value for 'dpi', setting to 96");
     } else
         log_error("Missing 'dpi', setting to 96");
 
-    // allow_oversize
     if (j.contains("allow_oversize") && j["allow_oversize"].is_boolean()) {
-        allow_oversize = j["allow_oversize"].get<bool>();
+        allow_oversize_ = j["allow_oversize"].get<bool>();
     } else {
         log_error("Invalid or missing 'allow_oversize'");
-        goto CLEANUP;
     }
 
-    // theme
     if (j.contains("theme") && j["theme"].is_string()) {
         std::string theme_str = j["theme"].get<std::string>();
-        if (!string_to_theme(theme_str, theme)) {
+        if (!string_to_theme(theme_str, theme_)) {
             log_error("Invalid value for 'theme': " + theme_str);
-            goto CLEANUP;
         }
     } else {
         log_error("Invalid or missing 'theme'");
-        goto CLEANUP;
     }
 
     // fast_search_dialog_size
     if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() && j["fast_search_dialog_size"].size() == 4) {
         bool fs_size_valid = true;
-        fast_search_dialog_size.clear();
+        fast_search_dialog_size_.clear();
         for (const auto &size : j["fast_search_dialog_size"]) {
             if (size.is_number_integer()) {
-                fast_search_dialog_size.push_back(size.get<int>());
+                fast_search_dialog_size_.push_back(size.get<int>());
             } else {
                 fs_size_valid = false;
                 break;
@@ -346,39 +319,31 @@ void ConfigFile::read(bool reset_on_error)
         }
         if (!fs_size_valid) {
             log_error("Invalid entries in 'fast_search_dialog_size'");
-            goto CLEANUP;
+            fast_search_dialog_size_ = { 100, 100, 480, 320 };
         }
     } else {
         log_error("Invalid or missing 'fast_search_dialog_size'");
-        goto CLEANUP;
     }
 
-    // border_margin
     if (j.contains("border_margin") && j["border_margin"].is_number_integer()) {
-        border_margin = j["border_margin"].get<int>();
+        border_margin_ = j["border_margin"].get<int>();
     } else {
         log_error("Invalid or missing 'border_margin'");
-        goto CLEANUP;
     }
 
-    // music_directory
     if (j.contains("music_directory") && j["music_directory"].is_string()) {
-        music_directory = std::filesystem::path(j["music_directory"].get<std::string>());
+        music_directory_ = std::filesystem::path(j["music_directory"].get<std::string>());
     } else {
         log_error("Invalid or missing 'music_directory'");
-        goto CLEANUP;
     }
 
-    // log_level
     if (j.contains("log_level") && j["log_level"].is_string()) {
         std::string log_level_str = j["log_level"].get<std::string>();
-        if (!string_to_log_level(log_level_str, log_level)) {
+        if (!string_to_log_level(log_level_str, log_level_)) {
             log_error("Invalid value for 'log_level': " + log_level_str);
-            goto CLEANUP;
         }
     } else {
         log_error("Invalid or missing 'log_level'");
-        goto CLEANUP;
     }
 
     // If all parsing succeeded
@@ -394,13 +359,13 @@ CLEANUP:
 json ConfigFile::to_json() const
 {
     json j;
-    j["file_version"] = file_version;
-    j["restore_window_position"] = restore_window_position;
-    j["restore_documents"] = restore_documents;
-    j["zoom_to_content"] = zoom_to_content;
+    j["file_version"] = file_version_;
+    j["restore_window_position"] = restore_window_position_;
+    j["restore_documents"] = restore_documents_;
+    j["zoom_to_content"] = zoom_to_content_;
 
     j["open_documents"] = json::array();
-    for (const auto &doc : open_documents) {
+    for (const auto &doc : open_documents_) {
         json doc_json;
         doc_json["filename"] = doc.filename.string();
         doc_json["page"] = doc.page;
@@ -409,22 +374,22 @@ json ConfigFile::to_json() const
     }
 
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents) {
+    for (const auto &path : recent_documents_) {
         j["recent_documents"].push_back(path.string());
     }
 
-    j["app_size"] = app_size;
-    j["toolbar_location"] = static_cast<int>(toolbar_location);
-    j["page_view_count"] = page_view_count;
-    j["open_tab"] = open_tab;
-    j["max_recent_documents"] = max_recent_documents;
-    j["dpi"] = dpi;
-    j["allow_oversize"] = allow_oversize;
-    j["theme"] = theme_to_string(theme);
-    j["fast_search_dialog_size"] = fast_search_dialog_size;
-    j["border_margin"] = border_margin;
-    j["music_directory"] = music_directory.string();
-    j["log_level"] = log_level_to_string(log_level);
+    j["app_size"] = app_size_;
+    j["toolbar_location"] = static_cast<int>(toolbar_location_);
+    j["page_view_count"] = page_view_count_;
+    j["open_tab"] = open_tab_;
+    j["max_recent_documents"] = max_recent_documents_;
+    j["dpi"] = dpi_;
+    j["allow_oversize"] = allow_oversize_;
+    j["theme"] = theme_to_string(theme_);
+    j["fast_search_dialog_size"] = fast_search_dialog_size_;
+    j["border_margin"] = border_margin_;
+    j["music_directory"] = music_directory_.string();
+    j["log_level"] = log_level_to_string(log_level_);
     return j;
 }
 
@@ -455,37 +420,37 @@ void ConfigFile::save() const
 bool ConfigFile::validate() const
 {
     // Validate file_version
-    if (file_version <= 0) return false;
+    if (file_version_ <= 0) return false;
 
     // Validate page_view_count
-    if (page_view_count != 1 && page_view_count != 2) return false;
+    if (page_view_count_ != 1 && page_view_count_ != 2) return false;
 
     // Validate open_tab
-    if (open_tab < -1) return false;
+    if (open_tab_ < -1) return false;
 
     // Validate max_recent_documents
-    if (max_recent_documents < 0) return false;
+    if (max_recent_documents_ < 0) return false;
 
     // Validate dpi
-    if (dpi < 1) return false;
+    if (dpi_ < 1) return false;
 
     // Validate theme
-    if (!(theme == Theme::Dark || theme == Theme::Light)) return false;
+    if (!(theme_ == Theme::Dark || theme_ == Theme::Light)) return false;
 
     // Validate log_level
-    if (!(log_level == LogLevel::Normal || log_level == LogLevel::Diagnostic)) return false;
+    if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic)) return false;
 
     // Validate toolbar_location
-    if (!(toolbar_location == ToolbarLocation::Top ||
-          toolbar_location == ToolbarLocation::Bottom ||
-          toolbar_location == ToolbarLocation::Left ||
-          toolbar_location == ToolbarLocation::Right)) return false;
+    if (!(toolbar_location_ == ToolbarLocation::Top ||
+          toolbar_location_ == ToolbarLocation::Bottom ||
+          toolbar_location_ == ToolbarLocation::Left ||
+          toolbar_location_ == ToolbarLocation::Right)) return false;
 
     // Validate app_size
-    if (!valid_window_rect(app_size)) return false;
+    if (!valid_window_rect(app_size_)) return false;
 
     // Validate fast_search_dialog_size
-    if (!valid_window_rect(fast_search_dialog_size)) return false;
+    if (!valid_window_rect(fast_search_dialog_size_)) return false;
 
     return true;
 }
@@ -507,19 +472,19 @@ bool ConfigFile::fix()
 void ConfigFile::add_recent_document(const std::filesystem::path &path)
 {
     // Remove if already exists
-    recent_documents.erase(std::remove(recent_documents.begin(), recent_documents.end(), path), recent_documents.end());
+    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path), recent_documents_.end());
     // Add to the end
-    recent_documents.push_back(path);
+    recent_documents_.push_back(path);
     // Trim to max_recent_documents
-    if (recent_documents.size() > static_cast<size_t>(max_recent_documents)) {
-        recent_documents.erase(recent_documents.begin(), recent_documents.begin() + (recent_documents.size() - max_recent_documents));
+    if (recent_documents_.size() > static_cast<size_t>(max_recent_documents_)) {
+        recent_documents_.erase(recent_documents_.begin(), recent_documents_.begin() + (recent_documents_.size() - max_recent_documents_));
     }
     save();
 }
 
 void ConfigFile::remove_recent_document(const std::filesystem::path &path)
 {
-    recent_documents.erase(std::remove(recent_documents.begin(), recent_documents.end(), path), recent_documents.end());
+    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path), recent_documents_.end());
     save();
 }
 
@@ -533,37 +498,37 @@ void ConfigFile::remove_recent_documents(const std::vector<std::filesystem::path
 // Utility methods
 void ConfigFile::set_defaults()
 {
-    file_version = 1;
-    restore_window_position = true;
-    restore_documents = true;
-    zoom_to_content = true;
-    open_documents.clear();
-    recent_documents.clear();
-    app_size = { 1024, 53, 2416, 1412 };
-    toolbar_location = ToolbarLocation::Left;
-    page_view_count = 2;
-    open_tab = 0;
-    max_recent_documents = 20;
-    dpi = 111;
-    allow_oversize = false;
-    theme = Theme::Dark;
-    fast_search_dialog_size = { 1489, 349, 951, 930 };
-    border_margin = 10;
-    music_directory = "C:\\smusic";
-    log_level = LogLevel::Normal;
+    file_version_ = 1;
+    restore_window_position_ = true;
+    restore_documents_ = true;
+    zoom_to_content_ = true;
+    open_documents_.clear();
+    recent_documents_.clear();
+    app_size_ = { 10, 10, 640, 480 };
+    toolbar_location_= ToolbarLocation::Left;
+    page_view_count_ = 2;
+    open_tab_ = 0;
+    max_recent_documents_ = 20;
+    dpi_ = 111;
+    allow_oversize_ = false;
+    theme_ = Theme::Dark;
+    fast_search_dialog_size_ = { 100, 100, 480, 320 };
+    border_margin_ = 10;
+    music_directory_ = ".";
+    log_level_ = LogLevel::Normal;
 }
 
 std::string ConfigFile::repr() const
 {
     json j;
-    j["file_version"] = file_version;
-    j["restore_window_position"] = restore_window_position;
-    j["restore_documents"] = restore_documents;
-    j["zoom_to_content"] = zoom_to_content;
+    j["file_version"] = file_version_;
+    j["restore_window_position"] = restore_window_position_;
+    j["restore_documents"] = restore_documents_;
+    j["zoom_to_content"] = zoom_to_content_;
 
     // Serialize open_documents
     j["open_documents"] = json::array();
-    for (const auto &doc : open_documents) {
+    for (const auto &doc : open_documents_) {
         json doc_json;
         doc_json["filename"] = doc.filename.string();
         doc_json["page"] = doc.page;
@@ -573,35 +538,35 @@ std::string ConfigFile::repr() const
 
     // Serialize recent_documents
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents) {
+    for (const auto &path : recent_documents_) {
         j["recent_documents"].push_back(path.string());
     }
 
-    j["app_size"] = app_size;
-    j["toolbar_location"] = (int)(toolbar_location);
-    j["page_view_count"] = page_view_count;
-    j["open_tab"] = open_tab;
-    j["max_recent_documents"] = max_recent_documents;
-    j["dpi"] = dpi;
-    j["allow_oversize"] = allow_oversize;
-    j["theme"] = theme_to_string(theme);
-    j["fast_search_dialog_size"] = fast_search_dialog_size;
-    j["border_margin"] = border_margin;
-    j["music_directory"] = music_directory.string();
-    j["log_level"] = log_level_to_string(log_level);
+    j["app_size"] = app_size_;
+    j["toolbar_location"] = (int)(toolbar_location_);
+    j["page_view_count"] = page_view_count_;
+    j["open_tab"] = open_tab_;
+    j["max_recent_documents"] = max_recent_documents_;
+    j["dpi"] = dpi_;
+    j["allow_oversize"] = allow_oversize_;
+    j["theme"] = theme_to_string(theme_);
+    j["fast_search_dialog_size"] = fast_search_dialog_size_;
+    j["border_margin"] = border_margin_;
+    j["music_directory"] = music_directory_.string();
+    j["log_level"] = log_level_to_string(log_level_);
 
     return j.dump(4); // Pretty print with 4 spaces indentation
 }
 
 void ConfigFile::filenames_to_os_convention()
 {
-    for (auto &doc : open_documents) {
+    for (auto &doc : open_documents_) {
         doc.filename = path_to_os_convention(doc.filename);
     }
-    for (auto &path : recent_documents) {
+    for (auto &path : recent_documents_) {
         path = path_to_os_convention(path);
     }
-    music_directory = path_to_os_convention(music_directory);
+    music_directory_ = path_to_os_convention(music_directory_);
 }
 
 // Helper functions for validation
@@ -618,17 +583,18 @@ bool ConfigFile::valid_window_rect(const std::vector<int> &vec) const
 void ConfigFile::remove_duplicate_documents()
 {
     // Remove duplicates in open_documents
-    open_documents.erase(std::unique(open_documents.begin(), open_documents.end(),
+    open_documents_.erase(std::unique(open_documents_.begin(), open_documents_.end(),
                                      [&](const OpenDocument &a, const OpenDocument &b) -> bool {
         return point_to_same_file(a.filename, b.filename);
-    }), open_documents.end());
+    }), open_documents_.end());
 
     // Remove duplicates in recent_documents
-    recent_documents.erase(std::unique(recent_documents.begin(), recent_documents.end(),
+    recent_documents_.erase(std::unique(recent_documents_.begin(), recent_documents_.end(),
                                        [&](const std::filesystem::path &a, const std::filesystem::path &b) -> bool {
         return point_to_same_file(a, b);
-    }), recent_documents.end());
+    }), recent_documents_.end());
 }
+
 
 std::vector<std::filesystem::path> ConfigFile::remove_duplicates(const std::vector<std::filesystem::path> &docs) const
 {
@@ -653,7 +619,7 @@ bool ConfigFile::remove_missing_documents()
 
     // Check open_documents
     std::vector<OpenDocument> valid_open_docs;
-    for (const auto &doc : open_documents) {
+    for (const auto &doc : open_documents_) {
         if (std::filesystem::exists(doc.filename)) {
             valid_open_docs.push_back(doc);
         } else {
@@ -661,11 +627,11 @@ bool ConfigFile::remove_missing_documents()
             all_exist = false;
         }
     }
-    open_documents = valid_open_docs;
+    open_documents_ = valid_open_docs;
 
     // Check recent_documents
     std::vector<std::filesystem::path> valid_recent_docs;
-    for (const auto &path : recent_documents) {
+    for (const auto &path : recent_documents_) {
         if (std::filesystem::exists(path)) {
             valid_recent_docs.push_back(path);
         } else {
@@ -673,7 +639,7 @@ bool ConfigFile::remove_missing_documents()
             all_exist = false;
         }
     }
-    recent_documents = valid_recent_docs;
+    recent_documents_ = valid_recent_docs;
 
     return all_exist;
 }
@@ -681,9 +647,9 @@ bool ConfigFile::remove_missing_documents()
 void ConfigFile::remove_recent_in_open_documents()
 {
     std::vector<std::filesystem::path> filtered_recent;
-    for (const auto &recent : recent_documents) {
+    for (const auto &recent : recent_documents_) {
         bool is_open = false;
-        for (const auto &open_doc : open_documents) {
+        for (const auto &open_doc : open_documents_) {
             if (point_to_same_file(recent, open_doc.filename)) {
                 is_open = true;
                 break;
@@ -693,5 +659,5 @@ void ConfigFile::remove_recent_in_open_documents()
             filtered_recent.push_back(recent);
         }
     }
-    recent_documents = filtered_recent;
+    recent_documents_ = filtered_recent;
 }

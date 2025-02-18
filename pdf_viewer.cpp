@@ -46,7 +46,7 @@ int PDFViewer::current_page() const
 
 bool PDFViewer::single_page_view() const
 {
-    return config_->page_view_count == 1;
+    return config_->page_view_count() == 1;
 }
 
 void PDFViewer::replace_document(Document *document, int page)
@@ -200,8 +200,8 @@ Page PDFViewer::get_single_page(int page_num)
 
 Page PDFViewer::get_double_page(int page_num)
 {
-    bool zoom_to_content = config_->zoom_to_content;
-    int margin = config_->border_margin;
+    bool zoom_to_content = config_->zoom_to_content();
+    int margin = config_->border_margin();
 
     Page p1 = document_->get_page(page_num);
     Page p2 = document_->get_page(page_num + 1);
@@ -263,13 +263,13 @@ void PDFViewer::_update_image(const QString &message)
 
     label_->setStyleSheet("");
 
-    QSize max_size = config_->allow_oversize ? label_->size() : page_.img.size().boundedTo(label_->size());
+    QSize max_size = config_->allow_oversize() ? label_->size() : page_.img.size().boundedTo(label_->size());
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
 
     // so, funky logic. We try to minimize copying pixmaps. So, if a single page
     // and zoomed in we use scaling to efficiently zoom it in w/o copys.
     // but if a double page the cropping is already handled in get_double_page
-    if (!page_.double_page && config_->zoom_to_content) {
+    if (!page_.double_page && config_->zoom_to_content()) {
         label_->setPixmap(page_.resize_by_border());
 
     } else {

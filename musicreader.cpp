@@ -79,7 +79,7 @@ void MusicReader::setup_UI()
 
     restore_window_state();
 
-    if (config_.restore_documents)
+    if (config_.restore_documents())
         restore_open_documents();
 
     // hides background image if there are open documents
@@ -102,8 +102,10 @@ void MusicReader::save_window_state_to_config()
 {
     SAFE_METHOD;
 
+    ConfigFileGroupSave group_saver(config_);
+
     // Save the currently open tab index
-    config_.open_tab = tab_widget_->currentIndex();
+    config_.set_open_tab(tab_widget_->currentIndex());
 
     // Ensure position values are non-negative to prevent config errors
     int x = std::max(0, pos().x());
@@ -111,10 +113,10 @@ void MusicReader::save_window_state_to_config()
     int width = size().width();
     int height = size().height();
 
-    config_.app_size = { x, y, width, height };
+    config_.set_app_size({ x, y, width, height });
 
     // Save the toolbar location (Qt enum values match ToolbarLocation)
-    config_.toolbar_location = static_cast<ToolbarLocation>(toolBarArea(toolbar_));
+    config_.set_toolbar_location(static_cast<ToolbarLocation>(toolBarArea(toolbar_)));
 }
 
 void MusicReader::check_for_errors_on_exit()
@@ -266,14 +268,14 @@ void MusicReader::create_menus()
 
     action = new QAction("&Light Theme", this);
     action->setCheckable(true);
-    action->setChecked(config_.theme == Theme::Light);
+    action->setChecked(config_.theme() == Theme::Light);
     connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
     light_theme_menu_item_ = action;
     view_menu->addAction(action);
 
     action = new QAction("&Dark Theme", this);
     action->setCheckable(true);
-    action->setChecked(config_.theme == Theme::Dark);
+    action->setChecked(config_.theme() == Theme::Dark);
     connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
     dark_theme_menu_item_ = action;
     view_menu->addAction(action);
@@ -302,7 +304,7 @@ void MusicReader::add_bookmark()
 {
     SAFE_METHOD;
 
-    if (bookmark_panel_) 
+    if (bookmark_panel_)
         bookmark_panel_->add_bookmark();
 }
 
@@ -313,7 +315,7 @@ void MusicReader::create_toolbar()
 
     toolbar_ = new QToolBar("Toolbar");
     Qt::ToolBarArea area;
-    switch (config_.toolbar_location) {
+    switch (config_.toolbar_location()) {
     case ToolbarLocation::Top: area = Qt::TopToolBarArea; break;
     case ToolbarLocation::Bottom: area = Qt::BottomToolBarArea; break;
     case ToolbarLocation::Left: area = Qt::LeftToolBarArea; break;
@@ -349,7 +351,7 @@ void MusicReader::create_toolbar()
     zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.svg"));
     zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.svg"));
 
-    action = new QAction(config_.zoom_to_content ? zoomout_icon_ : zoomin_icon_, "", this);
+    action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
     action->setToolTip("Toggle zoom to content");
     toolbar_->addAction(action);
@@ -381,34 +383,36 @@ void MusicReader::create_toolbar()
 
 void MusicReader::on_toggle_view_mode()
 {
+    ConfigFileGroupSave group_saver(config_);
+
     // Toggle between single and double page view mode
-    config_.page_view_count = (config_.page_view_count == 1) ? 2 : 1;
+    config_.set_page_view_count((config_.page_view_count() == 1) ? 2 : 1);
 
     // Update the icon
-    view_toggle_action_->setIcon(config_.page_view_count == 1 ? single_icon_ : double_icon_);
+    view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
 
     // Emit signal to notify viewers
-    emit view_mode_signal_(config_.page_view_count);
+    emit view_mode_signal_(config_.page_view_count());
 }
 
 
 bool MusicReader::in_single_page_mode() const
 {
-    return config_.page_view_count == 1;
+    return config_.page_view_count() == 1;
 }
 
 void MusicReader::toggle_page_zoom()
 {
     // Toggle zoom setting and save config
-    config_.zoom_to_content = !config_.zoom_to_content;
+    config_.set_zoom_to_content(!config_.zoom_to_content());
     config_.save();
 
     // Update the icon
-    QIcon icon = config_.zoom_to_content ? zoomout_icon_ : zoomin_icon_;
+    QIcon icon = config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_;
     zoom_in_out_action_->setIcon(icon);
 
     // Emit signal to notify viewers
-    emit view_mode_signal_(config_.page_view_count);
+    emit view_mode_signal_(config_.page_view_count());
 }
 
 PDFViewer *MusicReader::current_tab() const
@@ -475,8 +479,7 @@ PDFViewer *MusicReader::viewer_tab(int index) const
 void MusicReader::save_config()
 {
     save_open_documents_to_config();
-    config_.save();
-    logger::enable_debug_logging(config_.log_level == LogLevel::Diagnostic);
+    logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
 }
 
 
@@ -496,7 +499,7 @@ void MusicReader::save_open_documents_to_config()
             });
         }
     }
-    config_.open_documents = std::move(open_documents);
+    config_.set_open_documents(open_documents);
 }
 
 
@@ -583,7 +586,7 @@ void MusicReader::create_bookmark_panel()
 {
     bookmark_panel_ = new BookmarkPanel(this);
     [[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
-    
+
     connect(bookmark_panel_, &BookmarkPanel::bookmark_visibility_changed, this, &MusicReader::update_menu_bookmark_visibility);
 }
 
@@ -675,7 +678,7 @@ void MusicReader::open_config_dialog()
         if (editor_dialog.result() == QDialog::Accepted) {
             config_.save();
             refresh_all_documents();
-            logger::enable_debug_logging(config_.log_level == LogLevel::Diagnostic);
+            logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
         }
     } catch (const std::exception &e) {
         logger::log_error("Failed to open settings dialog: " + std::string(e.what()));
@@ -684,9 +687,9 @@ void MusicReader::open_config_dialog()
 
 void MusicReader::restore_window_state()
 {
-    if (config_.restore_window_position) {
+    if (config_.restore_window_position()) {
         try {
-            const auto &app_size = config_.app_size;
+            const auto &app_size = config_.app_size();
             if (app_size.size() >= 4) {
                 move(app_size[0], app_size[1]);
                 resize(app_size[2], app_size[3]);
@@ -769,7 +772,7 @@ Document *MusicReader::open_pdf_document(const std::string &filename)
         return nullptr;
     }
 
-    return new Document(filename, config_.dpi);
+    return new Document(filename, config_.dpi());
 }
 
 
@@ -890,19 +893,16 @@ void MusicReader::open_fast_search_dialog()
     if (!fast_search_dialog_) {
         WaitCursor cursor;
 
-        QEventLoop loop;
-        connect(this, &MusicReader::fastSearchInitialized, &loop, &QEventLoop::quit);
-        loop.exec();  // Blocks here until signal is received
-    }
-    if (!fast_search_dialog_) {
-        logger::log_error("Failed to initialize fast search dialog");
-        return;
+        auto dsize = config_.fast_search_dialog_size();
+        QRect size(dsize[0], dsize[1], dsize[2], dsize[3]);
+
+        fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory().string(), size);
     }
 
     try {
-        fast_search_dialog_->show();
         tab_widget_->setEnabled(false);
-        fast_search_dialog_->exec();
+        fast_search_dialog_->show_dialog();
+        //fast_search_dialog_->exec();
     } catch (const std::exception &e) {
         logger::log_error("Failed to open fast search dialog: " + std::string(e.what()));
     }
@@ -913,8 +913,11 @@ void MusicReader::open_fast_search_dialog()
     QRect geometry = fast_search_dialog_->geometry();
     std::vector<int> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
 
-    config_.fast_search_dialog_size = size;
-    config_.music_directory = fast_search_dialog_->path();
+    {
+        ConfigFileGroupSave group_saver(config_);
+        config_.set_fast_search_dialog_size(size);
+        config_.set_music_directory(fast_search_dialog_->path());
+    }
 
     // Handle selected files
     auto [selected_files, filepath] = fast_search_dialog_->selected_files();
@@ -961,7 +964,7 @@ void MusicReader::reopen_all_documents()
 void MusicReader::restore_open_documents()
 {
     // make a copy, as we open tabs it modifies open_documents
-    const auto docs = config_.open_documents;
+    const auto docs = config_.open_documents();
     int num_docs = static_cast<int>(docs.size());
 
     if (num_docs == 0) {
@@ -969,23 +972,22 @@ void MusicReader::restore_open_documents()
         return;
     }
 
-    for (const auto &doc : docs)
-    {
+    for (const auto &doc : docs) {
         open_pdf_in_tab(doc.u8filename(), doc.page);
     }
 
     // Ensure the last open tab is focused
-    if (config_.open_tab > -1) {
-        if (config_.open_tab < tab_widget_->count())
-            focus_on_tab(config_.open_tab);
+    if (config_.open_tab() > -1) {
+        if (config_.open_tab() < tab_widget_->count())
+            focus_on_tab(config_.open_tab());
         else
-            config_.open_tab = -1;
+            config_.set_open_tab(-1);
     } else {
         focus_on_tab(0);
-        config_.open_tab = 0;
+        config_.set_open_tab(0);
     }
 
-    if (tab_widget_->count() > 0) 
+    if (tab_widget_->count() > 0)
         auto *first_viewer = viewer_tab(tab_widget_->currentIndex());
 
     bookmark_panel_->adjust_width();
@@ -995,25 +997,5 @@ void MusicReader::restore_open_documents()
 
 void MusicReader::initialize_fast_search()
 {
-    // Call initialize_watcher in the main thread
-    FastFileSearchDialog::initialize_watcher(config_.music_directory.string());
-
-    // Start a background thread for slow initialization
-    std::thread([this]() {
-        QRect size(config_.fast_search_dialog_size[0], config_.fast_search_dialog_size[1],
-                   config_.fast_search_dialog_size[2], config_.fast_search_dialog_size[3]);
-
-        // Request creation in the GUI thread
-        QMetaObject::invokeMethod(this, [this, size]() {
-            fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory.string(), size);
-            emit fastSearchInitialized();  // Emit signal when dialog is ready
-        }, Qt::QueuedConnection);
-
-    }).detach();
+    FastFileSearchDialog::initialize_data(config_.music_directory().string());
 }
-
-
-
-
-
-

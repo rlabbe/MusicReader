@@ -1,14 +1,51 @@
 #include "logger.h"
 
+
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <memory>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <iostream>
 
 namespace {
 std::shared_ptr<spdlog::logger> logger_;
+
+
+#include <string>
+#include <filesystem>
+#include <stdexcept>
+#include <cstdlib>
+
+std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
+{
+    // Determine the operating system
+    std::filesystem::path config_path;
+
+#if defined(_WIN32)
+    const char *appdata = std::getenv("APPDATA");
+    if (!appdata) throw std::runtime_error("APPDATA environment variable not set");
+    config_path = std::filesystem::path(appdata) / appname;
+#elif defined(__linux__)
+    const char *home = std::getenv("HOME");
+    if (!home) throw std::runtime_error("HOME environment variable not set");
+    config_path = std::filesystem::path(home) / ".config" / appname;
+#elif defined(__APPLE__)
+    const char *home = std::getenv("HOME");
+    if (!home) throw std::runtime_error("HOME environment variable not set");
+    config_path = std::filesystem::path(home) / "Library" / "Application Support" / appname;
+#else
+    throw std::runtime_error("Unsupported OS");
+#endif
+
+    // Ensure the directory exists
+    std::filesystem::create_directories(config_path);
+
+    // Return the full path to the config file
+    return (config_path / file_name).string();
+}
 
 void configure_logger(const std::string &filename, size_t max_size, bool log_to_console)
 {
@@ -30,13 +67,18 @@ void configure_logger(const std::string &filename, size_t max_size, bool log_to_
     logger_->flush_on(spdlog::level::err);
     spdlog::flush_every(std::chrono::seconds(10));
 }
+
+
+
 }
 
 namespace logger {
 
-void initialize(const std::string &filename, size_t max_size_kb, bool log_to_console)
+void initialize(size_t max_size_kb, bool log_to_console)
 {
-    configure_logger(filename, max_size_kb, log_to_console);
+    std::string log_file = get_persistent_config_path("MusicReader.log");
+    std::cout << "opening log file: " << log_file << std::endl;
+    configure_logger(log_file, max_size_kb, log_to_console);
 }
 
 void shutdown()

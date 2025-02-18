@@ -44,7 +44,6 @@ public:
 
     bool remove_bookmark(const BookmarkHandle &handle);
 
-
     // Creates bookmark; bool is for whether the save worked or not, not
     // whether the bookmark was added
     std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title,
