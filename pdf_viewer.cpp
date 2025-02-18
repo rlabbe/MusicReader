@@ -2,7 +2,7 @@
 #include <iostream>
 #include "border.h"
 #include "logger.h"
-
+#include "status_bar.h"
 
 PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar *sbar, QWidget *parent)
     : QWidget(parent)
@@ -32,6 +32,21 @@ PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar
     if (document_->page_count() > 0)
         get_page(page, true);
 }
+
+
+void PDFViewer::update_status_bar()
+{
+    if (!status_bar_) return;
+    if (!isVisible()) return;
+
+    if (page_.is_empty()) {
+        status_bar_->clear_page_count();
+        return;
+    }
+
+    status_bar_->set_page_count(current_page(), document_->page_count());
+}
+
 
 int PDFViewer::page_count() const
 {
@@ -251,6 +266,8 @@ Page PDFViewer::get_double_page(int page_num)
 
 void PDFViewer::_update_image(const QString &message)
 {
+    update_status_bar();
+
     if (page_.is_empty()) {
         label_->setText(message.isEmpty() ? "Loading..." : message);
         label_->setAlignment(Qt::AlignCenter);

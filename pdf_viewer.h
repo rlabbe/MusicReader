@@ -39,6 +39,7 @@ public:
     Document *document() const { return document_; }
 
 protected:
+
     void keyPressEvent(QKeyEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     bool event(QEvent *event) override;
