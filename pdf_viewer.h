@@ -49,7 +49,6 @@ private:
     Page get_single_page(int page_num);
     Page get_double_page(int page_num);
     void adjust_initial_subwindow_size();
-    void adjust_subwindow_size();
     void update_scrollbar_visibility();
     void on_scrollbar_value_changed(int new_page);
     void _update_image(const QString &message = QString());

@@ -95,7 +95,7 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Left:
         change_page(-1);
         event->accept();
-        
+
         break;
     case Qt::Key_Right:
         change_page(1);
@@ -152,7 +152,7 @@ void PDFViewer::init_ui(int page)
     label_->setAlignment(Qt::AlignCenter);
 
     layout_->addWidget(label_, 1);  // Stretch document display
-    layout_->addWidget(scrollbar_); 
+    layout_->addWidget(scrollbar_);
 
     setLayout(layout_);
     update_scrollbar_visibility();
@@ -182,9 +182,7 @@ void PDFViewer::get_page(int page_num, bool first_call)
     }
 
     _update_image();
-    if (!first_call) {
-        adjust_subwindow_size();
-    } else {
+    if (first_call) {
         adjust_initial_subwindow_size();
     }
 }
@@ -263,20 +261,20 @@ void PDFViewer::_update_image(const QString &message)
 
     label_->setStyleSheet("");
 
-    QSize max_size = config_->allow_oversize() ? label_->size() : page_.img.size().boundedTo(label_->size());
-    label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
-
-    // so, funky logic. We try to minimize copying pixmaps. So, if a single page
-    // and zoomed in we use scaling to efficiently zoom it in w/o copys.
-    // but if a double page the cropping is already handled in get_double_page
-    if (!page_.double_page && config_->zoom_to_content()) {
-        label_->setPixmap(page_.resize_by_border());
-
+    QSize max_size;
+    
+    if (config_->allow_oversize()) {
+        max_size = label_->size();
+        std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
     } else {
-        label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-        label_->setScaledContents(false);
-        label_->setContentsMargins(0, 0, 0, 0);
+        max_size = page_.img.size().boundedTo(label_->size());
+        std::cout << "max_size image: " << max_size.width() << " " << max_size.height() << std::endl;
     }
+
+    label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+    label_->setScaledContents(false);
+    label_->setContentsMargins(0, 0, 0, 0);
+    label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void PDFViewer::adjust_initial_subwindow_size()
@@ -292,9 +290,9 @@ void PDFViewer::adjust_initial_subwindow_size()
 
 void PDFViewer::adjust_subwindow_size()
 {
-    if (page_.is_empty()) return;
+    /*if (page_.is_empty()) return;
 
     QSize max_size = parentWidget()->size();
     QSize new_size = QSize(std::min(page_.width(), max_size.width()), std::min(page_.height(), max_size.height()));
-    resize(new_size);
+    resize(new_size);*/
 }
