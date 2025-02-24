@@ -1,4 +1,15 @@
 
+building mupdf:
+
+git clone --depth 1 --branch 1.25.4 https://github.com/ArtifexSoftware/mupdf.git
+cd mupdf
+git submodule init
+git submodule update
+
+
+
+
+
 https://www.youtube.com/watch?v=dfXZ7KE0GeE
 
 
@@ -6,7 +17,7 @@ QT maintance tool:
     ensure cmake and ninja are installed (), add to path
     ensure sources are installed
 
-
+     
 
 
 cd M:\Qt6.8\6.8.2\Src

@@ -1,4 +1,5 @@
 mupdf/
+mupdf_/
 qpdf/
 qpdf_wrapper/
 *.pdf

@@ -80,16 +80,16 @@ FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &d
         files_.clear(); // Trigger a refresh of the files
     }
 
-    if (!file_ending_.isEmpty()) 
+    if (!file_ending_.isEmpty())
         file_ending_ = file_ending_.toLower();
-    
+
     selected_items_.clear();
     open_path_.clear(); // Used to browse to a directory
 
     init_ui(size);
 
 
-    if (files_.empty()) 
+    if (files_.empty())
         update_files();
 
     display_files(files_);
@@ -180,21 +180,20 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 
 void FastFileSearchDialog::initialize_data(const std::string &directory)
 {
+    // this must be called before the class is created. It sets up the directory 
+    // watcher to monitor the directory for changes, and reads the files in the
+    // directory, if any.
+    if (watcher_) {
+        logger::log_error("FastFileSearchDialog::initialize_data called more than once");
+        return;
+    }
 
-        // this must be called before the class is created. It sets up the directory 
-        // watcher to monitor the directory for changes, and reads the files in the
-        // directory, if any.
-        if (watcher_) {
-            logger::log_error("FastFileSearchDialog::initialize_data called more than once");
-            return;
-        }
+    path_ = QString::fromStdString(directory);
+    watcher_ = new DirectoryWatcher(file_ending_);
+    connect(watcher_, &DirectoryWatcher::file_changed, &FastFileSearchDialog::class_file_changed);
 
-        path_ = QString::fromStdString(directory);
-        watcher_ = new DirectoryWatcher(file_ending_);
-        connect(watcher_, &DirectoryWatcher::file_changed, &FastFileSearchDialog::class_file_changed);
-
-        if (!directory.empty()) 
-            watcher_->start(path_);
+    if (!directory.empty())
+        watcher_->start(path_);
 
     std::thread([] {
         auto files = find_files(FastFileSearchDialog::path_, FastFileSearchDialog::file_ending_);
@@ -210,8 +209,11 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
 
 void FastFileSearchDialog::show_dialog()
 {
-    show();
     file_table_->clearSelection();
+    search_field_->clear();
+    search_field_->setFocus();
+
+    show();
     exec();
 }
 
