@@ -671,6 +671,15 @@ void MusicReader::update_title(int index)
 }
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
+    if (event->key() == Qt::Key_F11) {
+        if (isFullScreen())
+            showNormal();
+        else
+            showFullScreen();
+        event->accept();
+        return;
+    }
+
     auto tab = current_viewer();
     if (!tab) {
         QMainWindow::keyPressEvent(event);
