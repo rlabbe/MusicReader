@@ -23,7 +23,7 @@ public:
     MusicReader(QWidget *parent = nullptr);
 
     Document *current_document(const std::string &log_msg = "") const;
-    std::pair<int, bool> current_page(const std::string &log_msg="") const;
+    std::pair<int, bool> current_page(const std::string &log_msg = "") const;
 
 
     void on_page_down();
@@ -58,13 +58,13 @@ private:
     bool logged_error() { return false; } //TODO
     void show_log_content();
 
-    void open_file_dialog(const std::string &pathname="");
+    void open_file_dialog(const std::string &pathname = "");
     void open_fast_search_dialog();
     void open_config_dialog();
     void update_recent_files_list() {/*TODO*/ }
     void update_dpi_setting(bool recompute) {/*TODO*/ }
     void toggle_draw_margin() {/*TODO*/ }
-    void toggle_bookmark_panel() {/*TODO*/ }
+    void toggle_bookmark_panel();
     void toggle_toolbar_visibility() {/*TODO*/ }
     void toggle_statusbar_visibility() {/*TODO*/ }
     void set_light_theme() {/*TODO*/ }
@@ -91,7 +91,7 @@ public:
     Document *document_at(int index) const;
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
-    PDFViewer *open_pdf_in_tab(const std::string &filename, int page=1);
+    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1);
     Document *open_pdf_document(const std::string &filename);
 
 private:
@@ -102,7 +102,7 @@ private:
     void toggle_page_zoom();
 
     void on_close_tab(int index);
-    void update_title(int index=0);
+    void update_title(int index = 0);
 
     QIcon create_double_icon();
     void on_toggle_view_mode();
@@ -141,7 +141,7 @@ private:
     QIcon double_icon_;
     QIcon zoomin_icon_;
     QIcon zoomout_icon_;
-    QTimer* timer_;
+    QTimer *timer_;
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;
@@ -150,6 +150,6 @@ private:
     // used to wait until the fast search dialog is ready
     std::mutex fast_search_mutex_;
     std::condition_variable fast_search_cv_;
-    signals:
-        void fastSearchInitialized();
+signals:
+    void fastSearchInitialized();
 };

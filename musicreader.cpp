@@ -2,7 +2,7 @@
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
 #pragma warning(pop)
-#define NOMINMAX 
+#define NOMINMAX
 #include <windows.h>
 #include <psapi.h>
 #include <iostream>
@@ -36,8 +36,8 @@ MusicReader::MusicReader(QWidget *parent)
 void MusicReader::setup_UI()
 {
     // this will search the directories and create the fast search dialog
-    // asynchronously, because it can take many seconds to populate all the 
-    // files. Users of 
+    // asynchronously, because it can take many seconds to populate all the
+    // files. Users of
     initialize_fast_search();
 
     this->resize(600, 400);
@@ -298,6 +298,13 @@ void MusicReader::create_menus()
     shortcut = new QShortcut(QKeySequence("PageUp"), this);
     shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
+
+    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
+
+    //new QShortcut(QKeySequence("Ctrl+B"), this, &MusicReader::toggle_bookmark_panel);
+
 }
 
 void MusicReader::add_bookmark()
@@ -569,7 +576,7 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 {
     // TODO may not be correct. not sure there is some weird logic in the python
     // to detect the type of the object, may just have been do to earlier code that
-    // no longer exists. 
+    // no longer exists.
     try {
         PDFViewer *tab = current_tab();
         if (tab) return tab;
@@ -998,4 +1005,14 @@ void MusicReader::restore_open_documents()
 void MusicReader::initialize_fast_search()
 {
     FastFileSearchDialog::initialize_data(config_.music_directory().string());
+}
+
+
+void MusicReader::toggle_bookmark_panel()
+{
+    if (bookmark_panel_) {
+        bool visible = !bookmark_panel_->isVisible();
+        bookmark_panel_->setVisible(visible);
+        bookmark_menu_action_->setChecked(visible);
+    }
 }
