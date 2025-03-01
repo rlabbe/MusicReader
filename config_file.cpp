@@ -199,6 +199,12 @@ void ConfigFile::read(bool reset_on_error)
         log_error("Invalid or missing 'zoom_to_content'");
     }
 
+    if (j.contains("show_status_bar_") && j["show_status_bar_"].is_boolean()) {
+        show_status_bar_ = j["show_status_bar_"].get<bool>();
+    } else {
+        log_error("Invalid or missing 'show_status_bar_'");
+    }
+
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         for (const auto &doc : j["open_documents"]) {
@@ -363,6 +369,7 @@ json ConfigFile::to_json() const
     j["restore_window_position"] = restore_window_position_;
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
+    j["show_status_bar_"] = show_status_bar_;
 
     j["open_documents"] = json::array();
     for (const auto &doc : open_documents_) {
@@ -502,6 +509,7 @@ void ConfigFile::set_defaults()
     restore_window_position_ = true;
     restore_documents_ = true;
     zoom_to_content_ = true;
+    show_status_bar_ = true;
     open_documents_.clear();
     recent_documents_.clear();
     app_size_ = { 10, 10, 640, 480 };
@@ -525,6 +533,7 @@ std::string ConfigFile::repr() const
     j["restore_window_position"] = restore_window_position_;
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
+    j["show_status_bar_"] = show_status_bar_;
 
     // Serialize open_documents
     j["open_documents"] = json::array();

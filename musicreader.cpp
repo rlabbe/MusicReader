@@ -253,18 +253,18 @@ void MusicReader::create_menus()
     connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
     view_menu->addAction(bookmark_menu_action_);
 
-    action = new QAction("&Toolbar", this);
+    action = new QAction("&Tool Bar", this);
     action->setShortcut(shortcuts_["toolbar"]);
     action->setCheckable(true);
     action->setChecked(true);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
     view_menu->addAction(action);
 
-    action = new QAction("&Statusbar", this);
-    action->setCheckable(true);
-    action->setChecked(true);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
-    view_menu->addAction(action);
+    statusbar_menu_action_ = new QAction("&Status Bar", this);
+    statusbar_menu_action_->setCheckable(true);
+    statusbar_menu_action_->setChecked(config_.show_status_bar());
+    connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
+    view_menu->addAction(statusbar_menu_action_);
 
     action = new QAction("&Light Theme", this);
     action->setCheckable(true);
@@ -821,13 +821,11 @@ bool MusicReader::display_query(const std::string &msg)
 }
 
 
-
-
-
 void MusicReader::create_status_bar()
 {
     status_bar_ = new StatusBar();
     setStatusBar(status_bar_);
+    status_bar_->setVisible(config_.show_status_bar());
 
     // Connect dropdown selection to page change
     connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -840,6 +838,7 @@ void MusicReader::create_status_bar()
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, &MusicReader::update_memory_usage);
     timer_->start(5000);
+
 }
 
 void MusicReader::update_memory_usage()
@@ -1014,5 +1013,16 @@ void MusicReader::toggle_bookmark_panel()
         bool visible = !bookmark_panel_->isVisible();
         bookmark_panel_->setVisible(visible);
         bookmark_menu_action_->setChecked(visible);
+    }
+}
+
+void MusicReader::toggle_statusbar_visibility()
+{
+    if (status_bar_) {
+        bool visible = !config_.show_status_bar();
+        config_.set_show_status_bar(visible);
+
+        status_bar_->setVisible(visible);
+        statusbar_menu_action_->setChecked(visible);
     }
 }

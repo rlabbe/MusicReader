@@ -54,6 +54,7 @@ private:
     bool restore_window_position_ = true;
     bool restore_documents_ = true;
     bool zoom_to_content_ = false;
+    bool show_status_bar_ = true;
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
     std::vector<int> app_size_ {10, 10, 640, 480};
@@ -86,6 +87,9 @@ public:
 
     bool zoom_to_content() const { return zoom_to_content_; }
     void set_zoom_to_content(bool value) { zoom_to_content_ = value; save(); }
+
+    bool show_status_bar() const { return show_status_bar_; }
+    void set_show_status_bar(bool value) { show_status_bar_ = value; save(); }
 
     const std::vector<OpenDocument> &open_documents() const { return open_documents_; }
     void set_open_documents(const std::vector<OpenDocument> &value) { open_documents_ = value; save(); }

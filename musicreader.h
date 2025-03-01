@@ -66,7 +66,7 @@ private:
     void toggle_draw_margin() {/*TODO*/ }
     void toggle_bookmark_panel();
     void toggle_toolbar_visibility() {/*TODO*/ }
-    void toggle_statusbar_visibility() {/*TODO*/ }
+    void toggle_statusbar_visibility();
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
     void update_undo_redo_state() {/*TODO*/ }
@@ -137,6 +137,7 @@ private:
     QAction *view_toggle_action_;
     QAction *zoom_in_out_action_;
     QAction *margin_action_;
+    QAction *statusbar_menu_action_;
     QIcon single_icon_;
     QIcon double_icon_;
     QIcon zoomin_icon_;
