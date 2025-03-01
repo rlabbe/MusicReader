@@ -260,7 +260,9 @@ bool add_bookmarks_to_pdf(const std::string &filename,
         return false;
     }*/
 
+    /*not working
     copy_pdf_with_bookmarks(filename, filename, bookmarks);
+    */
 
     /*    try {
             fs::remove(temp_filename);
