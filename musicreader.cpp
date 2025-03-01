@@ -54,7 +54,6 @@ void MusicReader::setup_UI()
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_bookmark_panel);
 
-
     splitter_->addWidget(tab_widget_);
     splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
     splitter_->setStretchFactor(1, 1);  // Document view gets priority
@@ -67,7 +66,6 @@ void MusicReader::setup_UI()
 
     // Set initial splitter sizes: Bookmark panel gets calculated width, rest goes to document view
     splitter_->setSizes({ content_width, width() - content_width });
-
 
     setCentralWidget(splitter_);
 
@@ -193,26 +191,169 @@ void MusicReader::show_log_content()
 
 void MusicReader::create_menus()
 {
-    QMenuBar *menu_bar = menuBar();
+    // Can't change dynamically, so remember setting at startup.
+    has_full_menu_bar_ = config_.show_menu();
 
-    // File menu
-    QMenu *file_menu = menu_bar->addMenu("&File");
+    if (has_full_menu_bar_) {
+        QMenuBar *menu_bar = menuBar();
 
-    QAction *action = new QAction("&Open...", this);
-    action->setShortcut(shortcuts_["open_file"]);
-    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+        // File menu
+        QMenu *file_menu = menu_bar->addMenu("&File");
 
-    file_menu->addAction(action);
+        QAction *action = new QAction("&Open...", this);
+        action->setShortcut(shortcuts_["open_file"]);
+        connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
-    action = new QAction("&Fast Search...", this);
-    action->setShortcut(shortcuts_["fast_search"]);
-    connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
-    file_menu->addAction(action);
+        file_menu->addAction(action);
 
-    action = new QAction("&Settings...", this);
-    action->setShortcut(shortcuts_["settings"]);
-    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
-    file_menu->addAction(action);
+        action = new QAction("&Fast Search...", this);
+        action->setShortcut(shortcuts_["fast_search"]);
+        connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
+        file_menu->addAction(action);
+
+        action = new QAction("&Settings...", this);
+        action->setShortcut(shortcuts_["settings"]);
+        connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+        file_menu->addAction(action);
+
+        open_recent_menu_ = new QMenu("Open &Recent", this);
+        file_menu->addMenu(open_recent_menu_);
+        connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
+
+        QAction *dpi_action = new QAction("Recompute DPI", this);
+        connect(dpi_action, &QAction::triggered, this, [this]() { update_dpi_setting(true); });
+        file_menu->addAction(dpi_action);
+
+        QAction *exit_action = new QAction("E&xit", this);
+        connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
+        file_menu->addAction(exit_action);
+
+        // Edit menu
+        edit_menu_ = menu_bar->addMenu("&Edit");
+
+        edit_margin_action_ = new QAction("Edit Document Margin", this);
+        edit_margin_action_->setCheckable(true);
+        connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
+        edit_menu_->addAction(edit_margin_action_);
+
+        undo_action_ = new QAction("Undo", this);
+        undo_action_->setShortcut(QKeySequence::Undo);
+        connect(undo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::undo);
+        undo_action_->setDisabled(true);
+        edit_menu_->addAction(undo_action_);
+        addAction(undo_action_);
+
+        redo_action_ = new QAction("Redo", this);
+        redo_action_->setShortcut(QKeySequence::Redo);
+        connect(redo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::redo);
+        redo_action_->setEnabled(false);
+        edit_menu_->addAction(redo_action_);
+        addAction(redo_action_);
+
+        // View menu
+        QMenu *view_menu = menu_bar->addMenu("&View");
+
+        bookmark_menu_action_ = new QAction("Show Bookmarks", this);
+        bookmark_menu_action_->setCheckable(true);
+        bookmark_menu_action_->setChecked(true);
+        connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
+        view_menu->addAction(bookmark_menu_action_);
+
+        action = new QAction("&Tool Bar", this);
+        action->setShortcut(shortcuts_["toolbar"]);
+        action->setCheckable(true);
+        action->setChecked(true);
+        connect(action, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
+        view_menu->addAction(action);
+
+        statusbar_menu_action_ = new QAction("&Status Bar", this);
+        statusbar_menu_action_->setCheckable(true);
+        statusbar_menu_action_->setChecked(config_.show_status_bar());
+        connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
+        view_menu->addAction(statusbar_menu_action_);
+
+        action = new QAction("&Light Theme", this);
+        action->setCheckable(true);
+        action->setChecked(config_.theme() == Theme::Light);
+        connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
+        light_theme_menu_item_ = action;
+        view_menu->addAction(action);
+
+        action = new QAction("&Dark Theme", this);
+        action->setCheckable(true);
+        action->setChecked(config_.theme() == Theme::Dark);
+        connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
+        dark_theme_menu_item_ = action;
+        view_menu->addAction(action);
+
+        update_undo_redo_state();
+
+        menuBar()->setStyleSheet(R"(
+        QMenu::item {
+            font-weight: normal;
+        }
+        QMenu::item:disabled {
+            color: gray;
+        })");
+
+        QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
+        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
+
+        shortcut = new QShortcut(QKeySequence("PageUp"), this);
+        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
+
+        shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
+        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
+
+    } else {
+        QMenuBar *menu_bar = menuBar();
+        menu_bar->hide();
+    }
+}
+
+
+bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+#ifdef Q_OS_WIN
+
+    if (!has_full_menu_bar_) {
+        MSG *msg = static_cast<MSG *>(message);
+
+        if (msg->message == WM_SYSCOMMAND && (msg->wParam & 0xFFF0) == SC_MOUSEMENU) {
+            show_titlebar_menu();
+            *result = 0;
+            return true; // Prevents Windows from showing its own menu
+        }
+    }
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+
+
+
+void MusicReader::show_titlebar_menu()
+{
+    QMenu menu(this);
+
+    QMenu *file_menu = menu.addMenu("&File");
+    QAction *open_action = new QAction("&Open...", this);
+    open_action->setShortcut(shortcuts_["open_file"]);
+    connect(open_action, &QAction::triggered, this, [this]() { open_file_dialog(""); });
+
+    file_menu->addAction(open_action);
+
+    QAction *fast_search_action = new QAction("&Fast Search...", this);
+    fast_search_action->setShortcut(shortcuts_["fast_search"]);
+    connect(fast_search_action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
+    file_menu->addAction(fast_search_action);
+
+    QAction *settings_action = new QAction("&Settings...", this);
+    settings_action->setShortcut(shortcuts_["settings"]);
+    connect(settings_action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+    file_menu->addAction(settings_action);
 
     open_recent_menu_ = new QMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
@@ -222,30 +363,28 @@ void MusicReader::create_menus()
     connect(dpi_action, &QAction::triggered, this, [this]() { update_dpi_setting(true); });
     file_menu->addAction(dpi_action);
 
-    // Edit menu
-    edit_menu_ = menu_bar->addMenu("&Edit");
+    QMenu *edit_menu = menu.addMenu("&Edit");
 
     edit_margin_action_ = new QAction("Edit Document Margin", this);
     edit_margin_action_->setCheckable(true);
     connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
-    edit_menu_->addAction(edit_margin_action_);
+    edit_menu->addAction(edit_margin_action_);
 
     undo_action_ = new QAction("Undo", this);
     undo_action_->setShortcut(QKeySequence::Undo);
     connect(undo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::undo);
     undo_action_->setDisabled(true);
-    edit_menu_->addAction(undo_action_);
+    edit_menu->addAction(undo_action_);
     addAction(undo_action_);
 
     redo_action_ = new QAction("Redo", this);
     redo_action_->setShortcut(QKeySequence::Redo);
     connect(redo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::redo);
     redo_action_->setEnabled(false);
-    edit_menu_->addAction(redo_action_);
+    edit_menu->addAction(redo_action_);
     addAction(redo_action_);
 
-    // View menu
-    QMenu *view_menu = menu_bar->addMenu("&View");
+    QMenu *view_menu = menu.addMenu("&View");
 
     bookmark_menu_action_ = new QAction("Show Bookmarks", this);
     bookmark_menu_action_->setCheckable(true);
@@ -253,12 +392,12 @@ void MusicReader::create_menus()
     connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
     view_menu->addAction(bookmark_menu_action_);
 
-    action = new QAction("&Tool Bar", this);
-    action->setShortcut(shortcuts_["toolbar"]);
-    action->setCheckable(true);
-    action->setChecked(true);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
-    view_menu->addAction(action);
+    QAction *toolbar_action = new QAction("&Tool Bar", this);
+    toolbar_action->setShortcut(shortcuts_["toolbar"]);
+    toolbar_action->setCheckable(true);
+    toolbar_action->setChecked(true);
+    connect(toolbar_action, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
+    view_menu->addAction(toolbar_action);
 
     statusbar_menu_action_ = new QAction("&Status Bar", this);
     statusbar_menu_action_->setCheckable(true);
@@ -266,46 +405,32 @@ void MusicReader::create_menus()
     connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
     view_menu->addAction(statusbar_menu_action_);
 
-    action = new QAction("&Light Theme", this);
-    action->setCheckable(true);
-    action->setChecked(config_.theme() == Theme::Light);
-    connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
-    light_theme_menu_item_ = action;
-    view_menu->addAction(action);
+    QAction *light_theme_action = new QAction("&Light Theme", this);
+    light_theme_action->setCheckable(true);
+    light_theme_action->setChecked(config_.theme() == Theme::Light);
+    connect(light_theme_action, &QAction::triggered, this, &MusicReader::set_light_theme);
+    light_theme_menu_item_ = light_theme_action;
+    view_menu->addAction(light_theme_action);
 
-    action = new QAction("&Dark Theme", this);
-    action->setCheckable(true);
-    action->setChecked(config_.theme() == Theme::Dark);
-    connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
-    dark_theme_menu_item_ = action;
-    view_menu->addAction(action);
+    QAction *dark_theme_action = new QAction("&Dark Theme", this);
+    dark_theme_action->setCheckable(true);
+    dark_theme_action->setChecked(config_.theme() == Theme::Dark);
+    connect(dark_theme_action, &QAction::triggered, this, &MusicReader::set_dark_theme);
+    dark_theme_menu_item_ = dark_theme_action;
+    view_menu->addAction(dark_theme_action);
 
-    update_undo_redo_state();
+    // Separator before Exit
+    menu.addSeparator();
 
-    menuBar()->setStyleSheet(R"(
-        QMenu::item {
-            font-weight: normal;
-        }
-        QMenu::item:disabled {
-            color: gray;
-        }
-    )");
+    // Standalone Exit Action (Below View)
+    QAction *exit_action = new QAction("E&xit", this);
+    connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
+    menu.addAction(exit_action);
 
-    QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
-
-    shortcut = new QShortcut(QKeySequence("PageUp"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
-
-    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
-
-    //new QShortcut(QKeySequence("Ctrl+B"), this, &MusicReader::toggle_bookmark_panel);
-
+    menu.exec(QCursor::pos());
 }
+
+
 
 void MusicReader::add_bookmark()
 {

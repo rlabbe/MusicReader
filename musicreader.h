@@ -40,9 +40,14 @@ public:
 signals:
     void view_mode_signal_(int page_view_count);
 
+private slots:
+    void show_titlebar_menu();
+
 private:
 
     void closeEvent(QCloseEvent *event) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+
     void update_bookmark_panel(int index);
     void add_bookmark();
 
@@ -107,14 +112,12 @@ private:
     QIcon create_double_icon();
     void on_toggle_view_mode();
 
-
     void go_to_bookmark(int page_num);
     void update_menu_bookmark_visibility();
 
     // Check if the given document is open in a tab, returning either the tab index or None
     std::optional<int> doc_is_open(std::filesystem::path name);
 
-    QMenuBar *menu_bar_;
     QToolBar *main_toolbar_;
     StatusBar *status_bar_;
     QSplitter *splitter_;
@@ -143,6 +146,7 @@ private:
     QIcon zoomin_icon_;
     QIcon zoomout_icon_;
     QTimer *timer_;
+    bool has_full_menu_bar_ = true; 
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;

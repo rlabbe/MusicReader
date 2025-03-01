@@ -43,6 +43,7 @@ void ConfigDialog::setup_ui()
     check_restore_documents_ = new QCheckBox("Restore Documents", this);
     check_zoom_to_content_ = new QCheckBox("Zoom to Content", this);
     check_allow_oversize_ = new QCheckBox("Allow Oversize", this);
+    check_show_menu_ = new QCheckBox("Show Menu Bar", this);
 
     edit_music_directory_ = new QLineEdit(this);
     btn_browse_ = new QPushButton("Browse...", this);
@@ -84,6 +85,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_restore_documents_);
     form_layout->addRow(check_zoom_to_content_);
     form_layout->addRow(check_allow_oversize_);
+    form_layout->addRow(check_show_menu_);
 
     // Music Directory with Browse button
     QHBoxLayout *layout_music_directory = new QHBoxLayout;
@@ -126,6 +128,7 @@ void ConfigDialog::load_settings()
     check_restore_documents_->setChecked(config_.restore_documents());
     check_zoom_to_content_->setChecked(config_.zoom_to_content());
     check_allow_oversize_->setChecked(config_.allow_oversize());
+    check_show_menu_->setChecked(config_.show_menu());
 
     edit_music_directory_->setText(QString::fromStdString(config_.music_directory().string()));
 }
@@ -179,8 +182,8 @@ void ConfigDialog::save_settings()
     config_.set_restore_documents (check_restore_documents_->isChecked());
     config_.set_zoom_to_content(check_zoom_to_content_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
+    config_.set_show_menu(check_show_menu_->isChecked());
     config_.set_music_directory(std::filesystem::path(edit_music_directory_->text().toStdString()));
-
 
     accept(); // Close dialog with Accepted status
 }

@@ -35,6 +35,7 @@ private:
     QCheckBox *check_restore_documents_;
     QCheckBox *check_zoom_to_content_;
     QCheckBox *check_allow_oversize_;
+    QCheckBox *check_show_menu_;
 
     QLineEdit *edit_music_directory_;
     QPushButton *btn_browse_;
