@@ -653,6 +653,7 @@ void MusicReader::on_close_tab(int index)
         tab_widget_->removeTab(index);
     }
 
+    save_open_documents_to_config();
     update_title();
 }
 
