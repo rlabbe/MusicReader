@@ -26,7 +26,7 @@
 #include "fast_file_search_dialog.h"
 #include "qt_utils.h"
 #include "utils.h"
-
+#include "fullscreen_exit_button.h"
 
 MusicReader::MusicReader(QWidget *parent)
     : QMainWindow(parent)
@@ -93,6 +93,26 @@ void MusicReader::setup_UI()
 
     // hides background image if there are open documents
     update_background();
+
+    exit_button_ = new FullscreenExitButton(this);
+    qApp->installEventFilter(this);
+}
+
+bool MusicReader::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseMove && isFullScreen()) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        auto y = QCursor::pos().y();
+        if (y <= 15) { // If mouse is near the top
+            if (!exit_button_->isVisible())
+                exit_button_->showAtTop();
+            return true;
+        } else if (y > 200 && exit_button_->isVisible()) {
+            exit_button_->hideWithAnimation();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void MusicReader::closeEvent(QCloseEvent *event)

@@ -99,6 +99,9 @@
     <QtMoc Include="fast_file_search_dialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="fullscreen_exit_button.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="document.h">

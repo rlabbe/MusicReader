@@ -14,6 +14,7 @@ class Document;
 class PDFViewer;
 class StatusBar;
 class FastFileSearchDialog;
+class FullscreenExitButton;
 
 class MusicReader : public QMainWindow
 {
@@ -123,6 +124,7 @@ private:
 private:
 
     void keyPressEvent(QKeyEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     QMenu *open_recent_menu_;
     QMenu *edit_menu_;
@@ -142,6 +144,7 @@ private:
     QIcon zoomin_icon_;
     QIcon zoomout_icon_;
     QTimer *timer_;
+    FullscreenExitButton *exit_button_;
     bool has_full_menu_bar_ = true; 
 
     ConfigFile config_;
