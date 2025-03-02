@@ -1,11 +1,8 @@
 #pragma once
 
 #include <QtWidgets>
-//#include <QPixmap>
-//#include <QWheelEvent>
-//#include <QSwipeGesture>
+#include <memory>
 
-//#include <QPainter>
 #include "document.h"
 #include "config_file.h"
 #include "page.h"
@@ -17,7 +14,11 @@ class PDFViewer : public QWidget
     Q_OBJECT
 
 public:
-    PDFViewer(Document *document,
+
+    // When document is created it isn't opened yet. So,
+    // create this class, call document->load_document(), and when it is
+    // complete call get_page(page_num, true). 
+    PDFViewer(std::shared_ptr<Document> document,
               ConfigFile *config,
               int page,
               StatusBar *sbar,
@@ -29,14 +30,12 @@ public:
 
     void get_page(int page_num, bool first_call = false);
 
-
-    void replace_document(Document *document, int page);
     void refresh();
     void page_up();
     void page_down();
     void change_page(int step);
     void update_status_bar();
-    Document *document() const { return document_; }
+    Document *document() const { return document_.get(); }
 
 protected:
 
@@ -58,7 +57,7 @@ private:
     StatusBar *status_bar_;
     QScrollBar *scrollbar_;
     QHBoxLayout *layout_;
-    Document *document_;
+    std::shared_ptr<Document> document_;
     ConfigFile *config_;
     Page page_;
     bool drawing_margin_ = false;

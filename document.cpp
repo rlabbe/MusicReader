@@ -105,7 +105,6 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 Document::Document(std::filesystem::path filename, int dpi)
     : filename_(std::move(filename)), dpi_(dpi)
 {
-    load_document();
 }
 
 
@@ -142,6 +141,9 @@ void Document::load_document()
     }
 
     pages_.resize(total_pages);
+
+    // simulate very large documents
+    //std::this_thread::sleep_for(std::chrono::seconds(5));
 
     // Launch threads for each page
     std::vector<std::future<QPixmap>> futures;

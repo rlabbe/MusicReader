@@ -25,17 +25,13 @@ public:
     Document *current_document(const std::string &log_msg = "") const;
     std::pair<int, bool> current_page(const std::string &log_msg = "") const;
 
-
     void on_page_down();
     void on_page_up();
     void on_page_left();
     void on_page_right();
 
-
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
-
-
 
 signals:
     void view_mode_signal_(int page_view_count);
@@ -155,6 +151,11 @@ private:
     // used to wait until the fast search dialog is ready
     std::mutex fast_search_mutex_;
     std::condition_variable fast_search_cv_;
+
 signals:
     void fastSearchInitialized();
+
+    // Notify UI when loading is done
+    void document_loaded(std::string name, int page);
+
 };

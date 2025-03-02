@@ -112,7 +112,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>./qpdf;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf\include;.\qpdf\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./qpdf;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf\include;.\qpdf\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -125,6 +125,9 @@
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>
     </PostBuildEvent>
+    <QtMoc>
+      <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </QtMoc>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">
     <Link>

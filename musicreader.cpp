@@ -10,6 +10,8 @@
 #include <QMenuBar>
 #include <QKeySequence>
 #include <QAction>
+#include <QtConcurrent/QtConcurrent>
+#include <qpointer.h>
 
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
@@ -53,6 +55,15 @@ void MusicReader::setup_UI()
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_bookmark_panel);
+
+    connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
+        auto i = doc_is_open(name);
+        if (i.has_value()) {
+            auto viewer = viewer_tab(i.value());
+            if (viewer)
+                viewer->get_page(page, true);  // Show the loaded page
+        }
+    });
 
     splitter_->addWidget(tab_widget_);
     splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
@@ -761,10 +772,8 @@ QIcon MusicReader::create_double_icon()
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
     for (int i = 0; i < tab_widget_->count(); ++i) {
-        // TODO name might not be unique
-        if (tab_widget_->tabText(i).toStdString() == name.filename().string()) {
-            return i;
-        }
+        auto widget = viewer_tab(i);
+        if (widget && widget->document()->filename() == name) return i;
     }
 
     return std::nullopt;
@@ -877,13 +886,13 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
         return nullptr;
     }
 
-    WaitCursor cursor;  // RAII-based wait cursor
+    WaitCursor cursor;
 
-    Document *doc = open_pdf_document(filename);
-    if (!doc) {
-        display_error_message("Can't open " + filename + ", is it a PDF?");
+    auto* pdoc = open_pdf_document(filename);
+    if (!pdoc) 
         return nullptr;
-    }
+    std::shared_ptr<Document> doc(pdoc);
+    std::cout << doc->filename() << std::endl;
 
     QWidget *tab = new QWidget();
     PDFViewer *viewer = new PDFViewer(doc, &config_, page, status_bar_, tab);
@@ -901,6 +910,17 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
     connect(this, &MusicReader::view_mode_signal_, viewer, &PDFViewer::refresh);
 
     save_open_documents_to_config();
+
+    std::thread([this, doc, page]() {
+        doc->load_document();  // Load pages asynchronously
+
+        // Notify UI when loading is complete
+        QMetaObject::invokeMethod(this, [this, doc, page]() {
+            emit document_loaded(doc->filename(), page);
+        }, Qt::QueuedConnection);
+    }).detach(); 
+
+
     return viewer;
 }
 

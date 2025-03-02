@@ -4,7 +4,11 @@
 #include "logger.h"
 #include "status_bar.h"
 
-PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar *sbar, QWidget *parent)
+PDFViewer::PDFViewer(std::shared_ptr<Document> document,
+                     ConfigFile *config, 
+                     int page, 
+                     StatusBar *sbar, 
+                     QWidget *parent)
     : QWidget(parent)
     , document_(document)
     , status_bar_(sbar)
@@ -26,11 +30,6 @@ PDFViewer::PDFViewer(Document *document, ConfigFile *config, int page, StatusBar
     }
 
     * */
-
-    //connect(qobject_cast<QGuiApplication *>(QCoreApplication::instance()), &QGuiApplication::paletteChanged, this, &PDFViewer::refresh);
-
-    if (document_->page_count() > 0)
-        get_page(page, true);
 }
 
 
@@ -62,12 +61,6 @@ int PDFViewer::current_page() const
 bool PDFViewer::single_page_view() const
 {
     return config_->page_view_count() == 1;
-}
-
-void PDFViewer::replace_document(Document *document, int page)
-{
-    document_ = document;
-    get_page(page);
 }
 
 void PDFViewer::refresh()

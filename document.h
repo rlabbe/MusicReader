@@ -14,17 +14,27 @@
 #include "page.h"
 #include "bookmark.h"
 
+#include <iostream>
 
 struct fz_context;
 struct fz_document;
 
 class Document {
 public:
+
+    // you must call load_document() separately, construction
+    // only checks for existence and loads # of pages.
+    //
+    // This facilitates loading the document in a separate thread
+    // to keep the UI responsive
     Document(std::filesystem::path filename, int dpi);
+    ~Document() = default;
+
+    void load_document();
 
     std::string filename() const { return filename_.string(); }
-
     int page_count() const { return static_cast<int>(pages_.size()); }
+
     Page get_page(int page_num) const;
     bool save(const std::filesystem::path &filename = "", bool block = true);
 
@@ -32,7 +42,6 @@ public:
     bool can_redo() const { return false; }
     void undo() {}
     void redo() {}
-
 
     bool reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle);
 
@@ -65,8 +74,6 @@ private:
     void save_annotations(fz_context *, fz_document *);
 
     void clear_completed_features();
-
-    void load_document();
 
     std::vector<Bookmark> bookmarks_;
     std::filesystem::path filename_;
