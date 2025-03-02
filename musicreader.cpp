@@ -683,11 +683,26 @@ void MusicReader::update_title(int index)
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_F11) {
-        if (isFullScreen())
+        if (isFullScreen()) {
+            status_bar_->setVisible(config_.show_status_bar());
+            config_.show_menu() ? menuBar()->show() : menuBar()->hide();
             showNormal();
-        else
+        } else {
+            menuBar()->hide();
+            if (status_bar_) status_bar_->setVisible(false);
             showFullScreen();
+        }
         event->accept();
+        return;
+    }
+    if (event->key() == Qt::Key_Escape) {
+        if (isFullScreen()) {
+            status_bar_->setVisible(config_.show_status_bar());
+            config_.show_menu() ? menuBar()->show() : menuBar()->hide();
+            showNormal();
+        }
+        event->accept();
+
         return;
     }
 
@@ -888,8 +903,8 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 
     WaitCursor cursor;
 
-    auto* pdoc = open_pdf_document(filename);
-    if (!pdoc) 
+    auto *pdoc = open_pdf_document(filename);
+    if (!pdoc)
         return nullptr;
     std::shared_ptr<Document> doc(pdoc);
     std::cout << doc->filename() << std::endl;
@@ -918,7 +933,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
         QMetaObject::invokeMethod(this, [this, doc, page]() {
             emit document_loaded(doc->filename(), page);
         }, Qt::QueuedConnection);
-    }).detach(); 
+    }).detach();
 
 
     return viewer;
