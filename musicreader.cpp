@@ -462,6 +462,10 @@ void MusicReader::show_titlebar_menu()
     dark_theme_menu_item_ = dark_theme_action;
     view_menu->addAction(dark_theme_action);
 
+    QAction* action = new QAction("View Log...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
+    view_menu->addAction(action);
+
     // Separator before Exit
     menu.addSeparator();
 
