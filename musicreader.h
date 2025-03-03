@@ -45,6 +45,8 @@ private:
     void closeEvent(QCloseEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
+    void show_log_file();
+
     void update_bookmark_panel(int index);
     void add_bookmark();
 

@@ -102,6 +102,9 @@
     <QtMoc Include="fullscreen_exit_button.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="file_viewer.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="document.h">

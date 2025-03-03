@@ -317,6 +317,10 @@ void MusicReader::create_menus()
         dark_theme_menu_item_ = action;
         view_menu->addAction(action);
 
+        action = new QAction("View Log...", this);
+        connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
+        view_menu->addAction(action);
+
         update_undo_redo_state();
 
         menuBar()->setStyleSheet(R"(
@@ -345,6 +349,14 @@ void MusicReader::create_menus()
     }
 }
 
+#include "file_viewer.h"
+
+void MusicReader::show_log_file()
+{
+    SAFE_METHOD;
+    auto viewer = new FileViewer("C:\\Users\\rlabbe\\AppData\\Roaming\\MusicReader\\MusicReader.log", this);
+    viewer->show();
+}
 
 bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
