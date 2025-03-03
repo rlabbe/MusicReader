@@ -145,6 +145,7 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
     _update_image();
 }
 
+
 void PDFViewer::init_ui(int page)
 {
     layout_ = new QHBoxLayout(this);  // Change to horizontal layout

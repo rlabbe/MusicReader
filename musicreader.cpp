@@ -688,6 +688,7 @@ void MusicReader::on_close_tab(int index)
 
     Document *doc = document_at(index);
     if (doc) {
+        doc->kill_load();
         // This function is only called when explicitly closing a tab, not on app shutdown,
         // so it's safe to add the document to the recent documents list.
         config_.add_recent_document(doc->filename());

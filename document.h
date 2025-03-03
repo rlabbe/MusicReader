@@ -6,6 +6,7 @@
 #include <vector>
 #include <future>
 #include <mutex>
+#include <atomic>
 #include <memory>
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
@@ -31,6 +32,8 @@ public:
     ~Document() = default;
 
     void load_document();
+
+    void kill_load() { kill_loading_ = true; }
 
     std::string filename() const { return filename_.string(); }
     int page_count() const { return static_cast<int>(pages_.size()); }
@@ -92,5 +95,7 @@ private:
     // saves are async for performance, save the futures here
     std::vector<std::future<void>> save_futures_;
     std::recursive_mutex save_mutex_;
+
+    std::atomic<bool> kill_loading_{ false };
 };
 

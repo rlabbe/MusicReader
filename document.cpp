@@ -10,7 +10,6 @@
 #include <QImage>
 #include "qpdf_document.h"
 
-namespace {
 
 void close_fitz(fz_context *ctx, fz_document *doc)
 {
@@ -82,10 +81,6 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
 }
 
 
-
-
-}
-
 inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 {
     bool a_is_folder = !a.page_num_.has_value();
@@ -119,26 +114,7 @@ Page Document::get_page(int page_num) const
 }
 
 
-int _read_page_count(const std::string& name)
-{
-    int total_pages = 0;
-    auto [ctx, doc] = open_fitz(name);
-    if (!ctx || !doc) {
-        logger::log_error("Failed to open document: " + name);
-        return 0;
-    }
-
-    total_pages = fz_count_pages(ctx, doc);
-    close_fitz(ctx, doc);
-
-
-    if (total_pages == 0) 
-        logger::log_error("Document has no pages: " + name);
-    return total_pages;
-}
-
-
-inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency()); 
+inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency());
 constexpr int MIN_PAGES_PER_THREAD = 2;
 
 
@@ -169,13 +145,16 @@ void Document::load_document()
     std::vector<fz_display_list *> display_lists;
 
     // Store all lists for cleanup
-    std::vector<fz_display_list *> all_display_lists;  
+    std::vector<fz_display_list *> all_display_lists;
     std::vector<fz_rect> bboxes;
 
     display_lists.reserve(pages_per_thread);
     bboxes.reserve(pages_per_thread);
 
     for (int i = 0; i < total_pages; ++i) {
+        if (kill_loading_)
+            break;
+
         fz_page *page = nullptr;
         fz_device *dev = nullptr;
 
@@ -206,7 +185,8 @@ void Document::load_document()
         }
 
         // Once we have enough pages for a thread, start rendering
-        if (display_lists.size() == pages_per_thread || i == total_pages - 1) {
+        if (!kill_loading_ && display_lists.size() == pages_per_thread || i == total_pages - 1) {
+            
             int start_page = i + 1 - static_cast<int>(display_lists.size());
             futures.push_back(std::async(std::launch::async,
                                          [this, start_page, display_lists = std::move(display_lists), bboxes = std::move(bboxes)]() mutable {
@@ -222,6 +202,8 @@ void Document::load_document()
     // Collect results
     int page_index = 0;
     for (auto &future : futures) {
+        if (kill_loading_)
+            break;
         auto pixmaps = future.get();
         for (auto &pixmap : pixmaps) {
             pages_[page_index] = Page(std::move(pixmap), page_index + 1);
@@ -255,6 +237,10 @@ std::vector<QPixmap> Document::render_page_batch(int start_page,
     fz_try(ctx)
     {
         for (size_t i = 0; i < display_lists.size(); ++i) {
+            if (kill_loading_) {
+                results.clear();
+                break;
+            }
             if (!display_lists[i]) {
                 results.emplace_back();  // Empty QPixmap for failed pages
                 continue;
@@ -548,8 +534,8 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
 }
 
 
-std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title, 
-                                                       int page_num, 
+std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
+                                                       int page_num,
                                                        const BookmarkHandle &parent_handle)
 {
     undo_stack_.push_back(bookmarks_);  // Save for undo
