@@ -8,6 +8,7 @@
 #include <thread>
 #include <future>
 #include <QImage>
+#include <qpainter.h>
 #include "qpdf_document.h"
 
 
@@ -206,7 +207,7 @@ void Document::load_document()
             break;
         auto pixmaps = future.get();
         for (auto &pixmap : pixmaps) {
-            pages_[page_index] = Page(std::move(pixmap), page_index + 1);
+            pages_[page_index] = Page(std::move(pixmap), page_index + 1, false);
             ++page_index;
         }
     }
@@ -266,8 +267,22 @@ std::vector<QPixmap> Document::render_page_batch(int start_page,
                 int stride = fz_pixmap_components(ctx, temp_pixmap) * width;
                 const uchar *data = fz_pixmap_samples(ctx, temp_pixmap);
 
-                QImage img(data, width, height, stride, QImage::Format_RGB888);
-                pixmap = QPixmap::fromImage(img);
+                QImage image(data, width, height, stride, QImage::Format_RGB888);
+                /*QPainter painter(&image);
+                image.fill(Qt::white);
+
+                double rect_ratio = 0.95;
+                double margin_ratio = (1.0 - rect_ratio) / 2.0;
+
+                QRect rect(image.width() * margin_ratio, image.height() * margin_ratio,
+                           image.width() * rect_ratio, image.height() * rect_ratio);
+                std::cout << image.width() * margin_ratio << " " <<  image.height() *margin_ratio << " " <<
+                    image.width() *rect_ratio << " " << image.height() *rect_ratio << std::endl;
+
+                painter.setPen(QPen(Qt::black, 10));
+                painter.drawRect(rect);*/
+                pixmap = QPixmap::fromImage(image);
+
             }
             fz_catch(ctx)
             {

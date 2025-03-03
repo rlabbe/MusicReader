@@ -25,6 +25,9 @@ ConfigDialog::ConfigDialog(ConfigFile &config, QWidget *parent)
 void ConfigDialog::setup_ui()
 {
     // Initialize widgets
+    spin_border_margin_ = new QSpinBox(this);
+    spin_border_margin_->setRange(0, 100);
+
     spin_max_recent_documents_ = new QSpinBox(this);
     spin_max_recent_documents_->setRange(1, 100);
 
@@ -54,6 +57,12 @@ void ConfigDialog::setup_ui()
 
     // Layouts
     QFormLayout *form_layout = new QFormLayout;
+
+
+    QHBoxLayout *layout_border = new QHBoxLayout;
+    layout_border->addStretch();
+    layout_border->addWidget(spin_border_margin_);
+    form_layout->addRow("Border Margin:", layout_border);
 
     // Max Recent Documents
     QHBoxLayout *layout_max_recent_documents = new QHBoxLayout;
@@ -118,6 +127,7 @@ void ConfigDialog::setup_ui()
 void ConfigDialog::load_settings()
 {
     // Load values from config_
+    spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_page_view_count_->setValue(config_.page_view_count());
 
@@ -174,6 +184,7 @@ void ConfigDialog::save_settings()
     // Apply settings to config_
     ConfigFileGroupSave group_saver(config_);
 
+    config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
     config_.set_page_view_count(spin_page_view_count_->value());
     config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));

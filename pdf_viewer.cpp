@@ -206,24 +206,15 @@ Page PDFViewer::get_single_page(int page_num)
 
 Page PDFViewer::get_double_page(int page_num)
 {
-    bool zoom_to_content = config_->zoom_to_content();
+    bool zoom = config_->zoom_to_content();
     int margin = config_->border_margin();
 
     Page p1 = document_->get_page(page_num);
     Page p2 = document_->get_page(page_num + 1);
 
     // Determine cropped dimensions if zooming to content
-    QRect p1_crop = zoom_to_content
-        ? QRect(p1.border.left, p1.border.top,
-                p1.border.right - p1.border.left,
-                p1.border.bottom - p1.border.top)
-        : QRect(0, 0, p1.width(), p1.height());
-
-    QRect p2_crop = zoom_to_content
-        ? QRect(p2.border.left, p2.border.top,
-                p2.border.right - p2.border.left,
-                p2.border.bottom - p2.border.top)
-        : QRect(0, 0, p2.width(), p2.height());
+    QRect p1_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p1.width(), p1.height());
+    QRect p2_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p2.width(), p2.height());
 
     // New dimensions including space for the separator line
     int line_width = 8;
@@ -249,8 +240,8 @@ Page PDFViewer::get_double_page(int page_num)
     painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.img, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
 
     // Draw separator line
-    painter.setPen(QPen(back_color, line_width));
-    painter.drawLine(p1_crop.width(), 0, p1_crop.width(), max_height);
+    //painter.setPen(QPen(back_color, line_width));
+    //painter.drawLine(p1_crop.width(), 0, p1_crop.width(), max_height);
 
     painter.end();
 
@@ -268,7 +259,14 @@ void PDFViewer::_update_image(const QString &message)
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
     }
-
+    QPixmap *img;
+    QPixmap zoomed;
+    if (!config_->zoom_to_content() || page_.double_page)
+        img = &page_.img;
+    else {
+        zoomed = page_.resize_by_border(config_->border_margin());
+        img = &zoomed;
+    }
     label_->setStyleSheet("");
 
     QSize max_size;
@@ -277,14 +275,14 @@ void PDFViewer::_update_image(const QString &message)
         max_size = label_->size();
         //std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
     } else {
-        max_size = page_.img.size().boundedTo(label_->size());
+        max_size = img->size().boundedTo(label_->size());
         //std::cout << "max_size image: " << max_size.width() << " " << max_size.height() << std::endl;
     }
 
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
     label_->setScaledContents(false);
     label_->setContentsMargins(0, 0, 0, 0);
-    label_->setPixmap(page_.img.scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    label_->setPixmap(img->scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void PDFViewer::adjust_initial_subwindow_size()

@@ -6,6 +6,7 @@
 
 #include "border.h"
 
+QPixmap resize_by_border(QPixmap img, Border border, int relief);
 
 struct Page {
     QPixmap img;
@@ -15,7 +16,7 @@ struct Page {
 
     Page() {}
 
-    Page(const QPixmap &image, int page_number, bool doubled = false)
+    Page(const QPixmap &image, int page_number, bool doubled)
         : img(image), page_num(page_number), double_page(doubled)
     {
         border = find_content_edges(img.toImage());
@@ -27,15 +28,33 @@ struct Page {
     int width() const { return shape().width(); }
     int height() const { return shape().height(); }
 
-    QPixmap resize_by_border()
-
+    QPixmap resize_by_border(int relief=0)
     {
-        if (img.isNull()) return img;
-
-        // Crop the image based on the border
-        return img.copy(border.left, border.top,
-                        border.right - border.left,
-                        border.bottom - border.top);
+        return ::resize_by_border(img, border, relief);
     }
 };
+
+
+inline QPixmap resize_by_border(QPixmap img, Border border, int relief = 0)
+{
+    if (img.isNull()) return img;
+
+    int left = std::max(0, border.left - relief);
+    int top = std::max(0, border.top - relief);
+    int width = border.right - border.left + (2 * relief);
+    int height = border.bottom - border.top + (2 * relief);
+
+    // Crop the image based on the border
+    return img.copy(left, top, width, height);
+}
+
+
+inline QRect border_to_qrect(const Border &border, int relief)
+{
+    return QRect(border.left - relief, 
+                 border.top - relief,
+                 border.right - border.left + (2 * relief),
+                 border.bottom - border.top + (2 * relief));
+}
+
 
