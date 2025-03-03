@@ -62,7 +62,6 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
     fz_try(ctx)
     {
         fz_matrix transform = fz_scale(dpi / 72.0f, dpi / 72.0f);
-        std::cout << "page " << page_num << std::endl;
         temp_pixmap = fz_new_pixmap_from_page_number(ctx, doc, page_num, transform, fz_device_rgb(ctx), 0);
 
         int width = fz_pixmap_width(ctx, temp_pixmap);
@@ -120,81 +119,105 @@ Page Document::get_page(int page_num) const
 }
 
 
+int _read_page_count(const std::string& name)
+{
+    int total_pages = 0;
+    auto [ctx, doc] = open_fitz(name);
+    if (!ctx || !doc) {
+        logger::log_error("Failed to open document: " + name);
+        return 0;
+    }
+
+    total_pages = fz_count_pages(ctx, doc);
+    close_fitz(ctx, doc);
+
+
+    if (total_pages == 0) 
+        logger::log_error("Document has no pages: " + name);
+    return total_pages;
+}
+
+
+inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency()); 
+constexpr int MIN_PAGES_PER_THREAD = 2;
+
+
 void Document::load_document()
 {
     int total_pages = 0;
 
     // Open document once to get page count 
-    {
-        auto [ctx, doc] = open_fitz(filename_.string());
-        if (!ctx || !doc) {
-            logger::log_error("Failed to open document: " + filename_.string());
-            return;
-        }
-
-        total_pages = fz_count_pages(ctx, doc);
-        close_fitz(ctx, doc);
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc) {
+        logger::log_error("Failed to open document: " + filename_.string());
+        return;
     }
 
+    total_pages = fz_count_pages(ctx, doc);
     if (total_pages == 0) {
         logger::log_error("Document has no pages: " + filename_.string());
+        close_fitz(ctx, doc);
         return;
     }
 
     pages_.resize(total_pages);
 
-    // simulate very large documents
-    //std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    // Launch threads for each page
-    // 
-    // see, because code below crashes if > 1 thread. get display lists??
-    // https://mupdf.readthedocs.io/en/latest/using-mupdf.html#multi-threading
-
-    constexpr int NUM_THREADS = 1;
-    constexpr int MIN_PAGES_PER_THREAD = 1;
-
     int num_threads = std::min(NUM_THREADS, (total_pages + MIN_PAGES_PER_THREAD - 1) / MIN_PAGES_PER_THREAD);
     int pages_per_thread = (total_pages + num_threads - 1) / num_threads;
-    std::cout << "loading " << total_pages << " pages with " << num_threads << " threads" << std::endl;
+
     std::vector<std::future<std::vector<QPixmap>>> futures;
-    for (int t = 0; t < num_threads; ++t) {
-        int start_page = t * pages_per_thread;
-        int end_page = std::min(start_page + pages_per_thread, total_pages);
+    std::vector<fz_display_list *> display_lists;
 
-        futures.push_back(std::async(std::launch::async, [this, start_page, end_page] {
-            std::vector<QPixmap> result;
-            result.reserve(end_page - start_page);
+    // Store all lists for cleanup
+    std::vector<fz_display_list *> all_display_lists;  
+    std::vector<fz_rect> bboxes;
 
-            auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
-            if (!thread_ctx || !thread_doc) {
-                logger::log_error("Failed to open document in thread for pages " + std::to_string(start_page) + "-" + std::to_string(end_page - 1));
-                return result;
+    display_lists.reserve(pages_per_thread);
+    bboxes.reserve(pages_per_thread);
+
+    for (int i = 0; i < total_pages; ++i) {
+        fz_page *page = nullptr;
+        fz_device *dev = nullptr;
+
+        fz_try(ctx)
+        {
+            page = fz_load_page(ctx, doc, i);
+            bboxes.push_back(fz_bound_page(ctx, page));
+
+            fz_display_list *list = fz_new_display_list(ctx, bboxes.back());
+            dev = fz_new_list_device(ctx, list);
+
+            fz_matrix identity = { 1, 0, 0, 1, 0, 0 };
+            fz_run_page(ctx, page, dev, identity, nullptr);
+            fz_close_device(ctx, dev);
+
+            display_lists.push_back(list);
+            all_display_lists.push_back(list);
+        }
+        fz_always(ctx)
+        {
+            fz_drop_device(ctx, dev);
+            fz_drop_page(ctx, page);
+        }
+        fz_catch(ctx)
+        {
+            logger::log_error("Failed to extract display list for page " + std::to_string(i));
+            display_lists.push_back(nullptr);
+        }
+
+        // Once we have enough pages for a thread, start rendering
+        if (display_lists.size() == pages_per_thread || i == total_pages - 1) {
+            int start_page = i + 1 - static_cast<int>(display_lists.size());
+            futures.push_back(std::async(std::launch::async,
+                                         [this, start_page, display_lists = std::move(display_lists), bboxes = std::move(bboxes)]() mutable {
+                return render_page_batch(start_page, display_lists, bboxes);
             }
-
-            for (int i = start_page; i < end_page; ++i) {
-                result.push_back(render_page(thread_ctx, thread_doc, i, dpi_));
-            }
-
-            close_fitz(thread_ctx, thread_doc);
-            return result;
-        }));
-    }
-
-
-    // while these run we can get the bookmarks
-    {
-        auto [ctx, doc] = open_fitz(filename_.string());
-        if (ctx && doc) {
-            total_pages = fz_count_pages(ctx, doc);
-
-            fz_outline *outline = fz_load_outline(ctx, doc);
-            if (outline)
-                bookmarks_ = convert_outline_to_bookmarks(outline);
-
-            close_fitz(ctx, doc);
+            ));
+            display_lists.clear();
+            bboxes.clear();
         }
     }
+
 
     // Collect results
     int page_index = 0;
@@ -205,7 +228,82 @@ void Document::load_document()
             ++page_index;
         }
     }
+
+    // Free display lists in the main thread
+    for (auto *list : all_display_lists) {
+        if (list) {
+            fz_drop_display_list(ctx, list);
+        }
+    }
+    // now we can safely close the document
+    close_fitz(ctx, doc);
 }
+
+std::vector<QPixmap> Document::render_page_batch(int start_page,
+                                                 std::vector<fz_display_list *> &display_lists,
+                                                 std::vector<fz_rect> &bboxes)
+{
+    std::vector<QPixmap> results;
+    results.reserve(display_lists.size());
+
+    fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        logger::log_error("Failed to create MuPDF context for rendering thread.");
+        return results;
+    }
+
+    fz_try(ctx)
+    {
+        for (size_t i = 0; i < display_lists.size(); ++i) {
+            if (!display_lists[i]) {
+                results.emplace_back();  // Empty QPixmap for failed pages
+                continue;
+            }
+
+            fz_pixmap *temp_pixmap = nullptr;
+            QPixmap pixmap;
+
+            fz_try(ctx)
+            {
+                fz_matrix transform = fz_scale(dpi_ / 72.0f, dpi_ / 72.0f);
+                temp_pixmap = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(bboxes[i]), nullptr, 0);
+                fz_clear_pixmap_with_value(ctx, temp_pixmap, 0xFF);
+
+                fz_matrix identity = { 1, 0, 0, 1, 0, 0 };
+                fz_device *dev = fz_new_draw_device(ctx, identity, temp_pixmap);
+                fz_run_display_list(ctx, display_lists[i], dev, identity, bboxes[i], nullptr);
+                fz_close_device(ctx, dev);
+                fz_drop_device(ctx, dev);
+
+                int width = fz_pixmap_width(ctx, temp_pixmap);
+                int height = fz_pixmap_height(ctx, temp_pixmap);
+                int stride = fz_pixmap_components(ctx, temp_pixmap) * width;
+                const uchar *data = fz_pixmap_samples(ctx, temp_pixmap);
+
+                QImage img(data, width, height, stride, QImage::Format_RGB888);
+                pixmap = QPixmap::fromImage(img);
+            }
+            fz_catch(ctx)
+            {
+                logger::log_error("Failed to render page " + std::to_string(start_page + i));
+            }
+
+            if (temp_pixmap) {
+                fz_drop_pixmap(ctx, temp_pixmap);
+            }
+
+            results.push_back(std::move(pixmap));
+        }
+    }
+    fz_catch(ctx)
+    {
+        logger::log_error("Exception in rendering thread.");
+    }
+
+    fz_drop_context(ctx);
+    return results;
+}
+
 
 /*
 bool Document::save(const std::filesystem::path &output_filename, bool block)

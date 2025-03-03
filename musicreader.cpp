@@ -123,7 +123,6 @@ void MusicReader::closeEvent(QCloseEvent *event)
     save_config();
 
     QMainWindow::closeEvent(event);  // Call base class implementation
-    logger::log_info("closing");
     check_for_errors_on_exit();
 }
 
@@ -943,7 +942,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
     if (!pdoc)
         return nullptr;
     std::shared_ptr<Document> doc(pdoc);
-    std::cout << doc->filename() << std::endl;
+    logger::log_info("Opened " + doc->filename());
 
     QWidget *tab = new QWidget();
     PDFViewer *viewer = new PDFViewer(doc, &config_, page, status_bar_, tab);

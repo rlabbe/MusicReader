@@ -274,10 +274,10 @@ void PDFViewer::_update_image(const QString &message)
 
     if (config_->allow_oversize()) {
         max_size = label_->size();
-        std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
+        //std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
     } else {
         max_size = page_.img.size().boundedTo(label_->size());
-        std::cout << "max_size image: " << max_size.width() << " " << max_size.height() << std::endl;
+        //std::cout << "max_size image: " << max_size.width() << " " << max_size.height() << std::endl;
     }
 
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);

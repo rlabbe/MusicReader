@@ -65,6 +65,11 @@ public:
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
 private:
 
+    std::vector<QPixmap> render_page_batch(int start_page,
+                                           std::vector<fz_display_list *> &display_lists,
+                                           std::vector<fz_rect> &bboxes);
+
+
     bool reparent_bookmark(Bookmark bookmark,
                            const BookmarkHandle &new_parent_handle,
                            bool internal_call);
