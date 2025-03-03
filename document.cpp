@@ -62,6 +62,7 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
     fz_try(ctx)
     {
         fz_matrix transform = fz_scale(dpi / 72.0f, dpi / 72.0f);
+        std::cout << "page " << page_num << std::endl;
         temp_pixmap = fz_new_pixmap_from_page_number(ctx, doc, page_num, transform, fz_device_rgb(ctx), 0);
 
         int width = fz_pixmap_width(ctx, temp_pixmap);
@@ -146,20 +147,40 @@ void Document::load_document()
     //std::this_thread::sleep_for(std::chrono::seconds(5));
 
     // Launch threads for each page
-    std::vector<std::future<QPixmap>> futures;
-    for (int i = 0; i < total_pages; ++i) {
-        futures.push_back(std::async(std::launch::async, [this, i] {
+    // 
+    // see, because code below crashes if > 1 thread. get display lists??
+    // https://mupdf.readthedocs.io/en/latest/using-mupdf.html#multi-threading
+
+    constexpr int NUM_THREADS = 1;
+    constexpr int MIN_PAGES_PER_THREAD = 1;
+
+    int num_threads = std::min(NUM_THREADS, (total_pages + MIN_PAGES_PER_THREAD - 1) / MIN_PAGES_PER_THREAD);
+    int pages_per_thread = (total_pages + num_threads - 1) / num_threads;
+    std::cout << "loading " << total_pages << " pages with " << num_threads << " threads" << std::endl;
+    std::vector<std::future<std::vector<QPixmap>>> futures;
+    for (int t = 0; t < num_threads; ++t) {
+        int start_page = t * pages_per_thread;
+        int end_page = std::min(start_page + pages_per_thread, total_pages);
+
+        futures.push_back(std::async(std::launch::async, [this, start_page, end_page] {
+            std::vector<QPixmap> result;
+            result.reserve(end_page - start_page);
+
             auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
             if (!thread_ctx || !thread_doc) {
-                logger::log_error("Failed to open document in thread for page " + std::to_string(i));
-                return QPixmap();
+                logger::log_error("Failed to open document in thread for pages " + std::to_string(start_page) + "-" + std::to_string(end_page - 1));
+                return result;
             }
 
-            QPixmap pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+            for (int i = start_page; i < end_page; ++i) {
+                result.push_back(render_page(thread_ctx, thread_doc, i, dpi_));
+            }
+
             close_fitz(thread_ctx, thread_doc);
-            return pixmap;
+            return result;
         }));
     }
+
 
     // while these run we can get the bookmarks
     {
@@ -176,8 +197,14 @@ void Document::load_document()
     }
 
     // Collect results
-    for (int i = 0; i < total_pages; ++i)
-        pages_[i] = Page(futures[i].get(), i + 1);
+    int page_index = 0;
+    for (auto &future : futures) {
+        auto pixmaps = future.get();
+        for (auto &pixmap : pixmaps) {
+            pages_[page_index] = Page(std::move(pixmap), page_index + 1);
+            ++page_index;
+        }
+    }
 }
 
 /*
