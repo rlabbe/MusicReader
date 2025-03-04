@@ -99,7 +99,9 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
-    : filename_(std::move(filename)), dpi_(dpi)
+    : filename_(std::move(filename))
+    , dpi_(dpi)
+    , start_page_(start_page)
 {
     int total_pages = 0;
 
@@ -123,9 +125,27 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     for (int i = 0; i < total_pages; ++i)
         pages_[i].page_num = i + 1;
 
-    pages_[start_page-1] = Page(render_page(ctx, doc, start_page-1, dpi), start_page, false);
+    pages_[start_page - 1] = Page(render_page(ctx, doc, start_page - 1, dpi), start_page, false);
 
     close_fitz(ctx, doc);
+}
+
+
+
+void Document::request_page(int page_num) const
+{
+    std::lock_guard lock(load_order_mutex_);
+
+    load_order_.push_front(page_num - 1);
+
+    // also ask for previous and next; this will more or less
+    // let us page forward and backward without waiting for the
+    // next page to load.
+    if (page_num > 1)
+        load_order_.push_front(page_num - 2);
+
+    if (page_num + 1 < page_count())
+        load_order_.push_back(page_num);
 }
 
 
@@ -137,6 +157,10 @@ Page Document::get_page(int page_num) const
         return Page();
     }
     std::lock_guard lock(read_mutex_);
+    if (pages_[page_num - 1].is_empty()) {
+        // start a new read as soon as we can, sure, it'll be a duplicate, who cares?
+        request_page(page_num);
+    }
     return pages_[page_num - 1];
 }
 
@@ -145,17 +169,45 @@ inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency())
 constexpr int MIN_PAGES_PER_THREAD = 1;
 
 
+std::list<int> get_page_load_order(int start_page, int total_pages)
+{
+    std::list<int> load_order;
+    int start_index = start_page - 1;  // Convert to zero-based index
+
+    // Step 1: Load next page first
+    if (start_index + 1 < total_pages) load_order.push_back(start_index + 1);
+
+    // Step 2: Load previous page if it exists
+    if (start_index > 0) load_order.push_back(start_index - 1);
+
+    // Step 3: Load remaining pages forward
+    for (int i = start_index + 2; i < total_pages; ++i) {
+        load_order.push_back(i);
+    }
+
+    // Step 4: Load remaining pages backward
+    for (int i = start_index - 2; i >= 0; --i) {
+        load_order.push_back(i);
+    }
+
+    return load_order;
+}
+
+
 void Document::load_document()
 {
-    //std::this_thread::sleep_for(std::chrono::seconds(5));
+    const int total_pages = page_count();
+    if (total_pages == 0)
+        return;
 
     auto [ctx, doc] = open_fitz(filename_.string());
 
-    const int total_pages = page_count();
-
-    const int num_threads = std::min(NUM_THREADS, (total_pages + MIN_PAGES_PER_THREAD - 1) / MIN_PAGES_PER_THREAD);
-    int pages_per_thread = (total_pages + num_threads - 1) / num_threads;
-    pages_per_thread = 1;
+    // we try to load in order of likely access, but if get_page
+    // is called then we will be modifying load_order_ to have it
+    // loaded as the very next request.
+    load_order_mutex_.lock();
+    load_order_ = get_page_load_order(start_page_, total_pages);
+    load_order_mutex_.unlock();
 
     std::vector<std::future<void>> futures;
     std::vector<fz_display_list *> display_lists;
@@ -164,12 +216,27 @@ void Document::load_document()
     std::vector<fz_display_list *> all_display_lists;
     std::vector<fz_rect> bboxes;
 
-    display_lists.reserve(pages_per_thread);
-    bboxes.reserve(pages_per_thread);
+    futures.reserve(total_pages);
+    display_lists.reserve(total_pages);
+    all_display_lists.reserve(total_pages);
+    bboxes.reserve(total_pages);
 
-    for (int i = 0; i < total_pages; ++i) {
-        if (kill_loading_)
+    while (true) {
+        if (kill_loading_) break;
+
+        load_order_mutex_.lock();
+        if (load_order_.empty()) {
+            load_order_mutex_.unlock();
             break;
+        }
+
+        int i = load_order_.front();
+        load_order_.pop_front();
+        load_order_mutex_.unlock();
+
+        // may have already been loaded if get_page() was called
+        // while this loop was running.
+        if (!pages_[i].is_empty()) continue;
 
         fz_page *page = nullptr;
         fz_device *dev = nullptr;
@@ -200,8 +267,7 @@ void Document::load_document()
             display_lists.push_back(nullptr);
         }
 
-        // Once we have enough pages for a thread, start rendering
-        if (!kill_loading_ && display_lists.size() == pages_per_thread || i == total_pages - 1) {
+        if (!kill_loading_) {
 
             int start_page = i + 1 - static_cast<int>(display_lists.size());
             futures.push_back(std::async(std::launch::async,

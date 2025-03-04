@@ -90,12 +90,19 @@ private:
     void save_annotations(fz_context *, fz_document *);
 
     void clear_completed_features();
+    void request_page(int page_num) const;
+
 
     std::vector<Bookmark> bookmarks_;
     std::filesystem::path filename_;
 
     int dpi_;
+    int start_page_;
     std::vector<Page> pages_;
+
+
+    mutable std::list<int> load_order_;
+    mutable std::mutex load_order_mutex_;
 
     std::vector<std::vector<Bookmark>> undo_stack_;
     std::vector<std::vector<Bookmark>> redo_stack_;

@@ -66,7 +66,7 @@ private:
     void open_fast_search_dialog();
     void open_config_dialog();
     void update_recent_files_list() {/*TODO*/ }
-    void update_dpi_setting(bool recompute) {/*TODO*/ }
+    void update_dpi_setting(bool /*recompute*/) {/*TODO*/ }
     void toggle_draw_margin() {/*TODO*/ }
     void toggle_bookmark_panel();
     void toggle_toolbar_visibility() {/*TODO*/ }
