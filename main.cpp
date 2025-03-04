@@ -11,7 +11,7 @@
 
 std::string input("C:/smusic/MusicReader/China-Gates.pdf");
 
-
+/*
 void m3()
 {
     auto doc = Document(input, 100);
@@ -34,7 +34,7 @@ int m2()
     zoom = 100.;
     rotate = 0;
 
-    /* Create a context to hold the exception stack and various caches. */
+    // Create a context to hold the exception stack and various caches. 
     ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED);
     if (!ctx)
     {
@@ -42,7 +42,7 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    /* Register the default file types to handle. */
+    // Register the default file types to handle. 
     fz_try(ctx)
         fz_register_document_handlers(ctx);
     fz_catch(ctx)
@@ -53,7 +53,7 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    /* Open the document. */
+    // Open the document. 
     fz_try(ctx)
         doc = fz_open_document(ctx, input.c_str());
     fz_catch(ctx)
@@ -64,7 +64,7 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    /* Count the number of pages. */
+    // Count the number of pages.
     fz_try(ctx)
         page_count = fz_count_pages(ctx, doc);
     fz_catch(ctx)
@@ -84,12 +84,9 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    /* Compute a transformation matrix for the zoom and rotation desired. */
-    /* The default resolution without scaling is 72 dpi. */
     ctm = fz_scale(zoom / 100, zoom / 100);
     ctm = fz_pre_rotate(ctm, rotate);
 
-    /* Render page to an RGB pixmap. */
     fz_try(ctx)
         pix = fz_new_pixmap_from_page_number(ctx, doc, page_number, ctm, fz_device_rgb(ctx), 0);
     fz_catch(ctx)
@@ -101,7 +98,6 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    /* Print image data in ascii PPM format. */
     printf("P3\n");
     printf("%d %d\n", pix->w, pix->h);
     printf("255\n");
@@ -118,14 +114,13 @@ int m2()
         printf("\n");
     }
 
-    /* Clean up. */
     fz_drop_pixmap(ctx, pix);
     fz_drop_document(ctx, doc);
     fz_drop_context(ctx);
     return EXIT_SUCCESS;
 }
 
-
+*/
 
 int main(int argc, char *argv[])
 {

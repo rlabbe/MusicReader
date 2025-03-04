@@ -98,28 +98,8 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 
 
 
-Document::Document(std::filesystem::path filename, int dpi)
+Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename)), dpi_(dpi)
-{
-}
-
-
-Page Document::get_page(int page_num) const
-{
-    if (page_num < 1 || page_num > page_count()) {
-        logger::log_error(std::format("Invalid page number: {} for {}",
-                                      page_num, filename_.string()));
-        return Page();
-    }
-    return pages_[page_num - 1];
-}
-
-
-inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency());
-constexpr int MIN_PAGES_PER_THREAD = 2;
-
-
-void Document::load_document()
 {
     int total_pages = 0;
 
@@ -137,12 +117,47 @@ void Document::load_document()
         return;
     }
 
+    // assign page numbers so renderers know what page we are on
+    // even before the document is loaded.
     pages_.resize(total_pages);
+    for (int i = 0; i < total_pages; ++i)
+        pages_[i].page_num = i + 1;
 
-    int num_threads = std::min(NUM_THREADS, (total_pages + MIN_PAGES_PER_THREAD - 1) / MIN_PAGES_PER_THREAD);
+    pages_[start_page-1] = Page(render_page(ctx, doc, start_page-1, dpi), start_page, false);
+
+    close_fitz(ctx, doc);
+}
+
+
+Page Document::get_page(int page_num) const
+{
+    if (page_num < 1 || page_num > page_count()) {
+        logger::log_error(std::format("Invalid page number: {} for {}",
+                                      page_num, filename_.string()));
+        return Page();
+    }
+    std::lock_guard lock(read_mutex_);
+    return pages_[page_num - 1];
+}
+
+
+inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency());
+constexpr int MIN_PAGES_PER_THREAD = 1;
+
+
+void Document::load_document()
+{
+    //std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+
+    const int total_pages = page_count();
+
+    const int num_threads = std::min(NUM_THREADS, (total_pages + MIN_PAGES_PER_THREAD - 1) / MIN_PAGES_PER_THREAD);
     int pages_per_thread = (total_pages + num_threads - 1) / num_threads;
+    pages_per_thread = 1;
 
-    std::vector<std::future<std::vector<QPixmap>>> futures;
+    std::vector<std::future<void>> futures;
     std::vector<fz_display_list *> display_lists;
 
     // Store all lists for cleanup
@@ -187,7 +202,7 @@ void Document::load_document()
 
         // Once we have enough pages for a thread, start rendering
         if (!kill_loading_ && display_lists.size() == pages_per_thread || i == total_pages - 1) {
-            
+
             int start_page = i + 1 - static_cast<int>(display_lists.size());
             futures.push_back(std::async(std::launch::async,
                                          [this, start_page, display_lists = std::move(display_lists), bboxes = std::move(bboxes)]() mutable {
@@ -199,18 +214,7 @@ void Document::load_document()
         }
     }
 
-
-    // Collect results
-    int page_index = 0;
-    for (auto &future : futures) {
-        if (kill_loading_)
-            break;
-        auto pixmaps = future.get();
-        for (auto &pixmap : pixmaps) {
-            pages_[page_index] = Page(std::move(pixmap), page_index + 1, false);
-            ++page_index;
-        }
-    }
+    std::for_each(futures.begin(), futures.end(), std::mem_fn(&std::future<void>::get));
 
     // Free display lists in the main thread
     for (auto *list : all_display_lists) {
@@ -222,30 +226,22 @@ void Document::load_document()
     close_fitz(ctx, doc);
 }
 
-std::vector<QPixmap> Document::render_page_batch(int start_page,
-                                                 std::vector<fz_display_list *> &display_lists,
-                                                 std::vector<fz_rect> &bboxes)
-{
-    std::vector<QPixmap> results;
-    results.reserve(display_lists.size());
 
+void Document::render_page_batch(int start_page,
+                                 std::vector<fz_display_list *> &display_lists,
+                                 std::vector<fz_rect> &bboxes)
+{
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         logger::log_error("Failed to create MuPDF context for rendering thread.");
-        return results;
+        return;
     }
 
     fz_try(ctx)
     {
         for (size_t i = 0; i < display_lists.size(); ++i) {
-            if (kill_loading_) {
-                results.clear();
-                break;
-            }
-            if (!display_lists[i]) {
-                results.emplace_back();  // Empty QPixmap for failed pages
-                continue;
-            }
+            if (kill_loading_) break;
+            if (!display_lists[i]) continue;
 
             fz_pixmap *temp_pixmap = nullptr;
             QPixmap pixmap;
@@ -268,32 +264,22 @@ std::vector<QPixmap> Document::render_page_batch(int start_page,
                 const uchar *data = fz_pixmap_samples(ctx, temp_pixmap);
 
                 QImage image(data, width, height, stride, QImage::Format_RGB888);
-                /*QPainter painter(&image);
-                image.fill(Qt::white);
-
-                double rect_ratio = 0.95;
-                double margin_ratio = (1.0 - rect_ratio) / 2.0;
-
-                QRect rect(image.width() * margin_ratio, image.height() * margin_ratio,
-                           image.width() * rect_ratio, image.height() * rect_ratio);
-                std::cout << image.width() * margin_ratio << " " <<  image.height() *margin_ratio << " " <<
-                    image.width() *rect_ratio << " " << image.height() *rect_ratio << std::endl;
-
-                painter.setPen(QPen(Qt::black, 10));
-                painter.drawRect(rect);*/
                 pixmap = QPixmap::fromImage(image);
-
+                int page_index = start_page + (int)i;
+                int page_num = page_index + 1;
+                {
+                    std::lock_guard lock(read_mutex_);
+                    pages_[page_index] = Page(std::move(pixmap), page_num, false);
+                }
+                emit page_loaded(page_num);
             }
             fz_catch(ctx)
             {
                 logger::log_error("Failed to render page " + std::to_string(start_page + i));
             }
 
-            if (temp_pixmap) {
+            if (temp_pixmap)
                 fz_drop_pixmap(ctx, temp_pixmap);
-            }
-
-            results.push_back(std::move(pixmap));
         }
     }
     fz_catch(ctx)
@@ -302,78 +288,8 @@ std::vector<QPixmap> Document::render_page_batch(int start_page,
     }
 
     fz_drop_context(ctx);
-    return results;
 }
 
-
-/*
-bool Document::save(const std::filesystem::path &output_filename, bool block)
-{
-    // just housekeeping, remove any futures that are done
-    clear_completed_features();
-
-    std::lock_guard<std::mutex> lock(save_mutex_);
-
-    std::string filename_to_save = output_filename.empty() ? filename_.string() : output_filename.string();
-
-    auto save_task = [this, filename_to_save]() {
-        try {
-            auto [ctx, doc] = open_fitz(filename_.string());
-            if (!ctx || !doc) {
-                logger::log_error("Failed to open document for saving: " + filename_to_save);
-                return;
-            }
-
-            fz_outline *outline = bookmarks_.empty() ? nullptr : convert_bookmarks_to_outline(bookmarks_);
-            fz_set_outline(ctx, doc, outline);
-            if (outline) {
-                fz_drop_outline(ctx, outline);
-            }
-
-            fz_try(ctx)
-            {
-                if (filename_to_save == filename_.string()) {
-                    fz_save_document(ctx, doc, filename_to_save.c_str(), nullptr);
-                } else {
-                    fz_save_document(ctx, doc, filename_to_save.c_str(), "compress");
-                }
-            }
-            fz_catch(ctx)
-            {
-                logger::log_error("Error saving document: " + filename_to_save);
-            }
-
-            close_fitz(ctx, doc);
-            logger::log_info("Document saved: " + filename_to_save);
-        } catch (const std::exception &e) {
-            logger::log_error("Exception during save: " + std::string(e.what()));
-        }
-    };
-
-
-    if (block) {
-        save_task();  // Run synchronously
-    } else {
-        save_futures_.emplace_back(std::async(std::launch::async, save_task));  // Run asynchronously
-    }
-
-    return true;
-}
-
-*/
-
-/*
-TODO reparent_bookmark (add the checks inside the call)
-
-
-if (auto *bookmark = doc->find_bookmark(handle))
-{
-    if (auto *new_parent = doc->find_bookmark(target_handle))
-    {
-        if (doc->reparent_bookmark(*bookmark, target_handle))
-        {
-
-  */
 
 Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
 {
@@ -609,3 +525,74 @@ void Document::clear_completed_features()
 
 
 
+
+
+
+/*
+bool Document::save(const std::filesystem::path &output_filename, bool block)
+{
+    // just housekeeping, remove any futures that are done
+    clear_completed_features();
+
+    std::lock_guard<std::mutex> lock(save_mutex_);
+
+    std::string filename_to_save = output_filename.empty() ? filename_.string() : output_filename.string();
+
+    auto save_task = [this, filename_to_save]() {
+        try {
+            auto [ctx, doc] = open_fitz(filename_.string());
+            if (!ctx || !doc) {
+                logger::log_error("Failed to open document for saving: " + filename_to_save);
+                return;
+            }
+
+            fz_outline *outline = bookmarks_.empty() ? nullptr : convert_bookmarks_to_outline(bookmarks_);
+            fz_set_outline(ctx, doc, outline);
+            if (outline) {
+                fz_drop_outline(ctx, outline);
+            }
+
+            fz_try(ctx)
+            {
+                if (filename_to_save == filename_.string()) {
+                    fz_save_document(ctx, doc, filename_to_save.c_str(), nullptr);
+                } else {
+                    fz_save_document(ctx, doc, filename_to_save.c_str(), "compress");
+                }
+            }
+            fz_catch(ctx)
+            {
+                logger::log_error("Error saving document: " + filename_to_save);
+            }
+
+            close_fitz(ctx, doc);
+            logger::log_info("Document saved: " + filename_to_save);
+        } catch (const std::exception &e) {
+            logger::log_error("Exception during save: " + std::string(e.what()));
+        }
+    };
+
+
+    if (block) {
+        save_task();  // Run synchronously
+    } else {
+        save_futures_.emplace_back(std::async(std::launch::async, save_task));  // Run asynchronously
+    }
+
+    return true;
+}
+
+*/
+
+/*
+TODO reparent_bookmark (add the checks inside the call)
+
+
+if (auto *bookmark = doc->find_bookmark(handle))
+{
+    if (auto *new_parent = doc->find_bookmark(target_handle))
+    {
+        if (doc->reparent_bookmark(*bookmark, target_handle))
+        {
+
+  */

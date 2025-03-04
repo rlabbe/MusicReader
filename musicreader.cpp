@@ -939,7 +939,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 
     WaitCursor cursor;
 
-    auto *pdoc = open_pdf_document(filename);
+    auto *pdoc = open_pdf_document(filename, page);
     if (!pdoc)
         return nullptr;
     std::shared_ptr<Document> doc(pdoc);
@@ -976,7 +976,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 }
 
 
-Document *MusicReader::open_pdf_document(const std::string &filename)
+Document *MusicReader::open_pdf_document(const std::string &filename, int page_num)
 {
     LOG_EXCEPTION;
 
@@ -985,7 +985,7 @@ Document *MusicReader::open_pdf_document(const std::string &filename)
         return nullptr;
     }
 
-    return new Document(filename, config_.dpi());
+    return new Document(filename, config_.dpi(), page_num);
 }
 
 

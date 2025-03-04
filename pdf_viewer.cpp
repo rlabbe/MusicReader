@@ -18,6 +18,9 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
 
+    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
+    get_page(page, true);
+
     //TODO Qt6 might use QEvent::ApplicationPaletteChange
     /*
          void changeEvent(QEvent *event) override {
@@ -52,9 +55,10 @@ int PDFViewer::page_count() const
     return document_->page_count();
 }
 
+
 int PDFViewer::current_page() const
 {
-    if (page_.is_empty()) return 1;
+    //if (page_.is_empty()) return 1;
     return page_.page_num;
 }
 
@@ -142,7 +146,7 @@ bool PDFViewer::event(QEvent *event)
 void PDFViewer::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    _update_image();
+    update_image();
 }
 
 
@@ -159,6 +163,9 @@ void PDFViewer::init_ui(int page)
     label_ = new QLabel(this);
     label_->setStyleSheet("border: 0px;");
     label_->setAlignment(Qt::AlignCenter);
+    label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
+
 
     layout_->addWidget(label_, 1);  // Stretch document display
     layout_->addWidget(scrollbar_);
@@ -166,6 +173,7 @@ void PDFViewer::init_ui(int page)
     setLayout(layout_);
     update_scrollbar_visibility();
 }
+
 
 void PDFViewer::on_scrollbar_value_changed(int new_page)
 {
@@ -180,6 +188,7 @@ void PDFViewer::update_scrollbar_visibility()
     scrollbar_->setVisible(!all_pages_shown);
 }
 
+
 void PDFViewer::get_page(int page_num, bool first_call)
 {
     if (document_->page_count() == 0) return;
@@ -189,11 +198,9 @@ void PDFViewer::get_page(int page_num, bool first_call)
     else
         page_ = get_double_page(page_num);
 
-    _update_image();
-    if (first_call)
-        adjust_initial_subwindow_size();
-
+    update_image();
 }
+
 
 Page PDFViewer::get_single_page(int page_num)
 {
@@ -211,6 +218,9 @@ Page PDFViewer::get_double_page(int page_num)
 
     Page p1 = document_->get_page(page_num);
     Page p2 = document_->get_page(page_num + 1);
+    if (p1.is_empty() || p2.is_empty()) {
+        return Page(); // Empty page to show "Loading..."
+    }
 
     // Determine cropped dimensions if zooming to content
     QRect p1_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p1.width(), p1.height());
@@ -229,27 +239,38 @@ Page PDFViewer::get_double_page(int page_num)
 
     combined_image.fill(back_color);
 
-    QPainter painter(&combined_image);
-
     // Center each cropped page within the available height
     int p1_offset = (max_height - p1_crop.height()) / 2;
     int p2_offset = (max_height - p2_crop.height()) / 2;
 
     // Draw cropped pages directly
+    QPainter painter(&combined_image);
     painter.drawPixmap(0, p1_offset, p1.img, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
     painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.img, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
-
-    // Draw separator line
-    //painter.setPen(QPen(back_color, line_width));
-    //painter.drawLine(p1_crop.width(), 0, p1_crop.width(), max_height);
-
     painter.end();
 
-    return Page(combined_image, page_num, true);//true for double page
+    return Page(combined_image, page_num, true); //true for double page
 }
 
 
-void PDFViewer::_update_image(const QString &message)
+void PDFViewer::on_page_loaded(int page_index)
+{
+    int page_num = current_page();
+    if (single_page_view()) {
+        if (page_num == page_index) {
+            page_ = get_single_page(page_num);
+            update_image();
+        }
+    } else {
+        if (page_num == page_index || page_num + 1 == page_index) {
+            page_ = get_double_page(page_num);
+            update_image();
+        }
+    }
+}
+
+
+void PDFViewer::update_image(const QString &message)
 {
     update_status_bar();
 
@@ -259,6 +280,7 @@ void PDFViewer::_update_image(const QString &message)
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
     }
+
     QPixmap *img;
     QPixmap zoomed;
     if (!config_->zoom_to_content() || page_.double_page)
@@ -282,12 +304,20 @@ void PDFViewer::_update_image(const QString &message)
     label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
     label_->setScaledContents(false);
     label_->setContentsMargins(0, 0, 0, 0);
-    label_->setPixmap(img->scaled(max_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    QPixmap scaled_pixmap = img->scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    label_->setPixmap(scaled_pixmap);
+
+    adjust_initial_subwindow_size(); // safe to call multiple times
 }
+
 
 void PDFViewer::adjust_initial_subwindow_size()
 {
     if (page_.is_empty()) return;
+
+    static bool first_time = true;
+    if (!first_time) return;
+    first_time = false;
 
     QSize max_size = parentWidget()->size();
     QSize scaled_size = page_.size().scaled(max_size, Qt::KeepAspectRatio);

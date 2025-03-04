@@ -72,11 +72,10 @@ private:
     std::filesystem::path music_directory_ = ".";
     LogLevel log_level_ = LogLevel::Normal;
 
-
 public:
 
-    void start_group_changes() { save_operation_enabled_ = true;}
-    void end_group_changes() { save_operation_enabled_ = false; save(); }
+    void start_group_changes() { save_operation_enabled_ = false;}
+    void end_group_changes() { save_operation_enabled_ = true; save(); }
 
     int file_version() const { return file_version_; }
     void set_file_version(int value) { file_version_ = value; save(); }
@@ -172,7 +171,7 @@ private:
 
     // Private member variables
     std::filesystem::path filename_;
-    bool save_operation_enabled_;
+    bool save_operation_enabled_ = true;
 
     // Helper functions for validation
     bool valid_window_rect(const std::vector<int> &vec) const;

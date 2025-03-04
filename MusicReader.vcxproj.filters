@@ -105,11 +105,11 @@
     <QtMoc Include="file_viewer.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="document.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="document.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="bookmark.h">
       <Filter>Header Files</Filter>
     </ClInclude>

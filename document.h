@@ -12,6 +12,7 @@
 #include <mupdf/fitz.h>
 #pragma warning(pop)
 #include <QPixmap>
+#include <QObject>
 #include "page.h"
 #include "bookmark.h"
 
@@ -20,7 +21,8 @@
 struct fz_context;
 struct fz_document;
 
-class Document {
+class Document : public QObject {
+    Q_OBJECT
 public:
 
     // you must call load_document() separately, construction
@@ -28,7 +30,7 @@ public:
     //
     // This facilitates loading the document in a separate thread
     // to keep the UI responsive
-    Document(std::filesystem::path filename, int dpi);
+    Document(std::filesystem::path filename, int dpi, int start_page);
     ~Document() = default;
 
     void load_document();
@@ -66,11 +68,17 @@ public:
                                                  const BookmarkHandle &parent_handle);
 
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
+
+signals:
+    // emitted when a page is loaded. listen if you want to render while loading is
+    // happening
+    void page_loaded(int page_index);
+
 private:
 
-    std::vector<QPixmap> render_page_batch(int start_page,
-                                           std::vector<fz_display_list *> &display_lists,
-                                           std::vector<fz_rect> &bboxes);
+    void render_page_batch(int start_page,
+                           std::vector<fz_display_list *> &display_lists,
+                           std::vector<fz_rect> &bboxes);
 
 
     bool reparent_bookmark(Bookmark bookmark,
@@ -95,6 +103,8 @@ private:
     // saves are async for performance, save the futures here
     std::vector<std::future<void>> save_futures_;
     std::recursive_mutex save_mutex_;
+
+    mutable std::mutex read_mutex_;
 
     std::atomic<bool> kill_loading_{ false };
 };

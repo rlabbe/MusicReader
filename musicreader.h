@@ -96,7 +96,7 @@ public:
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
     PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1);
-    Document *open_pdf_document(const std::string &filename);
+    Document *open_pdf_document(const std::string &filename, int page_num);
 
 private:
     // Focuses on the specified tab

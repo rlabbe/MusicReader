@@ -44,6 +44,9 @@ protected:
     bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
+private slots:
+    void on_page_loaded(int page_index);
+
 private:
     void init_ui(int page);
     Page get_single_page(int page_num);
@@ -51,7 +54,7 @@ private:
     void adjust_initial_subwindow_size();
     void update_scrollbar_visibility();
     void on_scrollbar_value_changed(int new_page);
-    void _update_image(const QString &message = QString());
+    void update_image(const QString &message = QString());
 
     QLabel *label_;
     StatusBar *status_bar_;

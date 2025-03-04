@@ -4,8 +4,7 @@
 #include <QPixmap>
 #include <QRect>
 
-struct Border
-{
+struct Border {
     int top{ 0 };
     int bottom{ 0 };
     int left{ 0 };
@@ -13,8 +12,7 @@ struct Border
 
     Border adjust(const QPixmap &img, int top_margin, int side_margin) const
     {
-        if (top_margin == 0 && side_margin == 0)
-        {
+        if (top_margin == 0 && side_margin == 0) {
             return *this;
         }
 
@@ -26,12 +24,23 @@ struct Border
         int new_left = std::max(0, left - side_margin);
         int new_right = std::min(width, right + side_margin);
 
-        return Border{ new_top, new_bottom, new_left, new_right };
+        return Border {
+            .top = new_top, 
+            .bottom = new_bottom, 
+            .left = new_left, 
+            .right = new_right };
+
     }
 
     static Border from_qrect(const QRect &qrect)
     {
-        return Border{ qrect.top(), qrect.bottom(), qrect.left(), qrect.right() };
+        return Border {
+            .top = qrect.top(),
+            .bottom = qrect.bottom(),
+            .left = qrect.left(),
+            .right = qrect.right() 
+        };
+
     }
 };
 

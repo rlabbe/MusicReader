@@ -240,7 +240,7 @@
     <ClInclude Include="utils.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
-    <ClInclude Include="document.h" />
+    <QtMoc Include="document.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="logger.h" />
   </ItemGroup>

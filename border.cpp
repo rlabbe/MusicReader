@@ -56,7 +56,7 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         counts.push_back(count);
     }
 
-    while (counts.back() > 1) {
+    while (!counts.empty() && counts.back() > 1) {
         --top;
         counts.pop_back();
     }
@@ -71,7 +71,7 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         }
         counts.push_back(count);
     }
-    while (counts.back() > 1) {
+    while (!counts.empty() && counts.back() > 1) {
         ++bottom;
         counts.pop_back();
     }
@@ -92,7 +92,7 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         counts.push_back(count);
 
     }
-    while (counts.back() > 1) {
+    while (!counts.empty() && counts.back() > 1) {
         --left;
         counts.pop_back();
     }
@@ -112,7 +112,7 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         }
         counts.push_back(count);
     }
-    while (counts.back() > 1) {
+    while (!counts.empty() && counts.back() > 1) {
         ++right;
         counts.pop_back();
     }
