@@ -60,7 +60,7 @@ struct PixmapData {
     int width;
     int height;
     int stride;
-    int size;  // Needed for deep copy
+    int size;
     bool success;
 };
 

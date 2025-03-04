@@ -199,16 +199,22 @@ void ConfigFile::read(bool reset_on_error)
         log_error("Invalid or missing 'zoom_to_content'");
     }
 
-    if (j.contains("show_status_bar_") && j["show_status_bar_"].is_boolean()) {
-        show_status_bar_ = j["show_status_bar_"].get<bool>();
+    if (j.contains("show_status_bar") && j["show_status_bar"].is_boolean()) {
+        show_status_bar_ = j["show_status_bar"].get<bool>();
     } else {
-        log_error("Invalid or missing 'show_status_bar_'");
+        log_error("Invalid or missing 'show_status_bar'");
     }
 
-    if (j.contains("show_menu_") && j["show_menu_"].is_boolean()) {
-        show_menu_ = j["show_menu_"].get<bool>();
+    if (j.contains("show_menu") && j["show_menu"].is_boolean()) {
+        show_menu_ = j["show_menu"].get<bool>();
     } else {
-        log_error("Invalid or missing 'show_menu_'");
+        log_error("Invalid or missing 'show_menu'");
+    }
+
+    if (j.contains("horiz_tabs") && j["horiz_tabs"].is_boolean()) {
+        horiz_tabs_ = j["horiz_tabs"].get<bool>();
+    } else {
+        log_error("Invalid or missing 'horiz_tabs'");
     }
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
@@ -376,7 +382,8 @@ json ConfigFile::to_json() const
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
     j["show_status_bar_"] = show_status_bar_;
-    j["show_menu_"] = show_menu_;
+    j["show_menu"] = show_menu_;
+    j["horiz_tabs"] = horiz_tabs_;
 
     j["open_documents"] = json::array();
     for (const auto &doc : open_documents_) {
@@ -518,6 +525,7 @@ void ConfigFile::set_defaults()
     zoom_to_content_ = true;
     show_status_bar_ = true;
     show_menu_ = true;
+    horiz_tabs_ = false;
     open_documents_.clear();
     recent_documents_.clear();
     app_size_ = { 10, 10, 640, 480 };
@@ -541,8 +549,9 @@ std::string ConfigFile::repr() const
     j["restore_window_position"] = restore_window_position_;
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
-    j["show_status_bar_"] = show_status_bar_;
-    j["show_menu_"] = show_menu_;
+    j["show_status_bar"] = show_status_bar_;
+    j["show_menu"] = show_menu_;
+    j["horiz_tabs"] = horiz_tabs_;
 
     // Serialize open_documents
     j["open_documents"] = json::array();

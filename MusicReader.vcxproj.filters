@@ -108,9 +108,6 @@
     <QtMoc Include="document.h">
       <Filter>Header Files</Filter>
     </QtMoc>
-    <QtMoc Include="lcd_clock.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bookmark.h">

@@ -172,7 +172,7 @@ void PDFViewer::init_ui(int page)
 
     label_ = new QLabel(this);
     label_->setStyleSheet("border: 0px;");
-    label_->setAlignment(Qt::AlignCenter);
+    label_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
 
@@ -314,13 +314,11 @@ void PDFViewer::update_image(const QString &message)
 
     if (config_->allow_oversize()) {
         max_size = label_->size();
-        //std::cout << "max_size label: " << max_size.width() << " " << max_size.height() << std::endl;
     } else {
         max_size = img->size().boundedTo(label_->size());
-        //std::cout << "max_size image: " << max_size.width() << " " << max_size.height() << std::endl;
     }
 
-    label_->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+    label_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
     label_->setScaledContents(false);
     label_->setContentsMargins(0, 0, 0, 0);
     QPixmap scaled_pixmap = img->scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);

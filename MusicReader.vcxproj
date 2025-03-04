@@ -233,7 +233,6 @@
     <QtMoc Include="fast_file_search_dialog.h" />
     <QtMoc Include="fullscreen_exit_button.h" />
     <QtMoc Include="file_viewer.h" />
-    <QtMoc Include="lcd_clock.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="qpdf_document.h" />
     <ClInclude Include="qt_utils.h" />

@@ -42,12 +42,12 @@ void ConfigDialog::setup_ui()
     combo_log_level_->addItem("Normal", static_cast<int>(LogLevel::Normal));
     combo_log_level_->addItem("Diagnostic", static_cast<int>(LogLevel::Diagnostic));
 
-    check_restore_window_position_ = new QCheckBox("Restore Window Position", this);
-    check_restore_documents_ = new QCheckBox("Restore Documents", this);
-    check_zoom_to_content_ = new QCheckBox("Zoom to Content", this);
-    check_allow_oversize_ = new QCheckBox("Allow Oversize", this);
+    check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
+    check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
+    check_zoom_to_content_ = new QCheckBox("Remove Document Borders", this);
+    check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level", this);
     check_show_menu_ = new QCheckBox("Show Menu Bar", this);
-
+    check_horiz_tabs_ = new QCheckBox("Document Tabs At Top", this);
     edit_music_directory_ = new QLineEdit(this);
     btn_browse_ = new QPushButton("Browse...", this);
 
@@ -95,6 +95,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_zoom_to_content_);
     form_layout->addRow(check_allow_oversize_);
     form_layout->addRow(check_show_menu_);
+    form_layout->addRow(check_horiz_tabs_);
 
     // Music Directory with Browse button
     QHBoxLayout *layout_music_directory = new QHBoxLayout;
@@ -139,6 +140,7 @@ void ConfigDialog::load_settings()
     check_zoom_to_content_->setChecked(config_.zoom_to_content());
     check_allow_oversize_->setChecked(config_.allow_oversize());
     check_show_menu_->setChecked(config_.show_menu());
+    check_horiz_tabs_->setChecked(!config_.horiz_tabs());
 
     edit_music_directory_->setText(QString::fromStdString(config_.music_directory().string()));
 }
@@ -194,6 +196,7 @@ void ConfigDialog::save_settings()
     config_.set_zoom_to_content(check_zoom_to_content_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
     config_.set_show_menu(check_show_menu_->isChecked());
+    config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
     config_.set_music_directory(std::filesystem::path(edit_music_directory_->text().toStdString()));
 
     accept(); // Close dialog with Accepted status

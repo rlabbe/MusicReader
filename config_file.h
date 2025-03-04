@@ -56,6 +56,7 @@ private:
     bool zoom_to_content_ = false;
     bool show_status_bar_ = true;
     bool show_menu_ = true;
+    bool horiz_tabs_ = false;
 
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
@@ -94,6 +95,9 @@ public:
 
     bool show_menu() const { return show_menu_; }
     void set_show_menu(bool value) { show_menu_ = value; save(); }
+
+    bool horiz_tabs() const { return horiz_tabs_; }
+    void set_horiz_tabs(bool value) { horiz_tabs_ = value; save(); }
 
     const std::vector<OpenDocument> &open_documents() const { return open_documents_; }
     void set_open_documents(const std::vector<OpenDocument> &value) { open_documents_ = value; save(); }
