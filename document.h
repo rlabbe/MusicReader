@@ -74,6 +74,10 @@ signals:
     // happening
     void page_loaded(int page_index);
 
+    // Notify UI when loading is done
+    void document_loaded(std::string name, int page);
+
+
 private:
 
     void render_page_batch(int start_page,
@@ -99,6 +103,7 @@ private:
     int dpi_;
     int start_page_;
     std::vector<Page> pages_;
+    bool load_started_ = false;
 
 
     mutable std::list<int> load_order_;

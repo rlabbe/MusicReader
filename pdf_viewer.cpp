@@ -86,6 +86,10 @@ void PDFViewer::page_down()
 void PDFViewer::change_page(int step)
 {
     int new_page = qBound(1, current_page() + step, page_count());
+
+    if (!single_page_view() && new_page == page_count())
+        return;
+
     scrollbar_->setValue(new_page);
     get_page(new_page);
 }
@@ -150,9 +154,15 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
 }
 
 
+
+
 void PDFViewer::init_ui(int page)
 {
-    layout_ = new QHBoxLayout(this);  // Change to horizontal layout
+    layout_ = new QHBoxLayout(this);
+
+    // Remove extra spacing/margins
+    layout_->setContentsMargins(0, 4, 0, 4);
+    layout_->setSpacing(0);
 
     scrollbar_ = new QScrollBar(Qt::Vertical, this);
     scrollbar_->setMinimum(1);
@@ -165,7 +175,6 @@ void PDFViewer::init_ui(int page)
     label_->setAlignment(Qt::AlignCenter);
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
-
 
     layout_->addWidget(label_, 1);  // Stretch document display
     layout_->addWidget(scrollbar_);
@@ -184,7 +193,14 @@ void PDFViewer::on_scrollbar_value_changed(int new_page)
 
 void PDFViewer::update_scrollbar_visibility()
 {
-    bool all_pages_shown = (page_count() == 1) || (page_count() == 2 && single_page_view());
+    bool all_pages_shown = false;
+    int page_count = document_->page_count();
+
+    if (page_count == 1) 
+        all_pages_shown = true;
+     else if (page_count == 2 && !single_page_view()) 
+        all_pages_shown = true;
+        
     scrollbar_->setVisible(!all_pages_shown);
 }
 
@@ -219,7 +235,7 @@ Page PDFViewer::get_double_page(int page_num)
     Page p1 = document_->get_page(page_num);
     Page p2 = document_->get_page(page_num + 1);
     if (p1.is_empty() || p2.is_empty()) {
-        return Page(); // Empty page to show "Loading..."
+        return Page(page_num); // Empty page to show "Loading..."
     }
 
     // Determine cropped dimensions if zooming to content
@@ -242,6 +258,9 @@ Page PDFViewer::get_double_page(int page_num)
     // Center each cropped page within the available height
     int p1_offset = (max_height - p1_crop.height()) / 2;
     int p2_offset = (max_height - p2_crop.height()) / 2;
+
+    auto w = p2.img.width();
+    auto h = p2.img.height();
 
     // Draw cropped pages directly
     QPainter painter(&combined_image);

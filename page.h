@@ -15,6 +15,7 @@ struct Page {
     bool double_page{ false }; // use if constructed from 2 pages for viewing
 
     Page() {}
+    explicit Page(int num) : page_num(num) {}
 
     Page(const QPixmap &image, int page_number, bool doubled)
         : img(image), page_num(page_number), double_page(doubled)

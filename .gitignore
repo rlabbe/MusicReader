@@ -1,6 +1,6 @@
-mupdf/
-mupdf_/
+mupdf*/
 qpdf/
+tmp/
 qpdf_wrapper/
 *.pdf
 

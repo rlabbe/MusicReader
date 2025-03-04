@@ -1,5 +1,6 @@
 #include "document.h"
 #include "logger.h"
+#include <windows.h>
 
 #include <assert.h>
 
@@ -54,30 +55,54 @@ std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename)
 
 
 
-QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
-{
-    fz_pixmap *temp_pixmap = nullptr;
-    QPixmap pixmap;
+struct PixmapData {
+    uchar *data;
+    int width;
+    int height;
+    int stride;
+    int size;  // Needed for deep copy
+    bool success;
+};
 
-    fz_try(ctx)
-    {
+extern "C" __declspec(noinline) PixmapData render_page_seh(fz_context *ctx, fz_document *doc, int page_num, int dpi)
+{
+    PixmapData result = { nullptr, 0, 0, 0, 0, false };
+    fz_pixmap *temp_pixmap = nullptr;
+
+    __try {
         fz_matrix transform = fz_scale(dpi / 72.0f, dpi / 72.0f);
         temp_pixmap = fz_new_pixmap_from_page_number(ctx, doc, page_num, transform, fz_device_rgb(ctx), 0);
+        if (!temp_pixmap) return result;
 
-        int width = fz_pixmap_width(ctx, temp_pixmap);
-        int height = fz_pixmap_height(ctx, temp_pixmap);
-        int stride = fz_pixmap_components(ctx, temp_pixmap) * width;
-        const uchar *data = fz_pixmap_samples(ctx, temp_pixmap);
+        result.width = fz_pixmap_width(ctx, temp_pixmap);
+        result.height = fz_pixmap_height(ctx, temp_pixmap);
+        result.stride = fz_pixmap_components(ctx, temp_pixmap) * result.width;
+        result.size = result.stride * result.height;
 
-        QImage img(data, width, height, stride, QImage::Format_RGB888);
-        pixmap = QPixmap::fromImage(img);
+        // Allocate memory for a deep copy
+        result.data = static_cast<uchar *>(malloc(result.size));
+        if (result.data) {
+            memcpy(result.data, fz_pixmap_samples(ctx, temp_pixmap), result.size);
+            result.success = true;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        //logger::log_error("Access violation while rendering page " + std::to_string(page_num));
     }
-    fz_catch(ctx)
-    {
-        logger::log_error("Failed to render page " + std::to_string(page_num));
-    }
+
     if (temp_pixmap) fz_drop_pixmap(ctx, temp_pixmap);
+    return result;
+}
 
+QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
+{
+    PixmapData data = render_page_seh(ctx, doc, page_num, dpi);
+    if (!data.success) return QPixmap();
+
+    // Create a QImage with copied data
+    QImage img(data.data, data.width, data.height, data.stride, QImage::Format_RGB888);
+    QPixmap pixmap = QPixmap::fromImage(img.copy()); // Ensure independent copy
+
+    free(data.data); // Free copied data after QImage is created
     return pixmap;
 }
 
@@ -96,6 +121,9 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
     return false;  // Both are folders, maintain insertion order
 }
 
+
+
+#define FZ_SERIAL_LOAD
 
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
@@ -125,9 +153,13 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     for (int i = 0; i < total_pages; ++i)
         pages_[i].page_num = i + 1;
 
-    pages_[start_page - 1] = Page(render_page(ctx, doc, start_page - 1, dpi), start_page, false);
 
+#ifdef FZ_SERIAL_LOAD
     close_fitz(ctx, doc);
+#else
+    pages_[start_page - 1] = Page(render_page(ctx, doc, start_page - 1, dpi), start_page, false);
+    close_fitz(ctx, doc);
+#endif
 }
 
 
@@ -154,7 +186,7 @@ Page Document::get_page(int page_num) const
     if (page_num < 1 || page_num > page_count()) {
         logger::log_error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
-        return Page();
+        return Page(page_num);
     }
     std::lock_guard lock(read_mutex_);
     if (pages_[page_num - 1].is_empty()) {
@@ -172,6 +204,7 @@ constexpr int MIN_PAGES_PER_THREAD = 1;
 std::list<int> get_page_load_order(int start_page, int total_pages)
 {
     std::list<int> load_order;
+    load_order.push_back(start_page - 1);
     int start_index = start_page - 1;  // Convert to zero-based index
 
     // Step 1: Load next page first
@@ -193,6 +226,76 @@ std::list<int> get_page_load_order(int start_page, int total_pages)
     return load_order;
 }
 
+
+
+#ifdef FZ_SERIAL_LOAD
+void Document::load_document()
+{
+    if (load_started_) return;
+    load_started_ = true;
+
+    int total_pages = page_count();    
+    
+    // we try to load in order of likely access, but if get_page
+    // is called then we will be modifying load_order_ to have it
+    // loaded as the very next request.
+    load_order_mutex_.lock();
+    load_order_ = get_page_load_order(start_page_, total_pages);
+    load_order_mutex_.unlock();
+
+    // simulate very large documents
+    //std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    while (true) {
+        if (kill_loading_) break;
+
+        load_order_mutex_.lock();
+        if (load_order_.empty()) {
+            load_order_mutex_.unlock();
+            break;
+        }
+
+        int i = load_order_.front();
+        load_order_.pop_front();
+        load_order_mutex_.unlock();
+
+        // may have already been loaded if get_page() was called
+        // while this loop was running.
+        if (!pages_[i].is_empty()) continue;
+
+        auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
+        if (!thread_ctx || !thread_doc) {
+            logger::log_error("Failed to open document in thread for page " + std::to_string(i));
+            continue;
+        }
+
+        QPixmap pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+        close_fitz(thread_ctx, thread_doc);
+
+        int page_num = i + 1;
+        {
+            std::lock_guard lock(read_mutex_);
+            pages_[i] = Page(std::move(pixmap), page_num, false);
+        }
+        emit page_loaded(page_num);
+    }
+
+    // while these run we can get the bookmarks
+    {
+        auto [ctx, doc] = open_fitz(filename_.string());
+        if (ctx && doc) {
+            total_pages = fz_count_pages(ctx, doc);
+
+            fz_outline *outline = fz_load_outline(ctx, doc);
+            if (outline)
+                bookmarks_ = convert_outline_to_bookmarks(outline);
+
+            close_fitz(ctx, doc);
+        }
+    }
+}
+
+#else
 
 void Document::load_document()
 {
@@ -270,9 +373,10 @@ void Document::load_document()
         if (!kill_loading_) {
 
             int start_page = i + 1 - static_cast<int>(display_lists.size());
+
             futures.push_back(std::async(std::launch::async,
                                          [this, start_page, display_lists = std::move(display_lists), bboxes = std::move(bboxes)]() mutable {
-                return render_page_batch(start_page, display_lists, bboxes);
+                render_page_batch(start_page, display_lists, bboxes);
             }
             ));
             display_lists.clear();
@@ -292,6 +396,8 @@ void Document::load_document()
     close_fitz(ctx, doc);
 }
 
+#endif
+
 
 void Document::render_page_batch(int start_page,
                                  std::vector<fz_display_list *> &display_lists,
@@ -310,6 +416,7 @@ void Document::render_page_batch(int start_page,
             if (!display_lists[i]) continue;
 
             fz_pixmap *temp_pixmap = nullptr;
+            fz_device *dev = nullptr;
             QPixmap pixmap;
 
             fz_try(ctx)
@@ -318,11 +425,9 @@ void Document::render_page_batch(int start_page,
                 temp_pixmap = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(bboxes[i]), nullptr, 0);
                 fz_clear_pixmap_with_value(ctx, temp_pixmap, 0xFF);
 
-                fz_matrix identity = { 1, 0, 0, 1, 0, 0 };
-                fz_device *dev = fz_new_draw_device(ctx, identity, temp_pixmap);
-                fz_run_display_list(ctx, display_lists[i], dev, identity, bboxes[i], nullptr);
+                dev = fz_new_draw_device(ctx, fz_identity, temp_pixmap);
+                fz_run_display_list(ctx, display_lists[i], dev, fz_identity, bboxes[i], nullptr);
                 fz_close_device(ctx, dev);
-                fz_drop_device(ctx, dev);
 
                 int width = fz_pixmap_width(ctx, temp_pixmap);
                 int height = fz_pixmap_height(ctx, temp_pixmap);
@@ -339,6 +444,8 @@ void Document::render_page_batch(int start_page,
                 }
                 emit page_loaded(page_num);
             }
+            fz_always(ctx)
+                fz_drop_device(ctx, dev);
             fz_catch(ctx)
             {
                 logger::log_error("Failed to render page " + std::to_string(start_page + i));
