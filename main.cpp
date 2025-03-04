@@ -34,7 +34,7 @@ int m2()
     zoom = 100.;
     rotate = 0;
 
-    // Create a context to hold the exception stack and various caches. 
+    // Create a context to hold the exception stack and various caches.
     ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED);
     if (!ctx)
     {
@@ -42,7 +42,7 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    // Register the default file types to handle. 
+    // Register the default file types to handle.
     fz_try(ctx)
         fz_register_document_handlers(ctx);
     fz_catch(ctx)
@@ -53,7 +53,7 @@ int m2()
         return EXIT_FAILURE;
     }
 
-    // Open the document. 
+    // Open the document.
     fz_try(ctx)
         doc = fz_open_document(ctx, input.c_str());
     fz_catch(ctx)
@@ -134,6 +134,10 @@ int main(int argc, char *argv[])
 
     MusicReader w;
     w.show();
+
+    for (int i = 1; i < argc; ++i)
+        w.open_pdf_in_tab(argv[i], 1);
+    
     int result = app.exec();
     logger::shutdown();
     return result;
