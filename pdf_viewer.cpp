@@ -19,6 +19,7 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     init_ui(page);
 
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
+
     get_page(page, true);
 
     //TODO Qt6 might use QEvent::ApplicationPaletteChange
@@ -154,8 +155,6 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
 }
 
 
-
-
 void PDFViewer::init_ui(int page)
 {
     layout_ = new QHBoxLayout(this);
@@ -227,6 +226,7 @@ Page PDFViewer::get_single_page(int page_num)
     return page;
 }
 
+
 Page PDFViewer::get_double_page(int page_num)
 {
     bool zoom = config_->zoom_to_content();
@@ -251,7 +251,7 @@ Page PDFViewer::get_double_page(int page_num)
 
     // Create the combined QPixmap
     QPixmap combined_image(combined_width, max_height);
-    QColor back_color = static_cast<QApplication *>(QApplication::instance())->palette().color(QPalette::Window);
+    QColor back_color = 0xffffff;
 
     combined_image.fill(back_color);
 

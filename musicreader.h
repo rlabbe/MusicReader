@@ -39,6 +39,7 @@ signals:
 
 private slots:
     void show_titlebar_menu();
+    void update_bookmarks_for_doc();
 
 private:
 

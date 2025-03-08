@@ -243,6 +243,21 @@ void Document::load_document()
     load_order_ = get_page_load_order(start_page_, total_pages);
     load_order_mutex_.unlock();
 
+
+    {
+        auto [ctx, doc] = open_fitz(filename_.string());
+        if (ctx && doc) {
+            total_pages = fz_count_pages(ctx, doc);
+
+            fz_outline *outline = fz_load_outline(ctx, doc);
+            if (outline)
+                bookmarks_ = convert_outline_to_bookmarks(outline);
+
+            close_fitz(ctx, doc);
+            emit bookmarks_loaded();
+        }
+    }
+
     // simulate very large documents
     //std::this_thread::sleep_for(std::chrono::seconds(5));
 
@@ -278,20 +293,6 @@ void Document::load_document()
             pages_[i] = Page(std::move(pixmap), page_num, false);
         }
         emit page_loaded(page_num);
-    }
-
-    // while these run we can get the bookmarks
-    {
-        auto [ctx, doc] = open_fitz(filename_.string());
-        if (ctx && doc) {
-            total_pages = fz_count_pages(ctx, doc);
-
-            fz_outline *outline = fz_load_outline(ctx, doc);
-            if (outline)
-                bookmarks_ = convert_outline_to_bookmarks(outline);
-
-            close_fitz(ctx, doc);
-        }
     }
 }
 

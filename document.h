@@ -78,6 +78,9 @@ signals:
     void document_loaded(std::string name, int page);
 
 
+    void bookmarks_loaded();
+
+
 private:
 
     void render_page_batch(int start_page,

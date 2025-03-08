@@ -27,104 +27,15 @@
 #include "qt_utils.h"
 #include "utils.h"
 #include "fullscreen_exit_button.h"
+#include "vertical_tabs_widget.h"
+#include "file_viewer.h"
+
 
 MusicReader::MusicReader(QWidget *parent)
     : QMainWindow(parent)
 {
     setup_UI();
 }
-
-
-#include <QTabBar>
-#include <QStylePainter>
-#include <QStyleOptionTab>
-
-#include <QTabBar>
-#include <QStylePainter>
-#include <QStyleOptionTab>
-
-
-class HorizontalTabBar : public QTabBar {
-public:
-    explicit HorizontalTabBar(QWidget *parent = nullptr) : QTabBar(parent)
-    {
-        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-        setDocumentMode(true);
-        setElideMode(Qt::ElideRight);
-        setMovable(true);
-
-        setStyleSheet(R"(
-    QTabBar::tab {
-        background: #454545;
-        color: white;
-        font-size: 14px;
-        text-align: center;
-        padding: 4px 8px;
-        min-width: 100px;
-        min-height: 24px;
-        max-height: 28px;
-        /*border: 1px solid #444;*/
-        border-top-left-radius: 8px;
-    }
-    QTabBar::tab:selected {
-        background: #404040;
-        color: white;
-        border-top: 2px solid #000000;
-    }
-    QTabBar::tab:!selected {
-        color: white;
-    }
-)");
-
-    }
-
-protected:
-    QSize tabSizeHint(int index) const override
-    {
-        QSize size = QTabBar::tabSizeHint(index);
-        size.setHeight(28);
-        return size;
-    }
-
-    void paintEvent(QPaintEvent *event) override
-    {
-        QStylePainter painter(this);
-        for (int i = 0; i < count(); ++i) {
-            QStyleOptionTab opt;
-            initStyleOption(&opt, i);
-            //opt.shape = QTabBar::RoundedWest;
-            painter.drawControl(QStyle::CE_TabBarTab, opt);
-
-            // Manually draw the text
-            QRect text_rect = opt.rect.adjusted(10, 0, -10, 0); // Adjust positioning
-            painter.setPen(Qt::white); // Force white text color
-            painter.setFont(QApplication::font()); // Set a readable font
-            painter.drawText(text_rect, Qt::AlignCenter, tabText(i));
-        }
-    }
-
-    void tabLayoutChange() override
-    {
-        for (int i = 0; i < count(); ++i) {
-            QWidget *close_button = tabButton(i, QTabBar::RightSide);
-            if (close_button) {
-                close_button->setFixedSize(16, 16);
-                close_button->move(tabRect(i).right() - 20, tabRect(i).center().y() - 8);
-            }
-        }
-    }
-};
-
-
-class CustomTabWidget : public QTabWidget {
-public:
-    explicit CustomTabWidget(QWidget *parent = nullptr) : QTabWidget(parent)
-    {
-        setTabBar(new HorizontalTabBar(this));
-        setTabPosition(QTabWidget::West);
-    }
-};
-
 
 
 void MusicReader::setup_UI()
@@ -142,12 +53,8 @@ void MusicReader::setup_UI()
     create_bookmark_panel();
     splitter_->addWidget(bookmark_panel_);
 
-    tab_widget_ = config_.horiz_tabs() ? new CustomTabWidget : new QTabWidget;
+    tab_widget_ = config_.horiz_tabs() ? new VerticalTabsWidget : new QTabWidget;
     tab_widget_->setTabsClosable(true);
-
-    //if (!config_.wrap_tabs()) 
-    //    tab_widget_->setTabPosition(QTabWidget::West);
-
 
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
@@ -315,7 +222,6 @@ void MusicReader::show_log_content()
 }
 
 
-
 void MusicReader::create_menus()
 {
     // Can't change dynamically, so remember setting at startup.
@@ -445,7 +351,6 @@ void MusicReader::create_menus()
     }
 }
 
-#include "file_viewer.h"
 
 void MusicReader::show_log_file()
 {
@@ -453,6 +358,7 @@ void MusicReader::show_log_file()
     auto viewer = new FileViewer("C:\\Users\\rlabbe\\AppData\\Roaming\\MusicReader\\MusicReader.log", this);
     viewer->show();
 }
+
 
 bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
@@ -901,6 +807,12 @@ void MusicReader::update_bookmark_panel(int index)
 }
 
 
+void MusicReader::update_bookmarks_for_doc()
+{
+    bookmark_panel_->populate();
+    update_background();
+}
+
 QIcon MusicReader::create_double_icon()
 {
     QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
@@ -1036,9 +948,15 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 
     WaitCursor cursor;
 
-    auto *pdoc = open_pdf_document(filename, page);
+    Document *pdoc = open_pdf_document(filename, page);
     if (!pdoc)
         return nullptr;
+
+    connect(pdoc, &Document::bookmarks_loaded, this, [&]() {
+        bookmark_panel_->populate();
+        update_background();
+    });
+
     std::shared_ptr<Document> doc(pdoc);
     logger::log_info("Opened " + doc->filename());
 
@@ -1061,13 +979,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
 
     std::thread([this, doc, page]() {
         doc->load_document();  // Load pages asynchronously
-
-        // Notify UI when loading is complete
-        QMetaObject::invokeMethod(this, [this, doc, page]() {
-            emit document_loaded(doc->filename(), page);
-        }, Qt::QueuedConnection);
     }).detach();
-
 
     return viewer;
 }

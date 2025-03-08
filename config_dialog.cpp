@@ -57,8 +57,6 @@ void ConfigDialog::setup_ui()
 
     // Layouts
     QFormLayout *form_layout = new QFormLayout;
-
-
     QHBoxLayout *layout_border = new QHBoxLayout;
     layout_border->addStretch();
     layout_border->addWidget(spin_border_margin_);
