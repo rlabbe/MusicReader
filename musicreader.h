@@ -16,14 +16,13 @@ class StatusBar;
 class FastFileSearchDialog;
 class FullscreenExitButton;
 
-class MusicReader : public QMainWindow
-{
+class MusicReader : public QMainWindow {
     Q_OBJECT
 
 public:
     MusicReader(QWidget *parent = nullptr);
 
-    Document *current_document(const std::string &log_msg = "") const;
+    std::shared_ptr<Document> current_document(const std::string &log_msg = "") const;
     std::pair<int, bool> current_page(const std::string &log_msg = "") const;
 
     void on_page_down();
@@ -95,10 +94,10 @@ private:
 public:
     PDFViewer *current_tab() const;
     std::string current_document_name() const;
-    Document *document_at(int index) const;
+    std::shared_ptr<Document> document_at(int index) const;
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
-    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer* tab_to_use=nullptr);
+    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer *tab_to_use = nullptr);
     std::shared_ptr<Document> open_pdf_document(const std::string &filename, int page_num);
 
 private:
@@ -154,7 +153,7 @@ private:
     QIcon zoomout_icon_;
     QTimer *timer_;
     FullscreenExitButton *exit_button_;
-    bool has_full_menu_bar_ = true; 
+    bool has_full_menu_bar_ = true;
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;

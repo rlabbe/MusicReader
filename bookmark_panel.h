@@ -73,7 +73,7 @@ private:
     // Finds a tree widget item by its bookmark handle.
     QTreeWidgetItem *find_item_by_handle(const BookmarkHandle &handle);
 
-    Document *document() const;
+    std::shared_ptr<Document> document() const;
 
     MusicReader *main_window_;
     bool visible_;

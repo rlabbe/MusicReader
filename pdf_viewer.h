@@ -35,7 +35,7 @@ public:
     void change_page(int step);
     void update_status_bar();
 
-    Document *document() const { return document_.get(); }
+    std::shared_ptr<Document> document() const { return document_; }
     void replace_document(std::shared_ptr<Document> document, int page);
 
 protected:

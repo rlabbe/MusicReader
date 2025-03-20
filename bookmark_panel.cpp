@@ -16,7 +16,7 @@ BookmarkPanel::BookmarkPanel(MusicReader *main_window)
 
 void BookmarkPanel::dropEvent(QDropEvent *event)
 {
-    Document *doc = document();
+    auto doc = document();
     if (!doc) return;
 
     auto *target_item = tree_widget_->itemAt(event->position().toPoint());
@@ -149,7 +149,7 @@ void BookmarkPanel::populate()
 {
     tree_widget_->clear();
 
-    Document *doc = document();
+    auto doc = document();
     if (!doc || doc->bookmarks().empty()) return;
 
     add_items(doc->bookmarks(), nullptr);  // Start with top-level bookmarks
@@ -187,7 +187,7 @@ void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 }
 
 
-Document *BookmarkPanel::document() const
+std::shared_ptr<Document> BookmarkPanel::document() const
 {
     auto doc = main_window_->current_document();
     if (!doc) {
@@ -199,7 +199,7 @@ Document *BookmarkPanel::document() const
 
 void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
 {
-    Document *doc = document();
+    auto doc = document();
     if (!doc)
         return;
 
@@ -216,7 +216,7 @@ void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
 void BookmarkPanel::delete_selected_bookmark()
 {
     auto *item = tree_widget_->currentItem();
-    Document *doc = document();
+    auto doc = document();
     if (!doc)
         return;
 
@@ -235,7 +235,7 @@ void BookmarkPanel::delete_selected_bookmark()
 
 void BookmarkPanel::add_bookmark()
 {
-    auto *doc = document();
+    auto doc = document();
     if (!doc)
         return;
 
@@ -281,19 +281,19 @@ QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const BookmarkHandle &handle
 
 bool BookmarkPanel::can_undo() const
 {
-    const auto *doc = document();
+    auto doc = document();
     return doc && doc->can_undo();
 }
 
 bool BookmarkPanel::can_redo() const
 {
-    const auto *doc = document();
+    auto doc = document();
     return doc && doc->can_redo();
 }
 
 void BookmarkPanel::undo()
 {
-    auto *doc = document();
+    auto doc = document();
     if (!doc) {
         return;
     }
@@ -304,7 +304,7 @@ void BookmarkPanel::undo()
 
 void BookmarkPanel::redo()
 {
-    auto *doc = document();
+    auto doc = document();
     if (!doc) {
         return;
     }
@@ -317,7 +317,6 @@ void BookmarkPanel::redo()
 BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
 {
     if (item) {
-
         return BookmarkHandle(item->data(0, Qt::UserRole + 1).toInt());
     } else {
         logger::log_error("nullptr to item");
@@ -357,7 +356,7 @@ void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmar
 
 void BookmarkPanel::indent_selected_bookmarks()
 {
-    Document *doc = document();
+    auto doc = document();
     if (!doc)
         return;
 
@@ -373,7 +372,7 @@ void BookmarkPanel::indent_selected_bookmarks()
 
 void BookmarkPanel::unindent_selected_bookmarks()
 {
-    Document *doc = document();
+    auto doc = document();
     if (!doc)
         return;
 

@@ -708,7 +708,7 @@ PDFViewer *MusicReader::current_tab() const
     return nullptr;
 }
 
-Document *MusicReader::current_document(const std::string &log_msg) const
+std::shared_ptr<Document> MusicReader::current_document(const std::string &log_msg) const
 {
     PDFViewer *tab = current_tab();
     if (tab) return tab->document();
@@ -728,11 +728,11 @@ std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 
 std::string MusicReader::current_document_name() const
 {
-    Document *doc = current_document();
+    auto doc = current_document();
     return doc ? doc->filename() : "";
 }
 
-Document *MusicReader::document_at(int index) const
+std::shared_ptr<Document> MusicReader::document_at(int index) const
 {
     PDFViewer *tab = viewer_tab(index);
     return tab ? tab->document() : nullptr;
@@ -785,7 +785,7 @@ void MusicReader::on_close_tab(int index)
 {
     SAFE_METHOD;
 
-    Document *doc = document_at(index);
+    auto doc = document_at(index);
     if (doc) {
         doc->kill_load();
         // This function is only called when explicitly closing a tab, not on app shutdown,
@@ -1010,17 +1010,14 @@ void MusicReader::restore_window_state()
 
 void MusicReader::open_file_dialog(const std::string &pathname)
 {
-    Document *doc = current_document();
     std::string default_directory;
 
-    if (pathname.empty()) {
-        if (doc) {
-            default_directory = std::filesystem::path(doc->filename()).parent_path().string();
-        } else {
-            default_directory = "";
-        }
-    } else {
+    if (!pathname.empty()) {
         default_directory = pathname;
+    } else {
+        auto doc = current_document();
+        if (doc)
+            default_directory = std::filesystem::path(doc->filename()).parent_path().string();
     }
 
     QStringList filenames = QFileDialog::getOpenFileNames(
@@ -1028,9 +1025,8 @@ void MusicReader::open_file_dialog(const std::string &pathname)
 
     if (!filenames.isEmpty()) {
         WaitCursor cursor;
-        for (const QString &name : filenames) {
+        for (const QString &name : filenames)
             open_pdf_in_tab(name.toStdString());
-        }
     }
 }
 
