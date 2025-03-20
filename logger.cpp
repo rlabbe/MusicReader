@@ -49,25 +49,27 @@ std::string get_persistent_config_path(const std::string &file_name, const std::
 
 void configure_logger(const std::string &filename, size_t max_size, bool log_to_console)
 {
-    std::vector<spdlog::sink_ptr> sinks;
+    try {
+        std::vector<spdlog::sink_ptr> sinks;
 
-    // Create a rotating file sink (max 1 backup file)
-    sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_size * 1024, 1));
+        // Create a rotating file sink (max 1 backup file)
+        sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_size * 1024, 1));
 
-    // Optionally log to console
-    if (log_to_console)
-    {
-        sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+        // Optionally log to console
+        if (log_to_console) {
+            sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+        }
+
+        logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
+        spdlog::register_logger(logger_);
+        logger_->set_level(spdlog::level::info);
+        logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
+        logger_->flush_on(spdlog::level::err);
+        spdlog::flush_every(std::chrono::seconds(10));
+    } catch (const std::exception &ex) {
+        std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
     }
-
-    logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
-    spdlog::register_logger(logger_);
-    logger_->set_level(spdlog::level::info);
-    logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
-    logger_->flush_on(spdlog::level::err);
-    spdlog::flush_every(std::chrono::seconds(10));
 }
-
 
 
 }
