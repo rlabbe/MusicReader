@@ -40,6 +40,8 @@ signals:
 private slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
+    void open_folder();
+    void browse_folder();
 
 private:
 
@@ -96,8 +98,8 @@ public:
     Document *document_at(int index) const;
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
-    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1);
-    Document *open_pdf_document(const std::string &filename, int page_num);
+    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer* tab_to_use=nullptr);
+    std::shared_ptr<Document> open_pdf_document(const std::string &filename, int page_num);
 
 private:
     // Focuses on the specified tab
@@ -114,6 +116,10 @@ private:
 
     void go_to_bookmark(int page_num);
     void update_menu_bookmark_visibility();
+    void show_context_menu(const QPoint &pos);
+
+    void reload_document();
+    void edit_document(); // edit with external viewer
 
     // Check if the given document is open in a tab, returning either the tab index or None
     std::optional<int> doc_is_open(std::filesystem::path name);

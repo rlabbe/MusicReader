@@ -55,10 +55,13 @@ void MusicReader::setup_UI()
 
     tab_widget_ = config_.horiz_tabs() ? new VerticalTabsWidget : new QTabWidget;
     tab_widget_->setTabsClosable(true);
+    tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_bookmark_panel);
+    connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
+
 
     connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
         auto i = doc_is_open(name);
@@ -333,17 +336,34 @@ void MusicReader::create_menus()
             color: gray;
         })");
 
+        // Make global keyboard shortcuts within the app
         QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
-        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        shortcut->setContext(Qt::ApplicationShortcut);
         connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
 
         shortcut = new QShortcut(QKeySequence("PageUp"), this);
-        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        shortcut->setContext(Qt::ApplicationShortcut);
         connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
 
         shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
-        shortcut->setContext(Qt::ApplicationShortcut);  // Make it global within the app
+        shortcut->setContext(Qt::ApplicationShortcut);
         connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
+
+        shortcut = new QShortcut(Qt::Key_Space, this);
+        shortcut->setContext(Qt::ApplicationShortcut);
+        connect(shortcut, &QShortcut::activated, this, [this]() {
+            auto viewer = current_viewer();
+            if (viewer) viewer->page_down();
+        });
+
+        shortcut = new QShortcut(QKeySequence("F5"), this);
+        shortcut->setContext(Qt::ApplicationShortcut);
+        connect(shortcut, &QShortcut::activated, this, &MusicReader::reload_document);
+
+        shortcut = new QShortcut(QKeySequence("F2"), this);
+        shortcut->setContext(Qt::ApplicationShortcut);
+        connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
+
 
     } else {
         QMenuBar *menu_bar = menuBar();
@@ -351,6 +371,60 @@ void MusicReader::create_menus()
     }
 }
 
+
+void MusicReader::show_context_menu(const QPoint &pos)
+{
+    QMenu context_menu(this);
+
+    QAction *reload_action = new QAction("Reload", this);
+    reload_action->setShortcut(QKeySequence("F5"));
+    connect(reload_action, &QAction::triggered, this, &MusicReader::reload_document);
+
+    QAction *edit_action = new QAction("Edit...", this);
+    edit_action->setShortcut(QKeySequence("F2"));
+    connect(edit_action, &QAction::triggered, this, &MusicReader::edit_document);
+
+    QAction *open_folder_action = new QAction("Open from containing folder...", this);
+    connect(open_folder_action, &QAction::triggered, this, &MusicReader::open_folder);
+
+    QAction *browse_folder_action = new QAction("Browse containing folder...", this);
+    connect(browse_folder_action, &QAction::triggered, this, &MusicReader::browse_folder);
+
+    context_menu.addAction(reload_action);
+    context_menu.addSeparator();
+    context_menu.addAction(edit_action);
+    context_menu.addAction(open_folder_action);
+    context_menu.addAction(browse_folder_action);
+
+    context_menu.exec(tab_widget_->mapToGlobal(pos));
+}
+
+
+void MusicReader::open_folder()
+{
+    auto doc = current_document();
+    if (!doc) return;
+
+    auto file_path = QString::fromStdString(doc->filename());
+    QFileInfo file_info(file_path);
+    if (!file_info.exists()) return;
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(file_info.absolutePath()));
+}
+
+
+void MusicReader::browse_folder()
+{
+    auto doc = current_document();
+    if (!doc) return;
+
+    auto file_path = QString::fromStdString(doc->filename());
+    QFileInfo file_info(file_path);
+    if (!file_info.exists()) return;
+
+    QString folder_path = file_info.absolutePath();
+    QProcess::startDetached("explorer", { folder_path });
+}
 
 void MusicReader::show_log_file()
 {
@@ -377,6 +451,28 @@ bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintpt
     return QMainWindow::nativeEvent(eventType, message, result);
 }
 
+
+void MusicReader::reload_document()
+{
+    SAFE_METHOD;
+    auto viewer = current_viewer();
+    auto doc = current_document();
+    if (!viewer || !doc) return;
+
+    int page_num = viewer->current_page();
+
+    open_pdf_in_tab(doc->filename(), page_num, viewer);
+}
+
+void MusicReader::edit_document()
+{
+    SAFE_METHOD;
+    auto doc = current_document();
+    if (!doc) return;
+
+    auto filename = doc->filename();
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(filename)));
+}
 
 
 void MusicReader::show_titlebar_menu()
@@ -464,7 +560,7 @@ void MusicReader::show_titlebar_menu()
     dark_theme_menu_item_ = dark_theme_action;
     view_menu->addAction(dark_theme_action);
 
-    QAction* action = new QAction("View Log...", this);
+    QAction *action = new QAction("View Log...", this);
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
     view_menu->addAction(action);
 
@@ -938,42 +1034,49 @@ void MusicReader::open_file_dialog(const std::string &pathname)
     }
 }
 
-PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
+PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, PDFViewer *viewer)
 {
     SAFE_METHOD;
-    if (auto i = doc_is_open(filename); i.has_value()) {
-        focus_on_tab(i.value());
-        return nullptr;
+
+    // viewer will be nonnull if reloading document from F5
+
+    if (!viewer) {
+        if (auto i = doc_is_open(filename); i.has_value()) {
+            focus_on_tab(i.value());
+            return nullptr;
+        }
     }
 
     WaitCursor cursor;
 
-    Document *pdoc = open_pdf_document(filename, page);
-    if (!pdoc)
+    auto doc = open_pdf_document(filename, page);
+    if (!doc)
         return nullptr;
 
-    connect(pdoc, &Document::bookmarks_loaded, this, [&]() {
+    connect(doc.get(), &Document::bookmarks_loaded, this, [&]() {
         bookmark_panel_->populate();
         update_background();
     });
 
-    std::shared_ptr<Document> doc(pdoc);
     logger::log_info("Opened " + doc->filename());
 
-    QWidget *tab = new QWidget();
-    PDFViewer *viewer = new PDFViewer(doc, &config_, page, status_bar_, tab);
+    if (!viewer) {
+        QWidget *tab = new QWidget();
+        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab);
 
-    QVBoxLayout *layout = new QVBoxLayout();
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(viewer);
-    tab->setLayout(layout);
+        QVBoxLayout *layout = new QVBoxLayout();
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(viewer);
+        tab->setLayout(layout);
 
-    int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(filename).stem().string()));
-    tab_widget_->setTabToolTip(index, QString::fromStdString(filename));
-    tab_widget_->setCurrentWidget(tab);
+        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(filename).stem().string()));
+        tab_widget_->setTabToolTip(index, QString::fromStdString(filename));
+        tab_widget_->setCurrentWidget(tab);
 
-    focus_on_tab(tab_widget_->currentIndex());
-    connect(this, &MusicReader::view_mode_signal_, viewer, &PDFViewer::refresh);
+        focus_on_tab(tab_widget_->currentIndex());
+        connect(this, &MusicReader::view_mode_signal_, viewer, &PDFViewer::refresh);
+    } else
+        viewer->replace_document(doc, page);
 
     save_open_documents_to_config();
 
@@ -981,20 +1084,21 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page)
         doc->load_document();  // Load pages asynchronously
     }).detach();
 
+    viewer->refresh();
     return viewer;
 }
 
 
-Document *MusicReader::open_pdf_document(const std::string &filename, int page_num)
+std::shared_ptr<Document> MusicReader::open_pdf_document(const std::string &filename, int page_num)
 {
     LOG_EXCEPTION;
 
     if (!std::filesystem::exists(filename)) {
         logger::log_error(filename + " doesn't exist");
-        return nullptr;
+        return {};
     }
 
-    return new Document(filename, config_.dpi(), page_num);
+    return std::make_shared<Document>(filename, config_.dpi(), page_num);
 }
 
 

@@ -19,7 +19,6 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     init_ui(page);
 
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-
     get_page(page, true);
 
     //TODO Qt6 might use QEvent::ApplicationPaletteChange
@@ -94,6 +93,14 @@ void PDFViewer::change_page(int step)
     scrollbar_->setValue(new_page);
     get_page(new_page);
 }
+
+void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
+{
+    document_ = document;
+    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
+    get_page(page, false);
+}
+
 
 void PDFViewer::keyPressEvent(QKeyEvent *event)
 {
