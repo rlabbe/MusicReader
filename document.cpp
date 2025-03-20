@@ -183,10 +183,15 @@ void Document::request_page(int page_num) const
 
 Page Document::get_page(int page_num) const
 {
-    if (page_num < 1 || page_num > page_count()) {
+    auto count = page_count();
+
+    if (page_num < 1 || page_num > count) {
         logger::log_error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
-        return Page(page_num);
+        if (count == 0)
+            return Page(page_num);
+        else
+            page_num = 1;
     }
     std::lock_guard lock(read_mutex_);
     if (pages_[page_num - 1].is_empty()) {

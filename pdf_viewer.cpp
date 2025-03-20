@@ -65,7 +65,7 @@ int PDFViewer::current_page() const
 
 bool PDFViewer::single_page_view() const
 {
-    return config_->page_view_count() == 1;
+    return config_->page_view_count() == 1 || page_count() == 1;
 }
 
 void PDFViewer::refresh()
@@ -208,7 +208,7 @@ void PDFViewer::get_page(int page_num, bool first_call)
 {
     if (document_->page_count() == 0) return;
 
-    if (single_page_view() || page_num == document_->page_count())
+    if (single_page_view())
         page_ = get_single_page(page_num);
     else
         page_ = get_double_page(page_num);
@@ -275,7 +275,9 @@ Page PDFViewer::get_double_page(int page_num)
 void PDFViewer::on_page_loaded(int page_index)
 {
     int page_num = current_page();
-    if (single_page_view()) {
+    int count = page_count();
+
+    if (single_page_view() || count == 1) {
         if (page_num == page_index) {
             page_ = get_single_page(page_num);
             update_image();

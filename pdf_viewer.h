@@ -9,8 +9,7 @@
 
 class StatusBar;
 
-class PDFViewer : public QWidget
-{
+class PDFViewer : public QWidget {
     Q_OBJECT
 
 public:
