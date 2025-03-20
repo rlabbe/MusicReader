@@ -381,7 +381,7 @@ json ConfigFile::to_json() const
     j["restore_window_position"] = restore_window_position_;
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
-    j["show_status_bar_"] = show_status_bar_;
+    j["show_status_bar"] = show_status_bar_;
     j["show_menu"] = show_menu_;
     j["horiz_tabs"] = horiz_tabs_;
 
