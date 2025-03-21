@@ -275,6 +275,11 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
         file_table_->resizeColumnsToContents();
 
     file_table_->setSortingEnabled(true);
+
+    // select if only one file so user can just press return
+    // to open the single file they found
+    if (file_paths.size() == 1)
+        file_table_->selectAll();
 }
 
 
