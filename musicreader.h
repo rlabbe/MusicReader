@@ -41,6 +41,7 @@ private slots:
     void update_bookmarks_for_doc();
     void open_folder();
     void browse_folder();
+    void on_tab_changed();
 
 private:
 
@@ -49,7 +50,7 @@ private:
 
     void show_log_file();
 
-    void update_bookmark_panel(int index);
+    void update_bookmark_panel();
     void add_bookmark();
 
     void setup_UI();

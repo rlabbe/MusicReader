@@ -58,8 +58,7 @@ void MusicReader::setup_UI()
     tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
-    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_title);
-    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::update_bookmark_panel);
+    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
     connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
 
 
@@ -104,6 +103,7 @@ void MusicReader::setup_UI()
     exit_button_ = new FullscreenExitButton(this);
     qApp->installEventFilter(this);
 }
+
 
 bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 {
@@ -780,6 +780,16 @@ void MusicReader::save_open_documents_to_config()
 }
 
 
+void MusicReader::on_tab_changed()
+{
+    SAFE_METHOD;
+
+    update_title();
+    update_bookmark_panel();
+    auto viewer = current_viewer();
+    if (viewer) viewer->update_status_bar();
+}
+
 
 void MusicReader::on_close_tab(int index)
 {
@@ -800,7 +810,7 @@ void MusicReader::on_close_tab(int index)
     }
 
     save_open_documents_to_config();
-    update_title();
+    on_tab_changed(); // this will update the UI for whatever tab is now current
 }
 
 void MusicReader::update_title(int index)
@@ -894,7 +904,7 @@ void MusicReader::create_bookmark_panel()
 }
 
 
-void MusicReader::update_bookmark_panel(int index)
+void MusicReader::update_bookmark_panel()
 {
     SAFE_METHOD;
 
