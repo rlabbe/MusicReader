@@ -1,7 +1,4 @@
 #include "fast_file_search_dialog.h"
-
-
-#include "fast_file_search_dialog.h"
 #include "logger.h"
 #include <QThread>
 #include <QDirIterator>
@@ -217,6 +214,7 @@ void FastFileSearchDialog::show_dialog()
     exec();
 }
 
+
 void FastFileSearchDialog::on_search()
 {
     QString search_text = search_field_->text().trimmed();
@@ -290,10 +288,12 @@ void FastFileSearchDialog::class_file_changed()
     emit UpdateSignal::instance().filesUpdated();
 }
 
+
 void FastFileSearchDialog::instance_update_files()
 {
     display_files(files_, true);
 }
+
 
 void FastFileSearchDialog::update_files()
 {
@@ -301,6 +301,7 @@ void FastFileSearchDialog::update_files()
     display_files(files_, true);
     set_title();
 }
+
 
 void FastFileSearchDialog::on_select_directory()
 {
@@ -310,6 +311,7 @@ void FastFileSearchDialog::on_select_directory()
     }
 }
 
+
 void FastFileSearchDialog::on_open_file_dialog()
 {
     selected_items_.clear();
@@ -317,15 +319,18 @@ void FastFileSearchDialog::on_open_file_dialog()
     accept();
 }
 
+
 void FastFileSearchDialog::accept()
 {
     hide();
 }
 
+
 void FastFileSearchDialog::size_button(QPushButton *button)
 {
     button->setFixedWidth(button->fontMetrics().boundingRect(button->text()).width() + 10);
 }
+
 
 void FastFileSearchDialog::show_context_menu(const QPoint &pos)
 {
@@ -334,6 +339,7 @@ void FastFileSearchDialog::show_context_menu(const QPoint &pos)
     connect(browse_action, &QAction::triggered, this, &FastFileSearchDialog::browse_to_directory);
     menu.exec(file_table_->mapToGlobal(pos));
 }
+
 
 void FastFileSearchDialog::browse_to_directory()
 {
@@ -345,6 +351,7 @@ void FastFileSearchDialog::browse_to_directory()
     }
 }
 
+
 void FastFileSearchDialog::on_item_double_click(QTableWidgetItem *item)
 {
     selected_items_.clear();
@@ -352,10 +359,12 @@ void FastFileSearchDialog::on_item_double_click(QTableWidgetItem *item)
     accept();
 }
 
+
 void FastFileSearchDialog::show_help()
 {
     QDesktopServices::openUrl(QUrl(":/MusicReader/help/fast_search_help.html"));
 }
+
 
 std::pair<std::vector<std::string>, std::string> FastFileSearchDialog::selected_files() const
 {
@@ -400,6 +409,7 @@ void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
     }
 }
 
+
 bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
 {
     if (event->type() == QEvent::EnterWhatsThisMode) {
@@ -424,7 +434,6 @@ QStringList FastFileSearchDialog::find_files(const QString &path, QString &file_
 }
 
 
-
 void FastFileSearchDialog::directory_changed(const std::string &new_search_path, FastFileSearchDialog *self)
 {
     if (new_search_path.empty()) return;
@@ -439,6 +448,7 @@ void FastFileSearchDialog::directory_changed(const std::string &new_search_path,
         self->update_files();
     }
 }
+
 
 void FastFileSearchDialog::set_title()
 {
