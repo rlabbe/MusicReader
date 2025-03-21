@@ -26,6 +26,7 @@ public:
     int page_count() const;
     int current_page() const;
     bool single_page_view() const;
+    bool double_page_view() const { return !single_page_view(); }
 
     void get_page(int page_num, bool first_call = false);
 
@@ -67,5 +68,11 @@ private:
     bool drawing_margin_ = false;
     double aspect_ratio_ = 1.0;
     QRect margin_rect_;
+
+    // set to true if calling code to set the scrollbar
+    // programatically so we don't request a page (the
+    // caller will be doing that). Checked in 
+    // on_scrollbar_value_changed().
+    bool manual_scrollbar_change_ = false;
 };
 

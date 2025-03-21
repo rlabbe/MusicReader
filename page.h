@@ -59,3 +59,34 @@ inline QRect border_to_qrect(const Border &border, int relief)
 }
 
 
+// Create a blank image in the target page that is of the same
+// size and format as in the source.
+//
+// This is to make it easy to have a blank page at the
+// end of a document for viewing in 2 page mode with
+// odd # of pages. 
+//
+// returns true if the source image is not null, false otherwise,
+// but stil works if source is null, it then just ensures the target
+// is also null. 
+inline bool copy_blank_image(const Page &source, Page &target)
+{
+    if (source.img.isNull()) {
+        if (!target.img.isNull()) target.img = QPixmap();
+        return false;
+    }
+
+    QImage source_image = source.img.toImage();
+    QImage blank_image(source_image.size(), source_image.format());
+    blank_image.setDevicePixelRatio(source_image.devicePixelRatio());
+    blank_image.fill(Qt::white);
+
+    target.img = QPixmap::fromImage(blank_image);
+    target.border = source.border;
+    target.page_num = source.page_num;
+    target.double_page = source.double_page;
+    return true;
+}
+
+
+

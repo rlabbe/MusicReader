@@ -85,12 +85,17 @@ void PDFViewer::page_down()
 
 void PDFViewer::change_page(int step)
 {
-    int new_page = qBound(1, current_page() + step, page_count());
+    int count = page_count();
+    int new_page = qBound(1, current_page() + step, count);
 
-    if (!single_page_view() && new_page == page_count())
+    // don't go to last page if even number of pages
+    if (new_page == count && double_page_view() && new_page % 2 == 0)
         return;
 
+    manual_scrollbar_change_ = true;
     scrollbar_->setValue(new_page);
+    manual_scrollbar_change_ = false;
+
     get_page(new_page);
 }
 
@@ -173,7 +178,10 @@ void PDFViewer::init_ui(int page)
     scrollbar_ = new QScrollBar(Qt::Vertical, this);
     scrollbar_->setMinimum(1);
     scrollbar_->setMaximum(page_count());
+    manual_scrollbar_change_ = true;
     scrollbar_->setValue(page);
+    manual_scrollbar_change_ = false;
+
     connect(scrollbar_, &QScrollBar::valueChanged, this, &PDFViewer::on_scrollbar_value_changed);
 
     label_ = new QLabel(this);
@@ -192,6 +200,8 @@ void PDFViewer::init_ui(int page)
 
 void PDFViewer::on_scrollbar_value_changed(int new_page)
 {
+    if (manual_scrollbar_change_) return;
+
     if (new_page != current_page()) {
         get_page(new_page);
     }
@@ -241,6 +251,15 @@ Page PDFViewer::get_double_page(int page_num)
 
     Page p1 = document_->get_page(page_num);
     Page p2 = document_->get_page(page_num + 1);
+
+    bool last_page = (page_num == page_count());
+    if (last_page) {
+        // ensure the last page has a valid blank image
+        // so it is rendered correctly in double page mode
+        copy_blank_image(p1, p2);
+    }
+
+
     if (p1.is_empty() || p2.is_empty()) {
         return Page(page_num); // Empty page to show "Loading..."
     }
