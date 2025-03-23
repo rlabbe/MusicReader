@@ -402,7 +402,7 @@ void MusicReader::show_context_menu(const QPoint &pos)
     connect(edit_action, &QAction::triggered, this, &MusicReader::edit_document);
 
     QAction *open_folder_action = new QAction("Open from containing folder...", this);
-    connect(open_folder_action, &QAction::triggered, this, &MusicReader::open_folder);
+    connect(open_folder_action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
     QAction *browse_folder_action = new QAction("Browse containing folder...", this);
     connect(browse_folder_action, &QAction::triggered, this, &MusicReader::browse_folder);
@@ -416,18 +416,6 @@ void MusicReader::show_context_menu(const QPoint &pos)
     context_menu.exec(tab_widget_->mapToGlobal(pos));
 }
 
-
-void MusicReader::open_folder()
-{
-    auto doc = current_document();
-    if (!doc) return;
-
-    auto file_path = QString::fromStdString(doc->filename());
-    QFileInfo file_info(file_path);
-    if (!file_info.exists()) return;
-
-    QDesktopServices::openUrl(QUrl::fromLocalFile(file_info.absolutePath()));
-}
 
 
 void MusicReader::browse_folder()

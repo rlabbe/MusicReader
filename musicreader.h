@@ -39,7 +39,6 @@ signals:
 private slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
-    void open_folder();
     void browse_folder();
     void on_tab_changed();
 
