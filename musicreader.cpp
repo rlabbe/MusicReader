@@ -371,6 +371,23 @@ void MusicReader::create_menus()
     }
 }
 
+void MusicReader::update_recent_files_list()
+{
+    open_recent_menu_->clear();
+
+    for (const auto &path : config_.recent_documents()) {
+        QString display_text = QString::fromStdString(path.string());
+        QAction *action = new QAction(display_text, this);
+        action->setToolTip(QString::fromStdString(path.string()));
+
+        connect(action, &QAction::triggered, this, [this, path]() {
+            open_pdf_in_tab(path.string(), 1);
+        });
+
+        open_recent_menu_->addAction(action);
+    }
+}
+
 
 void MusicReader::show_context_menu(const QPoint &pos)
 {

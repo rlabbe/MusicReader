@@ -68,7 +68,7 @@ private:
     void open_file_dialog(const std::string &pathname = "");
     void open_fast_search_dialog();
     void open_config_dialog();
-    void update_recent_files_list() {/*TODO*/ }
+    void update_recent_files_list();
     void update_dpi_setting(bool /*recompute*/) {/*TODO*/ }
     void toggle_draw_margin() {/*TODO*/ }
     void toggle_bookmark_panel();
