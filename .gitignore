@@ -1,6 +1,8 @@
 mupdf*/
 qpdf/
 tmp/
+build/
+dist/
 qpdf_wrapper/
 *.pdf
 *.txt

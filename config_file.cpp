@@ -2,6 +2,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include <iostream>
+
 #include "logger.h"
 #include "exception_logger.h"
 
@@ -157,6 +159,7 @@ void ConfigFile::read(bool reset_on_error)
     bool valid = false; // Flag to indicate successful parsing
     json j;
 
+    //std::cout << "Reading config file: " << filename_.string() << std::endl;
     std::ifstream infile(filename_);
     if (!infile.is_open()) {
         log_error("Config file not found: " + filename_.string());

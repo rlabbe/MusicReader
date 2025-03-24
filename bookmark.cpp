@@ -187,3 +187,27 @@ std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks)
     }
 }
 
+
+std::string as_python_list(const std::vector<Bookmark> &bookmarks)
+{
+    std::function<std::string(const std::vector<Bookmark> &)> convert;
+    convert = [&](const std::vector<Bookmark> &bmarks) -> std::string {
+        std::string result = "[";
+        bool first = true;
+        for (const auto &b : bmarks) {
+            if (!first) result += ", ";
+            first = false;
+
+            result += "['" + b.title_ + "', " + std::to_string(b.page_num_.value_or(0));
+            if (!b.children_.empty()) {
+                result += ", " + convert(b.children_);
+            }
+            result += "]";
+        }
+        result += "]";
+        return result;
+    };
+    return convert(bookmarks);
+}
+
+

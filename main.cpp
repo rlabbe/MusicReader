@@ -122,8 +122,23 @@ int m2()
 
 */
 
+void my_terminate_handler()
+{
+    std::cerr << "Uncaught exception triggered std::terminate()\n";
+    try {
+        std::rethrow_exception(std::current_exception());
+    } catch (const std::exception &e) {
+        std::cerr << "Exception: " << e.what() << "\n";
+    } catch (...) {
+        std::cerr << "Unknown exception\n";
+    }
+
+    std::abort();
+}
+
 int main(int argc, char *argv[])
 {
+    std::set_terminate(my_terminate_handler);
     QApplication app(argc, argv);
     //m2();
     //m3();

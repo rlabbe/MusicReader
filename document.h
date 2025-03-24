@@ -31,7 +31,7 @@ public:
     // This facilitates loading the document in a separate thread
     // to keep the UI responsive
     Document(std::filesystem::path filename, int dpi, int start_page);
-    ~Document() = default;
+    ~Document();
 
     void load_document();
 
@@ -41,7 +41,8 @@ public:
     int page_count() const { return static_cast<int>(pages_.size()); }
 
     Page get_page(int page_num) const;
-    bool save(const std::filesystem::path &filename = "", bool block = true);
+    bool save();
+    bool is_modified() const { return modified_; }
 
     bool can_undo() const { return false; }
     bool can_redo() const { return false; }
@@ -76,10 +77,7 @@ signals:
 
     // Notify UI when loading is done
     void document_loaded(std::string name, int page);
-
-
     void bookmarks_loaded();
-
 
 private:
 
@@ -107,7 +105,13 @@ private:
     int start_page_;
     std::vector<Page> pages_;
     bool load_started_ = false;
+    bool modified_ = false;
 
+    // prevent race conditions between save and destructor
+    std::mutex save_state_mutex_;
+    std::condition_variable save_cv_;
+    std::atomic<bool> is_saving_{ false };
+    std::atomic<bool> being_destroyed_{ false };
 
     mutable std::list<int> load_order_;
     mutable std::mutex load_order_mutex_;
@@ -117,7 +121,8 @@ private:
 
     // saves are async for performance, save the futures here
     std::vector<std::future<void>> save_futures_;
-    std::recursive_mutex save_mutex_;
+    
+    std::recursive_mutex bookmark_mutex_;
 
     mutable std::mutex read_mutex_;
 

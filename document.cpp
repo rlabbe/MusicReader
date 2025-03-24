@@ -124,7 +124,7 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 
 
 #define FZ_SERIAL_LOAD
-
+using namespace std;
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
@@ -134,13 +134,21 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     int total_pages = 0;
 
     // Open document once to get page count 
+
+    cerr << "Opening document: " << filename_.string() << endl;
+
     auto [ctx, doc] = open_fitz(filename_.string());
+    cerr << "Opened document: " << filename_.string() << endl;
+
     if (!ctx || !doc) {
         logger::log_error("Failed to open document: " + filename_.string());
         return;
     }
 
+    cerr << "Getting page count" << endl;
     total_pages = fz_count_pages(ctx, doc);
+    cerr << "Got page count: " << total_pages << endl;
+
     if (total_pages == 0) {
         logger::log_error("Document has no pages: " + filename_.string());
         close_fitz(ctx, doc);
@@ -160,6 +168,19 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     pages_[start_page - 1] = Page(render_page(ctx, doc, start_page - 1, dpi), start_page, false);
     close_fitz(ctx, doc);
 #endif
+
+    cerr << "leaving constructor: " << filename_.string() << endl;
+}
+
+
+Document::~Document()
+{
+    being_destroyed_ = true;
+
+    std::unique_lock<std::mutex> lock(save_state_mutex_);
+    save_cv_.wait(lock, [this]() { return !is_saving_; });
+
+    save();
 }
 
 
@@ -239,29 +260,53 @@ void Document::load_document()
     if (load_started_) return;
     load_started_ = true;
 
-    int total_pages = page_count();    
-    
+    int total_pages = page_count();
+
     // we try to load in order of likely access, but if get_page
     // is called then we will be modifying load_order_ to have it
     // loaded as the very next request.
     load_order_mutex_.lock();
     load_order_ = get_page_load_order(start_page_, total_pages);
     load_order_mutex_.unlock();
+    cerr << "in load_document: " << filename_.string() << endl;
 
+    fz_context *ctx = nullptr;
+    fz_document *doc = nullptr;
+    fz_outline *outline = nullptr;
 
+    cerr << "Opening document: " << filename_.string() << endl;
+    std::tie(ctx, doc) = open_fitz(filename_.string());
+    cerr << "opened" << endl;
+
+    if (!ctx || !doc) {
+        logger::log_error("Failed to open document: " + filename_.string());
+        return;
+    }
+
+    fz_try(ctx)
     {
-        auto [ctx, doc] = open_fitz(filename_.string());
-        if (ctx && doc) {
-            total_pages = fz_count_pages(ctx, doc);
+        cerr << "Getting bookmarks" << endl;
+        total_pages = fz_count_pages(ctx, doc);
+        cerr << "Got page count: " << total_pages << endl;
 
-            fz_outline *outline = fz_load_outline(ctx, doc);
-            if (outline)
-                bookmarks_ = convert_outline_to_bookmarks(outline);
+        cerr << "Loading bookmarks" << endl;
+        outline = fz_load_outline(ctx, doc);
+        cerr << "Loaded bookmarks" << endl;
 
-            close_fitz(ctx, doc);
-            emit bookmarks_loaded();
+        if (outline) {
+            cerr << "Converting bookmarks" << endl;
+            bookmarks_ = convert_outline_to_bookmarks(outline);
+            cerr << "Converted bookmarks" << endl;
         }
     }
+    fz_catch(ctx)
+    {
+        logger::log_error("MuPDF exception while loading document: " + std::string(fz_caught_message(ctx)));
+        close_fitz(ctx, doc);
+        return;
+    }
+    close_fitz(ctx, doc);
+    emit bookmarks_loaded();
 
     // simulate very large documents
     //std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -289,7 +334,18 @@ void Document::load_document()
             continue;
         }
 
-        QPixmap pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+        QPixmap pixmap;
+        fz_try(thread_ctx)
+        {
+            pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+        }
+        fz_catch(thread_ctx)
+        {
+            logger::log_error("MuPDF exception rendering page " + std::to_string(i) + ": " + fz_caught_message(thread_ctx));
+            close_fitz(thread_ctx, thread_doc);
+            continue;
+        }
+
         close_fitz(thread_ctx, thread_doc);
 
         int page_num = i + 1;
@@ -491,7 +547,7 @@ bool Document::reparent_bookmark(const BookmarkHandle &handle, const BookmarkHan
 
 bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_parent_handle, bool internal_call)
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty()) return false;
 
     if (!internal_call) {
@@ -520,14 +576,14 @@ bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_pa
         bookmarks_.push_back(std::move(bookmark));
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
-
-    return save();
+    modified_ = true;
+    return true;
 }
 
 
 bool Document::indent_bookmark(const BookmarkHandle &handle)
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty()) return false;
 
     undo_stack_.push_back(bookmarks_);
@@ -568,7 +624,7 @@ bool Document::indent_bookmark(const BookmarkHandle &handle)
 
 bool Document::unindent_bookmark(const BookmarkHandle &handle)
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty()) return false;
 
     auto bookmark_ptr = find_bookmark(handle);
@@ -598,21 +654,23 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
         bookmark.parent_handle_.clear();
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
+    modified_ = true;
 
-    return save();
+    return true;
 }
 
 
 bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty()) return false;
 
     auto bookmark = find_bookmark(handle);
     if (bookmark && bookmark->title_ != title) {
         undo_stack_.push_back(bookmarks_);
         bookmark->title_ = title;
-        return save();
+        modified_ = true;
+        return true;
     }
     return false;
 }
@@ -620,18 +678,20 @@ bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &
 
 bool Document::remove_bookmark(const BookmarkHandle &handle)
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty()) return false;
 
     for (auto it = bookmarks_.begin(); it != bookmarks_.end(); ++it) {
         if (it->handle_ == handle) {
             undo_stack_.push_back(bookmarks_);
             bookmarks_.erase(it);
-            return save();
+            modified_ = true;
+            return true;
         }
         if (it->remove_child(handle)) {
             undo_stack_.push_back(bookmarks_);
-            return save();
+            modified_ = true;
+            return true;
         }
     }
     return false;
@@ -668,18 +728,46 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
             std::sort(parent->children_.begin(), parent->children_.end(), bookmark_sort);
         }
     }
-    bool success = save();
-    return { new_bookmark.handle_, success };
+    modified_ = true;
+    return { new_bookmark.handle_, true };
 }
 
 
-bool Document::save(const std::filesystem::path &filename, bool block)
+bool Document::save()
 {
-    filename;
-    block;
-    return add_bookmarks_to_pdf(filename_.string(), bookmarks_);
-}
+    // Don't allow save if we're being destroyed
+    if (being_destroyed_) return false;
 
+    {
+        std::lock_guard<std::mutex> lock(save_state_mutex_);
+
+        if (is_saving_ || !modified_)
+            return false;
+
+        is_saving_ = true;
+    }
+
+    std::string marks;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        marks = as_python_list(bookmarks_);
+        modified_ = false;
+    }
+
+    std::string safe_path = filename_.string();
+    std::replace(safe_path.begin(), safe_path.end(), '\\', '/');
+    std::string cmd = std::format("set_bookmarks.exe \"{}\" \"{}\"", safe_path, marks);
+
+    int result = std::system(cmd.c_str());
+
+    {
+        std::lock_guard<std::mutex> lock(save_state_mutex_);
+        is_saving_ = false;
+    }
+    save_cv_.notify_all();
+
+    return result == 0;
+}
 
 
 void save_annotations(fz_context *, fz_document *)
@@ -692,7 +780,7 @@ void save_annotations(fz_context *, fz_document *)
 
 void Document::clear_completed_features()
 {
-    std::lock_guard<std::recursive_mutex> lock(save_mutex_);
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
     // Remove completed futures
     save_futures_.erase(std::remove_if(save_futures_.begin(), save_futures_.end(),
@@ -713,7 +801,7 @@ bool Document::save(const std::filesystem::path &output_filename, bool block)
     // just housekeeping, remove any futures that are done
     clear_completed_features();
 
-    std::lock_guard<std::mutex> lock(save_mutex_);
+    std::lock_guard<std::mutex> lock(bookmark_mutex_);
 
     std::string filename_to_save = output_filename.empty() ? filename_.string() : output_filename.string();
 

@@ -102,6 +102,22 @@ void MusicReader::setup_UI()
 
     exit_button_ = new FullscreenExitButton(this);
     qApp->installEventFilter(this);
+
+    QTimer *autosave_timer = new QTimer(this);
+    connect(autosave_timer, &QTimer::timeout, this, [this]() {
+        for (int i = 0; i < tab_widget_->count(); ++i) {
+            PDFViewer *viewer = viewer_tab(i);
+            if (viewer) {
+                auto doc = viewer->document();
+                if (doc) {
+                    QtConcurrent::run([doc]() {
+                        doc->save();
+                    });
+                }
+            }
+        }
+    });
+    autosave_timer->start(30'000);  // 30 seconds
 }
 
 
