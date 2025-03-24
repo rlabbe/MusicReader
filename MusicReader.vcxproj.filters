@@ -73,6 +73,9 @@
     <ClCompile Include="qpdf_document.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fitz_utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -147,6 +150,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vertical_tabs_widget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fitz_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -123,7 +123,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>
@@ -173,7 +173,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
@@ -199,6 +199,7 @@
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
+    <ClCompile Include="fitz_utils.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
     <ClCompile Include="qpdf_document.cpp" />
     <QtRcc Include="musicreader.qrc" />
@@ -236,6 +237,7 @@
     <QtMoc Include="fast_file_search_dialog.h" />
     <QtMoc Include="fullscreen_exit_button.h" />
     <QtMoc Include="file_viewer.h" />
+    <ClInclude Include="fitz_utils.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="qpdf_document.h" />
     <ClInclude Include="qt_utils.h" />
