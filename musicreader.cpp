@@ -104,20 +104,19 @@ void MusicReader::setup_UI()
     qApp->installEventFilter(this);
 
     QTimer *autosave_timer = new QTimer(this);
+    // cast to void just to avoid warning that we are discarding the return value. ugh.
     connect(autosave_timer, &QTimer::timeout, this, [this]() {
-        for (int i = 0; i < tab_widget_->count(); ++i) {
-            PDFViewer *viewer = viewer_tab(i);
-            if (viewer) {
-                auto doc = viewer->document();
+        (void)QtConcurrent::run([this]() {
+            for (int i = 0; i < tab_widget_->count(); ++i) {
+                auto doc = document_at(i);
                 if (doc) {
-                    QtConcurrent::run([doc]() {
-                        doc->save();
-                    });
+                    doc->save();
                 }
             }
-        }
+        });
     });
-    autosave_timer->start(30'000);  // 30 seconds
+
+    autosave_timer->start(config_.save_cadence_secs() * 1000);
 }
 
 
@@ -380,8 +379,8 @@ void MusicReader::create_menus()
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
 
-    if (!config_.show_menu()) 
-        menu_bar->hide();    
+    if (!config_.show_menu())
+        menu_bar->hide();
 }
 
 void MusicReader::update_recent_files_list()
@@ -733,6 +732,7 @@ std::shared_ptr<Document> MusicReader::current_document(const std::string &log_m
     return nullptr;
 }
 
+
 std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 {
     PDFViewer *viewer = current_viewer(log_msg);
@@ -741,6 +741,7 @@ std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
     if (!log_msg.empty()) logger::log_error(log_msg);
     return { 1, false };
 }
+
 
 std::string MusicReader::current_document_name() const
 {
@@ -753,6 +754,9 @@ std::shared_ptr<Document> MusicReader::document_at(int index) const
     PDFViewer *tab = viewer_tab(index);
     return tab ? tab->document() : nullptr;
 }
+
+
+
 
 PDFViewer *MusicReader::viewer_tab(int index) const
 {

@@ -58,6 +58,7 @@ private:
     bool show_menu_ = true;
     bool horiz_tabs_ = false;
 
+
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
     std::vector<int> app_size_ {10, 10, 640, 480};
@@ -65,6 +66,7 @@ private:
     int page_view_count_ = 2;
     int open_tab_ = -1;
     int max_recent_documents_ = 20;
+    int save_cadence_secs_ = 15;
     int dpi_ = 96;
     bool allow_oversize_ = true;
     Theme theme_ = Theme::Dark;
@@ -128,6 +130,9 @@ public:
 
     int max_recent_documents() const { return max_recent_documents_; }
     void set_max_recent_documents(int value) { max_recent_documents_ = value; save(); }
+
+    int save_cadence_secs() const { return save_cadence_secs_; }
+    void set_save_cadence_secs(int value) { save_cadence_secs_ = value; save(); }
 
     int dpi() const { return dpi_; }
     void set_dpi(int value) { dpi_ = value; save(); }

@@ -27,6 +27,7 @@ private:
     // Widgets
     QSpinBox *spin_border_margin_;
     QSpinBox *spin_max_recent_documents_;
+    QSpinBox *spin_save_cadence_;
 
     QComboBox *combo_theme_;
     QComboBox *combo_log_level_;

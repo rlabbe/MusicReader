@@ -308,6 +308,12 @@ void ConfigFile::read(bool reset_on_error)
         log_error("Invalid or missing 'max_recent_documents'");
     }
 
+    if (j.contains("save_cadence_secs") && j["save_cadence_secs"].is_number_integer()) {
+        save_cadence_secs_ = j["save_cadence_secs"].get<int>();
+    } else {
+        log_error("Invalid or missing 'save_cadence_secs'");
+    }
+
     if (j.contains("dpi")) {
         if (j["dpi"].is_number_integer())
             dpi_ = j["dpi"].get<int>();
@@ -413,6 +419,7 @@ json ConfigFile::to_json() const
     j["page_view_count"] = page_view_count_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;
+    j["save_cadence_secs"] = save_cadence_secs_;
     j["dpi"] = dpi_;
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);
@@ -460,6 +467,9 @@ bool ConfigFile::validate() const
 
     // Validate max_recent_documents
     if (max_recent_documents_ < 0) return false;
+
+    // Validate save_cadence_secs
+    if (save_cadence_secs_ < 0) return false;
 
     // Validate dpi
     if (dpi_ < 1) return false;
@@ -543,6 +553,7 @@ void ConfigFile::set_defaults()
     page_view_count_ = 2;
     open_tab_ = 0;
     max_recent_documents_ = 20;
+    save_cadence_secs_ = 15;
     dpi_ = 111;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
@@ -585,6 +596,7 @@ std::string ConfigFile::repr() const
     j["page_view_count"] = page_view_count_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;
+    j["save_cadence_secs"] = save_cadence_secs_;
     j["dpi"] = dpi_;
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);

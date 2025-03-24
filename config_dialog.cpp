@@ -32,6 +32,9 @@ void ConfigDialog::setup_ui()
     spin_max_recent_documents_ = new QSpinBox(this);
     spin_max_recent_documents_->setRange(1, 100);
 
+    spin_save_cadence_ = new QSpinBox(this);
+    spin_save_cadence_->setRange(0, 5*60);
+
     combo_theme_ = new QComboBox(this);
     combo_theme_->addItem("Dark", static_cast<int>(Theme::Dark));
     combo_theme_->addItem("Light", static_cast<int>(Theme::Light));
@@ -66,6 +69,12 @@ void ConfigDialog::setup_ui()
     layout_max_recent_documents->addStretch();
     layout_max_recent_documents->addWidget(spin_max_recent_documents_);
     form_layout->addRow("Max Recent Documents:", layout_max_recent_documents);
+
+    // Save Cadence
+    QHBoxLayout *layout_save_cadence = new QHBoxLayout;
+    layout_save_cadence->addStretch();
+    layout_save_cadence->addWidget(spin_save_cadence_);
+    form_layout->addRow("Save Modified Docs every (secs, 0 for never):", layout_save_cadence);
 
     // Theme
     QHBoxLayout *layout_theme = new QHBoxLayout;
@@ -110,6 +119,7 @@ void ConfigDialog::setup_ui()
     // Adjust spin boxes to be narrower
     int spin_width = 50;
     spin_max_recent_documents_->setFixedWidth(spin_width);
+    spin_save_cadence_->setFixedWidth(spin_width);
 
     adjustSize(); // Resize dialog to fit contents
 }
@@ -120,6 +130,7 @@ void ConfigDialog::load_settings()
     // Load values from config_
     spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
+    spin_save_cadence_->setValue(config_.save_cadence_secs());
 
     combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme())));
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
@@ -145,8 +156,7 @@ void ConfigDialog::setup_connections()
 void ConfigDialog::browse_music_directory()
 {
     QString dir = QFileDialog::getExistingDirectory(this, "Select Music Directory", edit_music_directory_->text());
-    if (!dir.isEmpty())
-    {
+    if (!dir.isEmpty()) {
         edit_music_directory_->setText(dir);
     }
 }
@@ -154,14 +164,17 @@ void ConfigDialog::browse_music_directory()
 void ConfigDialog::save_settings()
 {
     // Validation
-    if (spin_max_recent_documents_->value() <= 0)
-    {
+    if (spin_max_recent_documents_->value() <= 0) {
         QMessageBox::warning(this, "Validation Error", "Max Recent Documents must be greater than 0.");
         return;
     }
 
-    if (edit_music_directory_->text().isEmpty())
-    {
+    if (spin_save_cadence_->value() < 0) {
+        QMessageBox::warning(this, "Validation Error", "Save Cadence must be 0 or greater.");
+        return;
+    }
+
+    if (edit_music_directory_->text().isEmpty()){
         QMessageBox::warning(this, "Validation Error", "Music Directory cannot be empty.");
         return;
     }
@@ -171,6 +184,7 @@ void ConfigDialog::save_settings()
 
     config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
+    config_.set_save_cadence_secs(spin_save_cadence_->value());
     config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
     config_.set_restore_window_position(check_restore_window_position_->isChecked());
