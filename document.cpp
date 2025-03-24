@@ -1,16 +1,7 @@
 #include "document.h"
 #include "logger.h"
 #include <windows.h>
-
-#include <assert.h>
-
-#include <format>
-#include <stdexcept>
-#include <thread>
-#include <future>
-#include <QImage>
 #include <qpainter.h>
-#include "qpdf_document.h"
 
 
 void close_fitz(fz_context *ctx, fz_document *doc)
@@ -23,6 +14,7 @@ void close_fitz(fz_context *ctx, fz_document *doc)
     doc = nullptr;
     if (ctx) fz_drop_context(ctx);
 }
+
 
 std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename)
 {
@@ -93,6 +85,7 @@ extern "C" __declspec(noinline) PixmapData render_page_seh(fz_context *ctx, fz_d
     return result;
 }
 
+
 QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
 {
     PixmapData data = render_page_seh(ctx, doc, page_num, dpi);
@@ -107,23 +100,11 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
 }
 
 
-inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
-{
-    bool a_is_folder = !a.page_num_.has_value();
-    bool b_is_folder = !b.page_num_.has_value();
-
-    if (a_is_folder != b_is_folder) {
-        return !a_is_folder;  // Bookmarks with pages come first
-    }
-    if (!a_is_folder && !b_is_folder) {
-        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
-    }
-    return false;  // Both are folders, maintain insertion order
-}
 
 
 
-using namespace std;
+
+//using namespace std;
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
@@ -134,19 +115,14 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
 
     // Open document once to get page count 
 
-    cerr << "Opening document: " << filename_.string() << endl;
-
     auto [ctx, doc] = open_fitz(filename_.string());
-    cerr << "Opened document: " << filename_.string() << endl;
 
     if (!ctx || !doc) {
         logger::log_error("Failed to open document: " + filename_.string());
         return;
     }
 
-    cerr << "Getting page count" << endl;
     total_pages = fz_count_pages(ctx, doc);
-    cerr << "Got page count: " << total_pages << endl;
 
     if (total_pages == 0) {
         logger::log_error("Document has no pages: " + filename_.string());
@@ -160,9 +136,7 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     for (int i = 0; i < total_pages; ++i)
         pages_[i].page_num = i + 1;
 
-
     close_fitz(ctx, doc);
-    cerr << "leaving constructor: " << filename_.string() << endl;
 }
 
 
@@ -175,7 +149,6 @@ Document::~Document()
 
     save();
 }
-
 
 
 void Document::request_page(int page_num) const
@@ -259,15 +232,11 @@ void Document::load_document()
     load_order_mutex_.lock();
     load_order_ = get_page_load_order(start_page_, total_pages);
     load_order_mutex_.unlock();
-    cerr << "in load_document: " << filename_.string() << endl;
 
     fz_context *ctx = nullptr;
     fz_document *doc = nullptr;
     fz_outline *outline = nullptr;
-
-    cerr << "Opening document: " << filename_.string() << endl;
     std::tie(ctx, doc) = open_fitz(filename_.string());
-    cerr << "opened" << endl;
 
     if (!ctx || !doc) {
         logger::log_error("Failed to open document: " + filename_.string());
@@ -276,18 +245,10 @@ void Document::load_document()
 
     fz_try(ctx)
     {
-        cerr << "Getting bookmarks" << endl;
         total_pages = fz_count_pages(ctx, doc);
-        cerr << "Got page count: " << total_pages << endl;
-
-        cerr << "Loading bookmarks" << endl;
         outline = fz_load_outline(ctx, doc);
-        cerr << "Loaded bookmarks" << endl;
-
         if (outline) {
-            cerr << "Converting bookmarks" << endl;
             bookmarks_ = convert_outline_to_bookmarks(outline);
-            cerr << "Converted bookmarks" << endl;
         }
     }
     fz_catch(ctx)

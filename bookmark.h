@@ -133,3 +133,18 @@ std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks);
 // Converts a vector of Bookmark objects to a Python list string to be
 // used by an external python utility to write bookmarks.
 std::string as_python_list(const std::vector<Bookmark> &bookmarks);
+
+
+inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
+{
+    bool a_is_folder = !a.page_num_.has_value();
+    bool b_is_folder = !b.page_num_.has_value();
+
+    if (a_is_folder != b_is_folder) {
+        return !a_is_folder;  // Bookmarks with pages come first
+    }
+    if (!a_is_folder && !b_is_folder) {
+        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
+    }
+    return false;  // Both are folders, maintain insertion order
+}
