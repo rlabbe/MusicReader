@@ -37,6 +37,7 @@ private slots:
     void update_bookmarks_for_doc();
     void browse_folder();
     void on_tab_changed();
+    void copy_log_to_clipboard();
 
 private:
 

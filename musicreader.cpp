@@ -249,9 +249,8 @@ void MusicReader::create_menus()
 
     QAction *action = new QAction("&Open...", this);
     action->setShortcut(shortcuts_["open_file"]);
-    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
-
     file_menu->addAction(action);
+    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
     action = new QAction("&Fast Search...", this);
     action->setShortcut(shortcuts_["fast_search"]);
@@ -266,6 +265,15 @@ void MusicReader::create_menus()
     open_recent_menu_ = new QMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
     connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
+
+    file_menu->addSeparator();
+
+    action = new QAction("Copy log to clipboard", this);
+    action->setShortcut(shortcuts_["open_file"]);
+    connect(action, &QAction::triggered, this, [this]() { copy_log_to_clipboard(); });
+    file_menu->addAction(action);
+
+    file_menu->addSeparator();
 
     QAction *exit_action = new QAction("E&xit", this);
     connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
@@ -508,6 +516,7 @@ void MusicReader::show_titlebar_menu()
     connect(fast_search_action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
     file_menu->addAction(fast_search_action);
 
+
     QAction *settings_action = new QAction("&Settings...", this);
     settings_action->setShortcut(shortcuts_["settings"]);
     connect(settings_action, &QAction::triggered, this, &MusicReader::open_config_dialog);
@@ -516,6 +525,12 @@ void MusicReader::show_titlebar_menu()
     open_recent_menu_ = new QMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
     connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
+
+    file_menu->addSeparator();
+
+    QAction *copy_action = new QAction("Copy log to clipboard", this);
+    connect(copy_action, &QAction::triggered, this, [this]() { copy_log_to_clipboard(); });
+    file_menu->addAction(copy_action);
 
     QMenu *edit_menu = menu.addMenu("&Edit");
 
@@ -580,7 +595,7 @@ void MusicReader::show_titlebar_menu()
     // Separator before Exit
     menu.addSeparator();
 
-    // Standalone Exit Action (Below View)
+    // Standalone Exit Action
     QAction *exit_action = new QAction("E&xit", this);
     connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
     menu.addAction(exit_action);
@@ -1420,4 +1435,23 @@ void MusicReader::on_config_saved()
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
+}
+
+void MusicReader::copy_log_to_clipboard()
+{
+    if (!OpenClipboard(nullptr)) return;
+    EmptyClipboard();
+
+    std::string contents = logger::get_log_content();
+
+    HGLOBAL hglob = GlobalAlloc(GMEM_MOVEABLE, contents.size() + 1);
+    if (!hglob) {
+        CloseClipboard();
+        return;
+    }
+
+    memcpy(GlobalLock(hglob), contents.c_str(), contents.size() + 1);
+    GlobalUnlock(hglob);
+    SetClipboardData(CF_TEXT, hglob);
+    CloseClipboard();
 }

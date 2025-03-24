@@ -133,9 +133,10 @@ void logger::enable_debug_logging(bool enable)
 
 std::string get_log_content()
 {
-    if (!logger_) {
+    if (!logger_) 
         return "";
-    }
+
+    logger_->flush();
 
     auto sinks = logger_->sinks();
     for (const auto &sink : sinks) {
