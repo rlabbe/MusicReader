@@ -207,6 +207,12 @@ void ConfigFile::read(bool reset_on_error)
         log_error("Invalid or missing 'show_status_bar'");
     }
 
+    if (j.contains("show_toolbar") && j["show_toolbar"].is_boolean()) {
+        show_toolbar_ = j["show_toolbar"].get<bool>();
+    } else {
+        log_error("Invalid or missing 'show_toolbar'");
+    }
+
     if (j.contains("show_menu") && j["show_menu"].is_boolean()) {
         show_menu_ = j["show_menu"].get<bool>();
     } else {
@@ -384,6 +390,7 @@ json ConfigFile::to_json() const
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
     j["show_status_bar"] = show_status_bar_;
+    j["show_toolbar"] = show_toolbar_;
     j["show_menu"] = show_menu_;
     j["horiz_tabs"] = horiz_tabs_;
 
@@ -526,6 +533,7 @@ void ConfigFile::set_defaults()
     restore_documents_ = true;
     zoom_to_content_ = true;
     show_status_bar_ = true;
+    show_toolbar_ = true;
     show_menu_ = true;
     horiz_tabs_ = false;
     open_documents_.clear();
@@ -552,6 +560,7 @@ std::string ConfigFile::repr() const
     j["restore_documents"] = restore_documents_;
     j["zoom_to_content"] = zoom_to_content_;
     j["show_status_bar"] = show_status_bar_;
+    j["show_toolbar"] = show_toolbar_;
     j["show_menu"] = show_menu_;
     j["horiz_tabs"] = horiz_tabs_;
 

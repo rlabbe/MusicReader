@@ -311,12 +311,12 @@ void MusicReader::create_menus()
         connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
         view_menu->addAction(bookmark_menu_action_);
 
-        action = new QAction("&Tool Bar", this);
-        action->setShortcut(shortcuts_["toolbar"]);
-        action->setCheckable(true);
-        action->setChecked(true);
-        connect(action, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
-        view_menu->addAction(action);
+        toolbar_menu_action_ = new QAction("&Tool Bar", this);
+        toolbar_menu_action_->setShortcut(shortcuts_["toolbar"]);
+        toolbar_menu_action_->setCheckable(true);
+        toolbar_menu_action_->setChecked(true);
+        connect(toolbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
+        view_menu->addAction(toolbar_menu_action_);
 
         statusbar_menu_action_ = new QAction("&Status Bar", this);
         statusbar_menu_action_->setCheckable(true);
@@ -1015,13 +1015,27 @@ void MusicReader::open_config_dialog()
 
         if (editor_dialog.result() == QDialog::Accepted) {
             config_.save();
-            refresh_all_documents();
+            on_config_saved();
+
             logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
         }
     } catch (const std::exception &e) {
         logger::log_error("Failed to open settings dialog: " + std::string(e.what()));
     }
 }
+
+
+void MusicReader::on_config_saved()
+{
+    SAFE_METHOD;
+
+    set_toolbar_visibility();
+    refresh_all_documents();
+    set_statusbar_visibility();
+
+    //config_.show_menu() ? menuBar()->show() : menuBar()->hide();
+}
+
 
 void MusicReader::restore_window_state()
 {
@@ -1362,13 +1376,40 @@ void MusicReader::toggle_bookmark_panel()
     }
 }
 
+
+void MusicReader::set_statusbar_visibility()
+{
+    if (!status_bar_) return;
+    if (!statusbar_menu_action_) return;
+
+    bool visible = config_.show_status_bar();
+    status_bar_->setVisible(visible);
+    statusbar_menu_action_->setChecked(visible);
+}
+
+
 void MusicReader::toggle_statusbar_visibility()
 {
-    if (status_bar_) {
-        bool visible = !config_.show_status_bar();
-        config_.set_show_status_bar(visible);
+    config_.set_show_status_bar(!config_.show_status_bar());
+    set_statusbar_visibility();
+}
 
-        status_bar_->setVisible(visible);
-        statusbar_menu_action_->setChecked(visible);
-    }
+
+void MusicReader::set_toolbar_visibility()
+{
+    if (!toolbar_) return;
+    if (!toolbar_menu_action_) return;
+
+    bool visible = config_.show_toolbar();
+    config_.set_show_toolbar(visible);
+    toolbar_->setVisible(visible);
+    toolbar_menu_action_->setChecked(visible);
+}
+
+
+void MusicReader::toggle_toolbar_visibility()
+{
+    config_.set_show_toolbar(!config_.show_toolbar());
+    set_toolbar_visibility();
+
 }

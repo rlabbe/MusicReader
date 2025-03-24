@@ -27,7 +27,6 @@ private:
     // Widgets
     QSpinBox *spin_border_margin_;
     QSpinBox *spin_max_recent_documents_;
-    QSpinBox *spin_page_view_count_;
 
     QComboBox *combo_theme_;
     QComboBox *combo_log_level_;
@@ -37,6 +36,7 @@ private:
     QCheckBox *check_zoom_to_content_;
     QCheckBox *check_allow_oversize_;
     QCheckBox *check_show_menu_;
+    QCheckBox *check_show_toolbar_;
     QCheckBox *check_horiz_tabs_;
 
     QLineEdit *edit_music_directory_;

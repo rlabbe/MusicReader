@@ -47,6 +47,14 @@ private:
     void closeEvent(QCloseEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
+    // called after config file changed, update all the UI to reflect 
+    // the current settings vis-a-vis status bar, etc.
+    void on_config_saved();
+
+    void set_toolbar_visibility();
+    void set_statusbar_visibility();
+
+
     void show_log_file();
 
     void update_bookmark_panel();
@@ -71,7 +79,7 @@ private:
     void update_dpi_setting(bool /*recompute*/) {/*TODO*/ }
     void toggle_draw_margin() {/*TODO*/ }
     void toggle_bookmark_panel();
-    void toggle_toolbar_visibility() {/*TODO*/ }
+    void toggle_toolbar_visibility();
     void toggle_statusbar_visibility();
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
@@ -134,19 +142,20 @@ private:
     void keyPressEvent(QKeyEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
-    QMenu *open_recent_menu_;
-    QMenu *edit_menu_;
-    QAction *edit_margin_action_;
-    QAction *undo_action_;
-    QAction *redo_action_;
-    QAction *bookmark_menu_action_;
-    QAction *light_theme_menu_item_;
-    QAction *dark_theme_menu_item_;
-    QToolBar *toolbar_;
-    QAction *view_toggle_action_;
-    QAction *zoom_in_out_action_;
-    QAction *margin_action_;
-    QAction *statusbar_menu_action_;
+    QMenu *open_recent_menu_ = nullptr;
+    QMenu *edit_menu_ = nullptr;
+    QAction *edit_margin_action_ = nullptr;
+    QAction *undo_action_ = nullptr;
+    QAction *redo_action_ = nullptr;
+    QAction *bookmark_menu_action_ = nullptr;
+    QAction *light_theme_menu_item_ = nullptr;
+    QAction *dark_theme_menu_item_ = nullptr;
+    QToolBar *toolbar_ = nullptr;
+    QAction *view_toggle_action_ = nullptr;
+    QAction *zoom_in_out_action_ = nullptr;
+    QAction *margin_action_ = nullptr;
+    QAction *statusbar_menu_action_ = nullptr;
+    QAction *toolbar_menu_action_ = nullptr;
     QIcon single_icon_;
     QIcon double_icon_;
     QIcon zoomin_icon_;

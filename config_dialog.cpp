@@ -32,9 +32,6 @@ void ConfigDialog::setup_ui()
     spin_max_recent_documents_ = new QSpinBox(this);
     spin_max_recent_documents_->setRange(1, 100);
 
-    spin_page_view_count_ = new QSpinBox(this);
-    spin_page_view_count_->setRange(1, 5);
-
     combo_theme_ = new QComboBox(this);
     combo_theme_->addItem("Dark", static_cast<int>(Theme::Dark));
     combo_theme_->addItem("Light", static_cast<int>(Theme::Light));
@@ -48,7 +45,8 @@ void ConfigDialog::setup_ui()
     check_zoom_to_content_ = new QCheckBox("Remove Document Borders", this);
     check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level", this);
     check_show_menu_ = new QCheckBox("Show Menu Bar", this);
-    check_horiz_tabs_ = new QCheckBox("Document Tabs At Top", this);
+    check_show_toolbar_ = new QCheckBox("Show Tool Bar", this);
+    check_horiz_tabs_ = new QCheckBox("Document Tabs At Top (requires app restart)", this);
     edit_music_directory_ = new QLineEdit(this);
     btn_browse_ = new QPushButton("Browse...", this);
 
@@ -69,13 +67,6 @@ void ConfigDialog::setup_ui()
     layout_max_recent_documents->addWidget(spin_max_recent_documents_);
     form_layout->addRow("Max Recent Documents:", layout_max_recent_documents);
 
-    // Page View Count
-    QHBoxLayout *layout_page_view_count = new QHBoxLayout;
-    layout_page_view_count->addStretch();
-    layout_page_view_count->addWidget(spin_page_view_count_);
-    form_layout->addRow("Page View Count:", layout_page_view_count);
-
-
     // Theme
     QHBoxLayout *layout_theme = new QHBoxLayout;
     layout_theme->addStretch();
@@ -94,6 +85,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_zoom_to_content_);
     form_layout->addRow(check_allow_oversize_);
     form_layout->addRow(check_show_menu_);
+    form_layout->addRow(check_show_toolbar_);
     form_layout->addRow(check_horiz_tabs_);
 
     // Music Directory with Browse button
@@ -118,7 +110,6 @@ void ConfigDialog::setup_ui()
     // Adjust spin boxes to be narrower
     int spin_width = 50;
     spin_max_recent_documents_->setFixedWidth(spin_width);
-    spin_page_view_count_->setFixedWidth(spin_width);
 
     adjustSize(); // Resize dialog to fit contents
 }
@@ -129,7 +120,6 @@ void ConfigDialog::load_settings()
     // Load values from config_
     spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
-    spin_page_view_count_->setValue(config_.page_view_count());
 
     combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme())));
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
@@ -139,6 +129,7 @@ void ConfigDialog::load_settings()
     check_zoom_to_content_->setChecked(config_.zoom_to_content());
     check_allow_oversize_->setChecked(config_.allow_oversize());
     check_show_menu_->setChecked(config_.show_menu());
+    check_show_toolbar_->setChecked(config_.show_toolbar());
     check_horiz_tabs_->setChecked(!config_.horiz_tabs());
 
     edit_music_directory_->setText(QString::fromStdString(config_.music_directory().string()));
@@ -169,13 +160,6 @@ void ConfigDialog::save_settings()
         return;
     }
 
-    if (spin_page_view_count_->value() < 1 || spin_page_view_count_->value() > 5)
-    {
-        QMessageBox::warning(this, "Validation Error", "Page View Count must be between 1 and 5.");
-        return;
-    }
-
-
     if (edit_music_directory_->text().isEmpty())
     {
         QMessageBox::warning(this, "Validation Error", "Music Directory cannot be empty.");
@@ -187,7 +171,6 @@ void ConfigDialog::save_settings()
 
     config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
-    config_.set_page_view_count(spin_page_view_count_->value());
     config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
     config_.set_restore_window_position(check_restore_window_position_->isChecked());
@@ -195,11 +178,13 @@ void ConfigDialog::save_settings()
     config_.set_zoom_to_content(check_zoom_to_content_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
     config_.set_show_menu(check_show_menu_->isChecked());
+    config_.set_show_toolbar(check_show_toolbar_->isChecked());
     config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
     config_.set_music_directory(std::filesystem::path(edit_music_directory_->text().toStdString()));
 
     accept(); // Close dialog with Accepted status
 }
+
 
 void ConfigDialog::cancel_settings()
 {

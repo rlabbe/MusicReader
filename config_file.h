@@ -54,6 +54,7 @@ private:
     bool restore_documents_ = true;
     bool zoom_to_content_ = false;
     bool show_status_bar_ = true;
+    bool show_toolbar_ = true;
     bool show_menu_ = true;
     bool horiz_tabs_ = false;
 
@@ -74,6 +75,8 @@ private:
 
 public:
 
+    explicit ConfigFile(bool reset_on_error = true);
+
     void start_group_changes() { save_operation_enabled_ = false;}
     void end_group_changes() { save_operation_enabled_ = true; save(); }
 
@@ -91,6 +94,9 @@ public:
 
     bool show_status_bar() const { return show_status_bar_; }
     void set_show_status_bar(bool value) { show_status_bar_ = value; save(); }
+
+    bool show_toolbar() const { return show_toolbar_; }
+    void set_show_toolbar(bool value) { show_toolbar_ = value; save(); }
 
     bool show_menu() const { return show_menu_; }
     void set_show_menu(bool value) { show_menu_ = value; save(); }
@@ -145,9 +151,6 @@ public:
     LogLevel log_level() const { return log_level_; }
     void set_log_level(LogLevel value) { log_level_ = value; save(); }
 
-
-    // Constructor
-    explicit ConfigFile(bool reset_on_error = true);
 
     // Method to read configuration from file
     void read(bool reset_on_error = true);
