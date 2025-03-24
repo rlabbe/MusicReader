@@ -1,4 +1,3 @@
-// ConfigFile.hpp
 #pragma once
 
 #include <string>

@@ -1,11 +1,7 @@
 #pragma once
 
-#include <chrono>
-#include <string>
-
 #include <QScreen>
 #include <QWidget>
-
 #include "logger.h"
 
 inline void ensure_window_is_visible(QWidget *win, bool move_only = false)
@@ -32,6 +28,8 @@ inline void ensure_window_is_visible(QWidget *win, bool move_only = false)
 }
 
 
+/*
+
 class Timer {
 public:
     explicit Timer(const std::string &name) : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
@@ -46,4 +44,4 @@ public:
 private:
     std::string name_;
     std::chrono::time_point<std::chrono::high_resolution_clock> start_;
-};
+};*/

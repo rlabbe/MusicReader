@@ -8,7 +8,6 @@
 #include "exception_logger.h"
 
 using namespace logger;
-// For convenience
 using json = nlohmann::json;
 
 

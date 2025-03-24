@@ -3,7 +3,6 @@
 #include <QThread>
 #include <QDirIterator>
 #include <filesystem>
-#include <iostream>
 #include "qt_utils.h"
 
 

@@ -4,10 +4,10 @@
 #include <memory>
 
 #include "document.h"
-#include "config_file.h"
 #include "page.h"
 
 class StatusBar;
+class ConfigFile;
 
 class PDFViewer : public QWidget {
     Q_OBJECT

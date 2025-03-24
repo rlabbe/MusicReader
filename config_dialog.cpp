@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 #include <QFileDialog>
 #include <QMessageBox>
+#include "config_file.h"
 
 
 ConfigDialog::ConfigDialog(ConfigFile &config, QWidget *parent)

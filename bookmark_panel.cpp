@@ -1,7 +1,6 @@
 #include "bookmark_panel.h"
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
-#include "document.h"
 #include "logger.h"
 #include "bookmark.h"
 #include "pdf_viewer.h"

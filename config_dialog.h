@@ -1,13 +1,13 @@
 #pragma once
 
 #include <QDialog>
-#include "config_file.h"
 
 class QSpinBox;
 class QComboBox;
 class QCheckBox;
 class QLineEdit;
 class QPushButton;
+class ConfigFile;
 
 class ConfigDialog : public QDialog
 {

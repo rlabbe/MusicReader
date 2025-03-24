@@ -100,12 +100,6 @@ QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
 }
 
 
-
-
-
-
-//using namespace std;
-
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
     , dpi_(dpi)

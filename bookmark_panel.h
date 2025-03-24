@@ -3,12 +3,10 @@
 #include <QtWidgets>
 #include "bookmark.h"
 
-
 class BookmarkTitleBar;
 class BookmarkTreeWidget;
 class MusicReader;
 class Document;
-
 
 class BookmarkPanel : public QWidget
 {

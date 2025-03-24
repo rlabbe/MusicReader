@@ -3,6 +3,7 @@
 #include "border.h"
 #include "logger.h"
 #include "status_bar.h"
+#include "config_file.h"
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config, 

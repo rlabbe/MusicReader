@@ -1,9 +1,5 @@
 #pragma once
 
-
-#ifndef FAST_FILE_SEARCH_DIALOG_H
-#define FAST_FILE_SEARCH_DIALOG_H
-
 #include <QDialog>
 #include <QTableWidget>
 #include <QVBoxLayout>
@@ -118,7 +114,3 @@ private:
 
     static inline FastFileSearchDialog *instance_ = nullptr;
 };
-
-#endif // FAST_FILE_SEARCH_DIALOG_H
-
-

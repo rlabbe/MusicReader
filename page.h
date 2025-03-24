@@ -3,8 +3,8 @@
 #include <QPixmap>
 #include <QImage>
 #include <QSize>
-
 #include "border.h"
+
 
 QPixmap resize_by_border(QPixmap img, Border border, int relief);
 
