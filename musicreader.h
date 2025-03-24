@@ -65,7 +65,6 @@ private:
     void update_memory_usage();
     void update_background();
 
-    bool logged_error() { return false; } //TODO
     void show_log_content();
 
     void open_file_dialog(const std::string &pathname = "");

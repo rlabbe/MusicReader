@@ -3,20 +3,15 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <memory>
-#include <sstream>
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+
 
 namespace {
 std::shared_ptr<spdlog::logger> logger_;
 
 
-#include <string>
-#include <filesystem>
-#include <stdexcept>
-#include <cstdlib>
 
 std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
 {
@@ -75,11 +70,19 @@ void configure_logger(const std::string &filename, size_t max_size, bool log_to_
 
 namespace logger {
 
+bool logged_error_{ false };
+bool logged_error()
+{
+    return logged_error_;
+}
+
+
 void initialize(size_t max_size_kb, bool log_to_console)
 {
     std::string log_file = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file << std::endl;
     configure_logger(log_file, max_size_kb, log_to_console);
+    logged_error_ = false;
 }
 
 void shutdown()
@@ -88,6 +91,7 @@ void shutdown()
         logger_->flush();
         spdlog::shutdown();
         logger_ = nullptr;
+        logged_error_ = false;
     }
 }
 
@@ -104,6 +108,7 @@ void log_warning(const std::string &message)
 
 void log_error(const std::string &message)
 {
+    logged_error_ = true;
     if (logger_) logger_->error(message);
 }
 

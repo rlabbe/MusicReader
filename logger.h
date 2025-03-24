@@ -16,6 +16,9 @@ void initialize(size_t max_size_kb = 4,
 
 void shutdown();
 
+// Returns true if an error has been logged since startup 
+bool logged_error();
+
 void enable_debug_logging(bool enable);
 
 // Logs an INFO level message.

@@ -173,7 +173,7 @@ void MusicReader::check_for_errors_on_exit()
 {
     SAFE_METHOD;
 
-    if (logged_error()) {
+    if (logger::logged_error()) {
         QMessageBox msg_box(this);
         msg_box.setWindowTitle("Internal Errors");
         msg_box.setText("There were internal errors");
