@@ -95,8 +95,11 @@ private:
     void save_annotations(fz_context *, fz_document *);
 
     void clear_completed_features();
-    void request_page(int page_num) const;
 
+    // User asking for page not yet loaded. This will load the page
+    // before any other pages being loaded, and reorder the load order
+    // starting here to maximize responsiveness
+    void request_page(int page_num) const;
 
     std::vector<Bookmark> bookmarks_;
     std::filesystem::path filename_;

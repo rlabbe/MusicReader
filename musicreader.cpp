@@ -1124,6 +1124,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
     save_open_documents_to_config();
 
     std::thread([this, doc, page]() {
+        ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
         doc->load_document();  // Load pages asynchronously
     }).detach();
 

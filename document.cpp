@@ -1,8 +1,9 @@
 #include "document.h"
-#include "logger.h"
+#include <unordered_set>
 #include <qpainter.h>
-#include "fitz_utils.h"
 
+#include "logger.h"
+#include "fitz_utils.h"
 
 
 inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
@@ -66,19 +67,64 @@ Document::~Document()
 
 void Document::request_page(int page_num) const
 {
-    std::lock_guard lock(load_order_mutex_);
+    std::unordered_set<int> existing;
+    existing.reserve(load_order_.size());
 
-    load_order_.push_front(page_num - 1);
+    // pages are 1-based, but fitz is 0-based
+    int index = page_num - 1;
 
-    // also ask for previous and next; this will more or less
-    // let us page forward and backward without waiting for the
-    // next page to load.
-    if (page_num > 1)
-        load_order_.push_front(page_num - 2);
+    {
+        std::lock_guard lock(load_order_mutex_);
+        if (load_order_.empty()) return;
+        existing.insert(load_order_.begin(), load_order_.end());
+        load_order_.clear();
+       
+        // then reorder rest of requests. get the previous two pages, and then
+        //  count forwards from the requested page, and then loop back to page 1.
+        // This should maximize the likelihood that a page is loaded based on 
+        // typical use patterns (us bookmark to get to some page quickly, then page
+        // forward as you play).
 
-    if (page_num + 1 < page_count())
-        load_order_.push_back(page_num);
+        // Start with the requested page
+        if (existing.count(index))
+            load_order_.push_back(index);
+
+        // may be displaying 2 pages, so ask next page before the previous pages.
+        if (existing.count(index + 1))
+            load_order_.push_back(index + 1);
+    }
+
+    // unlocking load_order_mutex_ should give the load thread a chance to run
+    // I'm dubious this matters, but why not?
+
+    {
+        std::lock_guard lock(load_order_mutex_);
+
+        // Then previous two pages for fast back page
+        if (existing.count(index - 1))
+            load_order_.push_back(index - 1);
+
+        if (existing.count(index - 2))
+            load_order_.push_back(index - 2);
+    }
+
+    {
+        std::lock_guard lock(load_order_mutex_);
+
+        // Then all pages after page_num
+        for (int i = index + 2; i < page_count(); ++i) {
+            if (existing.count(i))
+                load_order_.push_back(i);
+        }
+
+        // Then all pages before page_num - 2
+        for (int i = 0; i < index - 2; ++i) {
+            if (existing.count(i))
+                load_order_.push_back(i);
+        }
+    }
 }
+
 
 
 Page Document::get_page(int page_num) const
@@ -100,10 +146,6 @@ Page Document::get_page(int page_num) const
     }
     return pages_[page_num - 1];
 }
-
-
-inline const int NUM_THREADS = std::max(1u, std::thread::hardware_concurrency());
-constexpr int MIN_PAGES_PER_THREAD = 1;
 
 
 std::list<int> get_page_load_order(int start_page, int total_pages)
@@ -283,7 +325,6 @@ void Document::render_page_batch(int start_page,
     {
         logger::log_error("Exception in rendering thread.");
     }
-
     fz_drop_context(ctx);
 }
 
@@ -476,9 +517,9 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
     std::optional<int> page_num_opt = (page_num == 0) ? std::nullopt : std::optional<int>(page_num);
 
     Bookmark new_bookmark(title, page_num_opt.has_value() ? page_num_opt.value() : 0);
-    if (parent_handle) {
+    if (parent_handle) 
         new_bookmark.parent_handle_ = parent_handle;
-    }
+    
 
     if (!parent_handle) {
         bookmarks_.emplace_back(new_bookmark);
@@ -538,8 +579,6 @@ void save_annotations(fz_context *, fz_document *)
 }
 
 
-
-
 void Document::clear_completed_features()
 {
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
@@ -558,10 +597,12 @@ bool Document::can_undo() const
     return !undo_stack_.empty();
 }
 
+
 bool Document::can_redo() const
 {
     return !redo_stack_.empty();
 }
+
 
 void Document::undo()
 {
