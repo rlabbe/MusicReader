@@ -4,8 +4,6 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
-#include <mutex>
-#include <condition_variable>
 
 #include "config_file.h"
 
@@ -27,8 +25,6 @@ public:
 
     void on_page_down();
     void on_page_up();
-    void on_page_left();
-    void on_page_right();
 
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
@@ -53,7 +49,7 @@ private:
 
     void set_toolbar_visibility();
     void set_statusbar_visibility();
-
+    void set_menu_visibility();
 
     void show_log_file();
 
@@ -80,6 +76,7 @@ private:
     void toggle_draw_margin() {/*TODO*/ }
     void toggle_bookmark_panel();
     void toggle_toolbar_visibility();
+    void toggle_menu_visibility();
     void toggle_statusbar_visibility();
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
@@ -156,21 +153,19 @@ private:
     QAction *margin_action_ = nullptr;
     QAction *statusbar_menu_action_ = nullptr;
     QAction *toolbar_menu_action_ = nullptr;
+    QAction *menubar_menu_action_ = nullptr;
     QIcon single_icon_;
     QIcon double_icon_;
     QIcon zoomin_icon_;
     QIcon zoomout_icon_;
-    QTimer *timer_;
-    FullscreenExitButton *exit_button_;
+    QTimer *timer_ = nullptr;
+    FullscreenExitButton *exit_button_ = nullptr;
     bool has_full_menu_bar_ = true;
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;
 
     FastFileSearchDialog *fast_search_dialog_ = nullptr;
-    // used to wait until the fast search dialog is ready
-    std::mutex fast_search_mutex_;
-    std::condition_variable fast_search_cv_;
 
 signals:
     void fastSearchInitialized();
