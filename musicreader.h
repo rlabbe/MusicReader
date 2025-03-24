@@ -38,6 +38,7 @@ private slots:
     void browse_folder();
     void on_tab_changed();
     void copy_log_to_clipboard();
+    void goto_page_dialog();
 
 private:
 
@@ -62,6 +63,7 @@ private:
     void create_menus();
     void create_toolbar();
     void create_status_bar();
+    void add_goto_menu_action(QMenu *view_menu);
 
     void update_memory_usage();
     void update_background();

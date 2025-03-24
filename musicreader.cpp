@@ -349,6 +349,9 @@ void MusicReader::create_menus()
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
     view_menu->addAction(action);
 
+    add_goto_menu_action(view_menu);
+
+
     update_undo_redo_state();
 
     menuBar()->setStyleSheet(R"(
@@ -372,6 +375,11 @@ void MusicReader::create_menus()
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
 
+    shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
+
+
     shortcut = new QShortcut(Qt::Key_Space, this);
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, [this]() {
@@ -390,6 +398,16 @@ void MusicReader::create_menus()
     if (!config_.show_menu())
         menu_bar->hide();
 }
+
+
+void MusicReader::add_goto_menu_action(QMenu *view_menu)
+{
+    QAction *goto_action = new QAction("&Goto Page...", this);
+    goto_action->setShortcut(QKeySequence("Ctrl+G"));
+    connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
+    view_menu->addAction(goto_action);
+}
+
 
 void MusicReader::update_recent_files_list()
 {
@@ -591,6 +609,8 @@ void MusicReader::show_titlebar_menu()
     QAction *action = new QAction("View Log...", this);
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
     view_menu->addAction(action);
+
+    add_goto_menu_action(view_menu);
 
     // Separator before Exit
     menu.addSeparator();
@@ -1130,6 +1150,46 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
 
     viewer->refresh();
     return viewer;
+}
+
+
+
+
+
+
+void MusicReader::goto_page_dialog()
+{
+    auto viewer = current_viewer();
+    if (!viewer) return;
+
+    int max_page = viewer->page_count();
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Go to Page");
+    dialog.setModal(true);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+    QLabel *label = new QLabel(QString("Enter page number (1 - %1):").arg(max_page), &dialog);
+    layout->addWidget(label);
+
+    QLineEdit *line_edit = new QLineEdit(&dialog);
+    line_edit->setValidator(new QIntValidator(1, max_page, line_edit));
+    layout->addWidget(line_edit);
+
+    QDialogButtonBox *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(button_box);
+
+    QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        bool ok = false;
+        int page = line_edit->text().toInt(&ok);
+        if (ok && page >= 1 && page <= max_page) {
+            viewer->get_page(page);
+        }
+    }
 }
 
 
