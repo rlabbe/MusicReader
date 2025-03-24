@@ -326,7 +326,7 @@ void MusicReader::create_menus()
     connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
     view_menu->addAction(statusbar_menu_action_);
 
-    action = new QAction("&Light Theme", this);
+    /*action = new QAction("&Light Theme", this);
     action->setCheckable(true);
     action->setChecked(config_.theme() == Theme::Light);
     connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
@@ -338,7 +338,7 @@ void MusicReader::create_menus()
     action->setChecked(config_.theme() == Theme::Dark);
     connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
     dark_theme_menu_item_ = action;
-    view_menu->addAction(action);
+    view_menu->addAction(action);*/
 
     action = new QAction("View Log...", this);
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
@@ -566,7 +566,7 @@ void MusicReader::show_titlebar_menu()
     connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
     view_menu->addAction(statusbar_menu_action_);
 
-    QAction *light_theme_action = new QAction("&Light Theme", this);
+    /*QAction *light_theme_action = new QAction("&Light Theme", this);
     light_theme_action->setCheckable(true);
     light_theme_action->setChecked(config_.theme() == Theme::Light);
     connect(light_theme_action, &QAction::triggered, this, &MusicReader::set_light_theme);
@@ -578,7 +578,7 @@ void MusicReader::show_titlebar_menu()
     dark_theme_action->setChecked(config_.theme() == Theme::Dark);
     connect(dark_theme_action, &QAction::triggered, this, &MusicReader::set_dark_theme);
     dark_theme_menu_item_ = dark_theme_action;
-    view_menu->addAction(dark_theme_action);
+    view_menu->addAction(dark_theme_action);*/
 
     QAction *action = new QAction("View Log...", this);
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
@@ -659,12 +659,14 @@ void MusicReader::create_toolbar()
     connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
     toolbar_->addAction(action);
 
+    /* TODO
     action = new QAction(QIcon(QPixmap(":/MusicReader/images/border.svg")), "", this);
     action->setCheckable(true);
     action->setToolTip("Edit document margin");
     connect(action, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
     toolbar_->addAction(action);
     margin_action_ = action;
+    */
 
     action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
     action->setToolTip("Previous page");
