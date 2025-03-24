@@ -275,10 +275,12 @@ void MusicReader::create_menus()
     // Edit menu
     edit_menu_ = menu_bar->addMenu("&Edit");
 
+    /* TODO
     edit_margin_action_ = new QAction("Edit Document Margin", this);
     edit_margin_action_->setCheckable(true);
     connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
     edit_menu_->addAction(edit_margin_action_);
+    */
 
     undo_action_ = new QAction("Undo", this);
     undo_action_->setShortcut(QKeySequence::Undo);
@@ -518,10 +520,10 @@ void MusicReader::show_titlebar_menu()
 
     QMenu *edit_menu = menu.addMenu("&Edit");
 
-    edit_margin_action_ = new QAction("Edit Document Margin", this);
+    /* edit_margin_action_ = new QAction("Edit Document Margin", this);
     edit_margin_action_->setCheckable(true);
     connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
-    edit_menu->addAction(edit_margin_action_);
+    edit_menu->addAction(edit_margin_action_);*/
 
     undo_action_ = new QAction("Undo", this);
     undo_action_->setShortcut(QKeySequence::Undo);
