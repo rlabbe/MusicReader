@@ -44,10 +44,10 @@ public:
     bool save();
     bool is_modified() const { return modified_; }
 
-    bool can_undo() const { return false; }
-    bool can_redo() const { return false; }
-    void undo() {}
-    void redo() {}
+    bool can_undo() const;
+    bool can_redo() const;
+    void undo();
+    void redo();
 
     bool reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle);
 

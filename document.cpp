@@ -553,75 +553,43 @@ void Document::clear_completed_features()
 }
 
 
-
-
-
-
-/*
-bool Document::save(const std::filesystem::path &output_filename, bool block)
+bool Document::can_undo() const
 {
-    // just housekeeping, remove any futures that are done
-    clear_completed_features();
-
-    std::lock_guard<std::mutex> lock(bookmark_mutex_);
-
-    std::string filename_to_save = output_filename.empty() ? filename_.string() : output_filename.string();
-
-    auto save_task = [this, filename_to_save]() {
-        try {
-            auto [ctx, doc] = open_fitz(filename_.string());
-            if (!ctx || !doc) {
-                logger::log_error("Failed to open document for saving: " + filename_to_save);
-                return;
-            }
-
-            fz_outline *outline = bookmarks_.empty() ? nullptr : convert_bookmarks_to_outline(bookmarks_);
-            fz_set_outline(ctx, doc, outline);
-            if (outline) {
-                fz_drop_outline(ctx, outline);
-            }
-
-            fz_try(ctx)
-            {
-                if (filename_to_save == filename_.string()) {
-                    fz_save_document(ctx, doc, filename_to_save.c_str(), nullptr);
-                } else {
-                    fz_save_document(ctx, doc, filename_to_save.c_str(), "compress");
-                }
-            }
-            fz_catch(ctx)
-            {
-                logger::log_error("Error saving document: " + filename_to_save);
-            }
-
-            close_fitz(ctx, doc);
-            logger::log_info("Document saved: " + filename_to_save);
-        } catch (const std::exception &e) {
-            logger::log_error("Exception during save: " + std::string(e.what()));
-        }
-    };
-
-
-    if (block) {
-        save_task();  // Run synchronously
-    } else {
-        save_futures_.emplace_back(std::async(std::launch::async, save_task));  // Run asynchronously
-    }
-
-    return true;
+    return !undo_stack_.empty();
 }
 
-*/
-
-/*
-TODO reparent_bookmark (add the checks inside the call)
-
-
-if (auto *bookmark = doc->find_bookmark(handle))
+bool Document::can_redo() const
 {
-    if (auto *new_parent = doc->find_bookmark(target_handle))
-    {
-        if (doc->reparent_bookmark(*bookmark, target_handle))
-        {
+    return !redo_stack_.empty();
+}
 
-  */
+void Document::undo()
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    if (undo_stack_.empty()) return;
+
+    redo_stack_.push_back(bookmarks_);
+    bookmarks_ = std::move(undo_stack_.back());
+    undo_stack_.pop_back();
+
+    modified_ = true;
+}
+
+
+void Document::redo()
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    if (redo_stack_.empty()) return;
+
+    undo_stack_.push_back(bookmarks_);
+    bookmarks_ = std::move(redo_stack_.back());
+    redo_stack_.pop_back();
+
+    modified_ = true;
+}
+
+
+
+
