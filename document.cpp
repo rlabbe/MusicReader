@@ -123,7 +123,6 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 
 
 
-#define FZ_SERIAL_LOAD
 using namespace std;
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
@@ -162,13 +161,7 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
         pages_[i].page_num = i + 1;
 
 
-#ifdef FZ_SERIAL_LOAD
     close_fitz(ctx, doc);
-#else
-    pages_[start_page - 1] = Page(render_page(ctx, doc, start_page - 1, dpi), start_page, false);
-    close_fitz(ctx, doc);
-#endif
-
     cerr << "leaving constructor: " << filename_.string() << endl;
 }
 
@@ -253,8 +246,6 @@ std::list<int> get_page_load_order(int start_page, int total_pages)
 }
 
 
-
-#ifdef FZ_SERIAL_LOAD
 void Document::load_document()
 {
     if (load_started_) return;
@@ -356,109 +347,6 @@ void Document::load_document()
         emit page_loaded(page_num);
     }
 }
-
-#else
-
-void Document::load_document()
-{
-    const int total_pages = page_count();
-    if (total_pages == 0)
-        return;
-
-    auto [ctx, doc] = open_fitz(filename_.string());
-
-    // we try to load in order of likely access, but if get_page
-    // is called then we will be modifying load_order_ to have it
-    // loaded as the very next request.
-    load_order_mutex_.lock();
-    load_order_ = get_page_load_order(start_page_, total_pages);
-    load_order_mutex_.unlock();
-
-    std::vector<std::future<void>> futures;
-    std::vector<fz_display_list *> display_lists;
-
-    // Store all lists for cleanup
-    std::vector<fz_display_list *> all_display_lists;
-    std::vector<fz_rect> bboxes;
-
-    futures.reserve(total_pages);
-    display_lists.reserve(total_pages);
-    all_display_lists.reserve(total_pages);
-    bboxes.reserve(total_pages);
-
-    while (true) {
-        if (kill_loading_) break;
-
-        load_order_mutex_.lock();
-        if (load_order_.empty()) {
-            load_order_mutex_.unlock();
-            break;
-        }
-
-        int i = load_order_.front();
-        load_order_.pop_front();
-        load_order_mutex_.unlock();
-
-        // may have already been loaded if get_page() was called
-        // while this loop was running.
-        if (!pages_[i].is_empty()) continue;
-
-        fz_page *page = nullptr;
-        fz_device *dev = nullptr;
-
-        fz_try(ctx)
-        {
-            page = fz_load_page(ctx, doc, i);
-            bboxes.push_back(fz_bound_page(ctx, page));
-
-            fz_display_list *list = fz_new_display_list(ctx, bboxes.back());
-            dev = fz_new_list_device(ctx, list);
-
-            fz_matrix identity = { 1, 0, 0, 1, 0, 0 };
-            fz_run_page(ctx, page, dev, identity, nullptr);
-            fz_close_device(ctx, dev);
-
-            display_lists.push_back(list);
-            all_display_lists.push_back(list);
-        }
-        fz_always(ctx)
-        {
-            fz_drop_device(ctx, dev);
-            fz_drop_page(ctx, page);
-        }
-        fz_catch(ctx)
-        {
-            logger::log_error("Failed to extract display list for page " + std::to_string(i));
-            display_lists.push_back(nullptr);
-        }
-
-        if (!kill_loading_) {
-
-            int start_page = i + 1 - static_cast<int>(display_lists.size());
-
-            futures.push_back(std::async(std::launch::async,
-                                         [this, start_page, display_lists = std::move(display_lists), bboxes = std::move(bboxes)]() mutable {
-                render_page_batch(start_page, display_lists, bboxes);
-            }
-            ));
-            display_lists.clear();
-            bboxes.clear();
-        }
-    }
-
-    std::for_each(futures.begin(), futures.end(), std::mem_fn(&std::future<void>::get));
-
-    // Free display lists in the main thread
-    for (auto *list : all_display_lists) {
-        if (list) {
-            fz_drop_display_list(ctx, list);
-        }
-    }
-    // now we can safely close the document
-    close_fitz(ctx, doc);
-}
-
-#endif
 
 
 void Document::render_page_batch(int start_page,

@@ -35,10 +35,16 @@ public slots:
     void undo();
     void redo();
 
-    
     void add_bookmark(); // Adds a new bookmark at the current page.
     void delete_selected_bookmark();
     void toggle_visibility();
+
+    // Moves selected bookmarks one level deeper (into the previous bookmark)
+    void indent_selected_bookmarks();
+
+    // Moves selected bookmarks up one level (out of their parent)
+    void unindent_selected_bookmarks();
+
 
 private:
 
@@ -54,12 +60,6 @@ private:
 
     // and set them
     void set_item_info(QTreeWidgetItem *item, const Bookmark &bookmark);
-
-    // Moves selected bookmarks one level deeper (into the previous bookmark)
-    void indent_selected_bookmarks();
-    
-    // Moves selected bookmarks up one level (out of their parent)
-    void unindent_selected_bookmarks();
 
     void init_ui();
     void setup_shortcuts();

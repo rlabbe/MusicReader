@@ -36,6 +36,13 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
 }
 
 
+PDFViewer::~PDFViewer()
+{
+    if (document_) {
+        document_->save();
+    }
+}
+
 void PDFViewer::update_status_bar()
 {
     if (!status_bar_) return;

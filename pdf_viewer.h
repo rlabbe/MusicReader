@@ -23,6 +23,8 @@ public:
               StatusBar *sbar,
               QWidget *parent = nullptr);
 
+    ~PDFViewer();
+
     int page_count() const;
     int current_page() const;
     bool single_page_view() const;
