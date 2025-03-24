@@ -268,10 +268,6 @@ void MusicReader::create_menus()
     file_menu->addMenu(open_recent_menu_);
     connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
 
-    QAction *dpi_action = new QAction("Recompute DPI", this);
-    connect(dpi_action, &QAction::triggered, this, [this]() { update_dpi_setting(true); });
-    file_menu->addAction(dpi_action);
-
     QAction *exit_action = new QAction("E&xit", this);
     connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
     file_menu->addAction(exit_action);
@@ -519,10 +515,6 @@ void MusicReader::show_titlebar_menu()
     open_recent_menu_ = new QMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
     connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
-
-    QAction *dpi_action = new QAction("Recompute DPI", this);
-    connect(dpi_action, &QAction::triggered, this, [this]() { update_dpi_setting(true); });
-    file_menu->addAction(dpi_action);
 
     QMenu *edit_menu = menu.addMenu("&Edit");
 
