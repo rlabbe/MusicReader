@@ -53,7 +53,11 @@ bool startup()
         &pi
     );
 
-    if (!success) {
+    if (success) {
+        std::cout << "set_bookmarks process created\n";
+    }
+    else
+    {
         DWORD err = GetLastError();
         std::wcerr << L"CreateProcessW failed: " << err << std::endl;
         LPWSTR msg = nullptr;
@@ -61,7 +65,6 @@ bool startup()
                        nullptr, err, 0, (LPWSTR)&msg, 0, nullptr);
         std::wcerr << L"Error: " << msg << std::endl;
         LocalFree(msg);
-
     }
 
     CloseHandle(stdin_read);

@@ -4,7 +4,6 @@
 #include "bookmark_setter.h"
 
 
-
 BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 {
     BookmarkSetter::shutdown();
