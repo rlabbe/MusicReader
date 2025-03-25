@@ -1,4 +1,4 @@
-REM pyinstaller --onefile set_bookmarks.py
+pyinstaller --onefile set_bookmarks.py
 
 REM @echo off
 setlocal

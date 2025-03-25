@@ -1,22 +1,40 @@
 #include "musicreader.h"
 #include <QtWidgets/QApplication>
 #include "logger.h"
+#include "bookmark_setter.h"
+
+
+
+BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
+{
+    BookmarkSetter::shutdown();
+    return FALSE; // Allow default behavior (process exits)
+}
+
 
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
-    logger::initialize();
+    SetConsoleCtrlHandler(ctrl_handler, TRUE);
+    BookmarkSetter::startup();
 
-    app.setStyle("fusion");
+    int result = 0;
+    {
+        QApplication app(argc, argv);
+        logger::initialize();
 
-    MusicReader w;
-    w.show();
+        app.setStyle("fusion");
 
-    for (int i = 1; i < argc; ++i)
-        w.open_pdf_in_tab(argv[i], 1);
-    
-    int result = app.exec();
+        MusicReader w;
+        w.show();
+
+        for (int i = 1; i < argc; ++i)
+            w.open_pdf_in_tab(argv[i], 1);
+
+        result = app.exec();
+    }
     logger::shutdown();
+    BookmarkSetter::shutdown();
+
     return result;
 }
 

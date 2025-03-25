@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Mar 24 22:12:39 2025
+
+@author: rlabbe
+"""
+
 import sys
 import ast
 import os
@@ -14,14 +21,15 @@ def add_bookmarks(writer, bookmark_list, parent=None):
             add_bookmarks(writer, children, parent=current)
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print("Usage: set_bookmarks filename 'bookmark_list_as_string'")
-        sys.exit(-1)
-
-    fname = sys.argv[1]
+def process_command(line):
     try:
-        bookmarks = ast.literal_eval(sys.argv[2])
+        parts = line.strip().split('\t', 1)
+        if len(parts) != 2:
+            return "ERROR: invalid input format"
+
+        fname, bookmark_str = parts
+        bookmarks = ast.literal_eval(bookmark_str)
+
         reader = PdfReader(fname)
         writer = PdfWriter()
 
@@ -37,8 +45,15 @@ if __name__ == '__main__':
             writer.write(temp_file)
 
         os.replace(temp_path, fname)
-        sys.exit(0)
-
+        return "OK"
     except Exception as e:
-        print(f'Error: {e}')
-        sys.exit(-1)
+        return f"ERROR: {e}"
+
+
+if __name__ == "__main__":
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            break
+        result = process_command(line)
+        print(result, flush=True)

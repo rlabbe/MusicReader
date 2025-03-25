@@ -1,9 +1,11 @@
 #include "document.h"
 #include <unordered_set>
 #include <qpainter.h>
-
+#include <Windows.h>
 #include "logger.h"
 #include "fitz_utils.h"
+#include "bookmark.h"
+#include "bookmark_setter.h"
 
 
 inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
@@ -18,6 +20,7 @@ inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int 
     free(data.data); // Free copied data after QImage is created
     return pixmap;
 }
+
 
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
@@ -56,12 +59,15 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
 
 Document::~Document()
 {
-    being_destroyed_ = true;
+    if (!modified_) return;
+
+    // gotta save it before destroying it. 
 
     std::unique_lock<std::mutex> lock(save_state_mutex_);
     save_cv_.wait(lock, [this]() { return !is_saving_; });
 
     save();
+    being_destroyed_ = true;
 }
 
 
@@ -78,7 +84,7 @@ void Document::request_page(int page_num) const
         if (load_order_.empty()) return;
         existing.insert(load_order_.begin(), load_order_.end());
         load_order_.clear();
-       
+
         // then reorder rest of requests. get the previous two pages, and then
         //  count forwards from the requested page, and then loop back to page 1.
         // This should maximize the likelihood that a page is loaded based on 
@@ -517,9 +523,9 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
     std::optional<int> page_num_opt = (page_num == 0) ? std::nullopt : std::optional<int>(page_num);
 
     Bookmark new_bookmark(title, page_num_opt.has_value() ? page_num_opt.value() : 0);
-    if (parent_handle) 
+    if (parent_handle)
         new_bookmark.parent_handle_ = parent_handle;
-    
+
 
     if (!parent_handle) {
         bookmarks_.emplace_back(new_bookmark);
@@ -543,7 +549,6 @@ bool Document::save()
 
     {
         std::lock_guard<std::mutex> lock(save_state_mutex_);
-
         if (is_saving_ || !modified_)
             return false;
 
@@ -556,12 +561,8 @@ bool Document::save()
         marks = as_python_list(bookmarks_);
         modified_ = false;
     }
-
-    std::string safe_path = filename_.string();
-    std::replace(safe_path.begin(), safe_path.end(), '\\', '/');
-    std::string cmd = std::format("set_bookmarks.exe \"{}\" \"{}\"", safe_path, marks);
-
-    int result = std::system(cmd.c_str());
+ 
+    bool result = BookmarkSetter::send(filename_, marks);
 
     {
         std::lock_guard<std::mutex> lock(save_state_mutex_);
