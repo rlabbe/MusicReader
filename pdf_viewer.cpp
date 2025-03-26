@@ -257,19 +257,18 @@ Page PDFViewer::get_single_page(int page_num)
 
 Page PDFViewer::get_double_page(int page_num)
 {
-    bool zoom = config_->zoom_to_content();
-    int margin = config_->border_margin();
+    const bool zoom = config_->zoom_to_content();
+    const int margin = config_->border_margin();
+    const bool last_page = (page_num == page_count());
 
     Page p1 = document_->get_page(page_num);
-    Page p2 = document_->get_page(page_num + 1);
-
-    bool last_page = (page_num == page_count());
-    if (last_page) {
+    Page p2;
+    if (!last_page)
+        p2 = document_->get_page(page_num + 1);
+    else
         // ensure the last page has a valid blank image
         // so it is rendered correctly in double page mode
         copy_blank_image(p1, p2);
-    }
-
 
     if (p1.is_empty() || p2.is_empty()) {
         return Page(page_num); // Empty page to show "Loading..."
