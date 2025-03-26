@@ -98,7 +98,7 @@ void PDFViewer::change_page(int step)
 
     // don't go to last page if even number of pages
     if (new_page == count && double_page_view() && new_page % 2 == 0)
-        return;
+        new_page = count - 1;
 
     manual_scrollbar_change_ = true;
     scrollbar_->setValue(new_page);
