@@ -61,9 +61,12 @@ private:
     void setup_UI();
     void create_bookmark_panel();
     void create_menus();
+    void create_file_menu(auto *);
+    void create_edit_menu(auto *);
+    void create_view_menu(auto *);
+
     void create_toolbar();
     void create_status_bar();
-    void add_goto_menu_action(QMenu *view_menu);
 
     void update_memory_usage();
     void update_background();

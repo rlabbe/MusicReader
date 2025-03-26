@@ -45,7 +45,7 @@ void ConfigDialog::setup_ui()
 
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
-    check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level", this);
+    check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level (recommended)", this);
     check_show_menu_ = new QCheckBox("Show Menu Bar", this);
     check_show_toolbar_ = new QCheckBox("Show Tool Bar", this);
     check_show_statusbar_ = new QCheckBox("Show Status Bar", this);
