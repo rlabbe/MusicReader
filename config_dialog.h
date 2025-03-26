@@ -17,7 +17,6 @@ public:
     explicit ConfigDialog(ConfigFile &config, QWidget *parent = nullptr);
 
 private slots:
-    void browse_music_directory();
     void save_settings();
     void cancel_settings();
 
@@ -39,9 +38,6 @@ private:
     QCheckBox *check_show_toolbar_;
     QCheckBox *check_show_statusbar_;
     QCheckBox *check_horiz_tabs_;
-
-    QLineEdit *edit_music_directory_;
-    QPushButton *btn_browse_;
 
     QPushButton *btn_save_;
     QPushButton *btn_cancel_;
