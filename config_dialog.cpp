@@ -45,10 +45,10 @@ void ConfigDialog::setup_ui()
 
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
-    check_zoom_to_content_ = new QCheckBox("Remove Document Borders", this);
     check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level", this);
     check_show_menu_ = new QCheckBox("Show Menu Bar", this);
     check_show_toolbar_ = new QCheckBox("Show Tool Bar", this);
+    check_show_statusbar_ = new QCheckBox("Show Status Bar", this);
     check_horiz_tabs_ = new QCheckBox("Document Tabs At Top (requires app restart)", this);
     edit_music_directory_ = new QLineEdit(this);
     btn_browse_ = new QPushButton("Browse...", this);
@@ -91,10 +91,10 @@ void ConfigDialog::setup_ui()
     // Checkboxes
     form_layout->addRow(check_restore_window_position_);
     form_layout->addRow(check_restore_documents_);
-    form_layout->addRow(check_zoom_to_content_);
     form_layout->addRow(check_allow_oversize_);
-    form_layout->addRow(check_show_menu_);
     form_layout->addRow(check_show_toolbar_);
+    form_layout->addRow(check_show_menu_);
+    form_layout->addRow(check_show_statusbar_);
     form_layout->addRow(check_horiz_tabs_);
 
     // Music Directory with Browse button
@@ -137,10 +137,10 @@ void ConfigDialog::load_settings()
 
     check_restore_window_position_->setChecked(config_.restore_window_position());
     check_restore_documents_->setChecked(config_.restore_documents());
-    check_zoom_to_content_->setChecked(config_.zoom_to_content());
     check_allow_oversize_->setChecked(config_.allow_oversize());
     check_show_menu_->setChecked(config_.show_menu());
     check_show_toolbar_->setChecked(config_.show_toolbar());
+    check_show_statusbar_->setChecked(config_.show_status_bar());
     check_horiz_tabs_->setChecked(!config_.horiz_tabs());
 
     edit_music_directory_->setText(QString::fromStdString(config_.music_directory().string()));
@@ -189,10 +189,10 @@ void ConfigDialog::save_settings()
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
     config_.set_restore_window_position(check_restore_window_position_->isChecked());
     config_.set_restore_documents (check_restore_documents_->isChecked());
-    config_.set_zoom_to_content(check_zoom_to_content_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
     config_.set_show_menu(check_show_menu_->isChecked());
     config_.set_show_toolbar(check_show_toolbar_->isChecked());
+    config_.set_show_status_bar(check_show_statusbar_->isChecked());
     config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
     config_.set_music_directory(std::filesystem::path(edit_music_directory_->text().toStdString()));
 

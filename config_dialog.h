@@ -34,10 +34,10 @@ private:
 
     QCheckBox *check_restore_window_position_;
     QCheckBox *check_restore_documents_;
-    QCheckBox *check_zoom_to_content_;
     QCheckBox *check_allow_oversize_;
     QCheckBox *check_show_menu_;
     QCheckBox *check_show_toolbar_;
+    QCheckBox *check_show_statusbar_;
     QCheckBox *check_horiz_tabs_;
 
     QLineEdit *edit_music_directory_;
