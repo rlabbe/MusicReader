@@ -195,11 +195,7 @@ void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 
 std::shared_ptr<Document> BookmarkPanel::document() const
 {
-    auto doc = main_window_->current_document();
-    if (!doc) {
-        logger::log_error("No document found");
-    }
-    return doc;
+    return main_window_->current_document();
 }
 
 

@@ -9,12 +9,13 @@ class QLineEdit;
 class QPushButton;
 class ConfigFile;
 
+
 class ConfigDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit ConfigDialog(ConfigFile &config, QWidget *parent = nullptr);
+    explicit ConfigDialog(ConfigFile &config, QWidget *parent);
 
 private slots:
     void save_settings();
