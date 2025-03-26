@@ -420,7 +420,7 @@ void MusicReader::update_recent_files_list()
 {
     open_recent_menu_->clear();
 
-    for (const auto &path : config_.recent_documents()) {
+    for (const auto &path : std::views::reverse(config_.recent_documents())) {
         QString display_text = QString::fromStdString(path.string());
         QAction *action = new QAction(display_text, this);
         action->setToolTip(QString::fromStdString(path.string()));
