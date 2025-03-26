@@ -315,18 +315,18 @@ void MusicReader::create_view_menu(auto *menu_bar)
     connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
     view_menu->addAction(bookmark_menu_action_);
 
+    menubar_menu_action_ = new QAction("&Menu Bar", this);
+    menubar_menu_action_->setCheckable(true);
+    menubar_menu_action_->setChecked(config_.show_menu());
+    connect(menubar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_menu_visibility);
+    view_menu->addAction(menubar_menu_action_);
+
     toolbar_menu_action_ = new QAction("&Tool Bar", this);
     toolbar_menu_action_->setShortcut(shortcuts_["toolbar"]);
     toolbar_menu_action_->setCheckable(true);
     toolbar_menu_action_->setChecked(true);
     connect(toolbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
     view_menu->addAction(toolbar_menu_action_);
-
-    menubar_menu_action_ = new QAction("&Menu Bar", this);
-    menubar_menu_action_->setCheckable(true);
-    menubar_menu_action_->setChecked(config_.show_menu());
-    connect(menubar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_menu_visibility);
-    view_menu->addAction(menubar_menu_action_);
 
     statusbar_menu_action_ = new QAction("&Status Bar", this);
     statusbar_menu_action_->setCheckable(true);

@@ -2,6 +2,7 @@
 #include "config_dialog.h"
 #include <QSpinBox>
 #include <QComboBox>
+#include <QGroupBox>
 #include <QCheckBox>
 #include <QLineEdit>
 #include <QPushButton>
@@ -46,9 +47,9 @@ void ConfigDialog::setup_ui()
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
     check_allow_oversize_ = new QCheckBox("Allow > 100% zoom level (recommended)", this);
-    check_show_menu_ = new QCheckBox("Show Menu Bar", this);
-    check_show_toolbar_ = new QCheckBox("Show Tool Bar", this);
-    check_show_statusbar_ = new QCheckBox("Show Status Bar", this);
+    check_show_menu_ = new QCheckBox("Menu Bar (click app title bar icon for menu if not shown)", this);
+    check_show_toolbar_ = new QCheckBox("Tool Bar", this);
+    check_show_statusbar_ = new QCheckBox("Status Bar", this);
     check_horiz_tabs_ = new QCheckBox("Document Tabs At Top (requires app restart)", this);
     edit_music_directory_ = new QLineEdit(this);
     btn_browse_ = new QPushButton("Browse...", this);
@@ -92,9 +93,23 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_restore_window_position_);
     form_layout->addRow(check_restore_documents_);
     form_layout->addRow(check_allow_oversize_);
-    form_layout->addRow(check_show_toolbar_);
-    form_layout->addRow(check_show_menu_);
-    form_layout->addRow(check_show_statusbar_);
+
+    QGroupBox *group_show = new QGroupBox("Show", this);
+    QVBoxLayout *group_layout = new QVBoxLayout;
+
+    // First row: check_show_menu_
+    group_layout->addWidget(check_show_menu_);
+
+    // Second row: toolbar and statusbar
+    QHBoxLayout *row_layout = new QHBoxLayout;
+    row_layout->addWidget(check_show_toolbar_);
+    row_layout->addWidget(check_show_statusbar_);
+    group_layout->addLayout(row_layout);
+
+    group_show->setLayout(group_layout);
+    form_layout->addRow(group_show);
+
+
     form_layout->addRow(check_horiz_tabs_);
 
     // Music Directory with Browse button
