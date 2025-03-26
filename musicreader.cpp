@@ -788,6 +788,8 @@ void MusicReader::on_close_tab(int index)
 
     save_open_documents_to_config();
     on_tab_changed(); // this will update the UI for whatever tab is now current
+
+    QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
 }
 
 void MusicReader::update_title(int index)
@@ -1071,6 +1073,8 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
     }).detach();
 
     viewer->refresh();
+    QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
+
     return viewer;
 }
 
@@ -1179,11 +1183,10 @@ void MusicReader::create_status_bar()
     // Display initial memory usage
     update_memory_usage();
 
-    // Start timer to update memory usage every 5 seconds
+    // Start timer to update memory usage every 15 seconds
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, &MusicReader::update_memory_usage);
-    timer_->start(5000);
-
+    timer_->start(15'000);
 }
 
 void MusicReader::update_memory_usage()

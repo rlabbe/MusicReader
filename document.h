@@ -25,6 +25,7 @@ class Document : public QObject {
     Q_OBJECT
 public:
 
+
     // you must call load_document() separately, construction
     // only checks for existence and loads # of pages.
     //
@@ -109,6 +110,9 @@ private:
     std::vector<Page> pages_;
     bool load_started_ = false;
     bool modified_ = false;
+    mutable std::mutex load_mutex_;
+    std::condition_variable load_cv_;
+    std::atomic<bool> loading_done_{ false };
 
     // prevent race conditions between save and destructor
     std::mutex save_state_mutex_;

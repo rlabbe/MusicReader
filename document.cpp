@@ -8,9 +8,9 @@
 #include "bookmark_setter.h"
 
 
-inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi)
+inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool>& quit_now)
 {
-    PixmapData data = render_page_seh(ctx, doc, page_num, dpi);
+    PixmapData data = render_page_seh(ctx, doc, page_num, dpi, quit_now);
     if (!data.success) return QPixmap();
 
     // Create a QImage with copied data
@@ -59,6 +59,12 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
 
 Document::~Document()
 {
+    kill_loading_ = true;
+    {
+        std::unique_lock lock(load_mutex_);
+        load_cv_.wait(lock, [this]() { return loading_done_.load(); });
+    }
+
     if (!modified_) return;
 
     // gotta save it before destroying it. 
@@ -240,17 +246,19 @@ void Document::load_document()
         // may have already been loaded if get_page() was called
         // while this loop was running.
         if (!pages_[i].is_empty()) continue;
+        if (kill_loading_) break;
 
         auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
         if (!thread_ctx || !thread_doc) {
             logger::log_error("Failed to open document in thread for page " + std::to_string(i));
+            close_fitz(thread_ctx, thread_doc);
             continue;
         }
 
         QPixmap pixmap;
         fz_try(thread_ctx)
         {
-            pixmap = render_page(thread_ctx, thread_doc, i, dpi_);
+            pixmap = render_page(thread_ctx, thread_doc, i, dpi_, kill_loading_);
         }
         fz_catch(thread_ctx)
         {
@@ -260,6 +268,7 @@ void Document::load_document()
         }
 
         close_fitz(thread_ctx, thread_doc);
+        if (kill_loading_) break;
 
         int page_num = i + 1;
         {
@@ -268,6 +277,13 @@ void Document::load_document()
         }
         emit page_loaded(page_num);
     }
+    // may have terminated, this just means the function is done.
+    // used by destructor
+    {
+        std::lock_guard lock(load_mutex_);
+        loading_done_ = true;
+    }
+    load_cv_.notify_all();
 }
 
 
