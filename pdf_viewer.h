@@ -59,6 +59,7 @@ private:
     void update_scrollbar_visibility();
     void on_scrollbar_value_changed(int new_page);
     void update_image(const QString &message = QString());
+    Qt::AlignmentFlag page_alignment() const;
 
     QLabel *label_;
     StatusBar *status_bar_;

@@ -27,6 +27,12 @@ enum class ToolbarLocation {
     Bottom = 0x8,
 };
 
+enum class PageLocation {
+    Left,
+    Center
+};
+
+
 // Struct to represent each open document
 struct OpenDocument {
     std::filesystem::path filename;
@@ -63,6 +69,7 @@ private:
     std::vector<std::filesystem::path> recent_documents_;
     std::vector<int> app_size_ {10, 10, 640, 480};
     ToolbarLocation toolbar_location_ = ToolbarLocation::Left;
+    PageLocation page_location_ = PageLocation::Center;
     int page_view_count_ = 2;
     int open_tab_ = -1;
     int max_recent_documents_ = 20;
@@ -119,6 +126,9 @@ public:
     // Top, Bottom, Left, Right
     ToolbarLocation toolbar_location() const { return toolbar_location_; }
     void set_toolbar_location(ToolbarLocation value) { toolbar_location_ = value; save(); }
+
+    PageLocation page_location() const { return page_location_; }
+    void set_page_location(PageLocation value) { page_location_ = value; save(); }
 
     // 1 or 2
     int page_view_count() const { return page_view_count_; }

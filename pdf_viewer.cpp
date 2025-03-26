@@ -6,9 +6,9 @@
 #include "config_file.h"
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
-                     ConfigFile *config, 
-                     int page, 
-                     StatusBar *sbar, 
+                     ConfigFile *config,
+                     int page,
+                     StatusBar *sbar,
                      QWidget *parent)
     : QWidget(parent)
     , document_(document)
@@ -194,7 +194,10 @@ void PDFViewer::init_ui(int page)
 
     label_ = new QLabel(this);
     label_->setStyleSheet("border: 0px;");
-    label_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+
+
+    label_->setAlignment(Qt::AlignTop | page_alignment());
+
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
 
@@ -220,11 +223,11 @@ void PDFViewer::update_scrollbar_visibility()
     bool all_pages_shown = false;
     int page_count = document_->page_count();
 
-    if (page_count == 1) 
+    if (page_count == 1)
         all_pages_shown = true;
-     else if (page_count == 2 && !single_page_view()) 
+    else if (page_count == 2 && !single_page_view())
         all_pages_shown = true;
-        
+
     scrollbar_->setVisible(!all_pages_shown);
 }
 
@@ -354,7 +357,7 @@ void PDFViewer::update_image(const QString &message)
         max_size = img->size().boundedTo(label_->size());
     }
 
-    label_->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+    label_->setAlignment(Qt::AlignTop | page_alignment());
     label_->setScaledContents(false);
     label_->setContentsMargins(0, 0, 0, 0);
     QPixmap scaled_pixmap = img->scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -377,4 +380,12 @@ void PDFViewer::adjust_initial_subwindow_size()
     resize(scaled_size);
     label_->resize(scaled_size);
     setMinimumSize(1, 1);
+}
+
+Qt::AlignmentFlag PDFViewer::page_alignment() const
+{
+    switch (config_->page_location()) {
+    case PageLocation::Left: return Qt::AlignmentFlag::AlignLeft;
+    default:  return Qt::AlignmentFlag::AlignHCenter;
+    };
 }

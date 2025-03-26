@@ -124,6 +124,18 @@ static std::string toolbar_location_to_string(ToolbarLocation location)
     }
 }
 
+static std::string page_location_to_string(PageLocation location)
+{
+    switch (location) {
+    case PageLocation::Left:
+        return "left";
+    case PageLocation::Center:
+        return "center";
+    default:
+        return "top";
+    }
+}
+
 static bool string_to_toolbar_location(const std::string &str, ToolbarLocation &location)
 {
     if (str == "top") {
@@ -139,8 +151,23 @@ static bool string_to_toolbar_location(const std::string &str, ToolbarLocation &
         location = ToolbarLocation::Right;
         return true;
     }
+    location = ToolbarLocation::Left;
     return false;
 }
+
+static bool string_to_page_location(const std::string &str, PageLocation &location)
+{
+    if (str == "left") {
+        location = PageLocation::Left;
+        return true;
+    } else if (str == "center") {
+        location = PageLocation::Center;
+        return true;
+    }
+    location = PageLocation::Left;
+    return false;
+}
+
 
 // Constructor
 ConfigFile::ConfigFile(bool reset_on_error)
@@ -284,10 +311,21 @@ void ConfigFile::read(bool reset_on_error)
         int toolbar_int = j["toolbar_location"].get<int>();
         if (toolbar_int < 1 || toolbar_int > 4) {
             log_error("Invalid value for 'toolbar_location': " + std::to_string(toolbar_int));
-        }
-        toolbar_location_ = (ToolbarLocation)toolbar_int;
+            toolbar_int = (int)ToolbarLocation::Left;
+        } else
+            toolbar_location_ = (ToolbarLocation)toolbar_int;
     } else {
         log_error("Invalid or missing 'toolbar_location'");
+    }
+
+    if (j.contains("page_location") && j["page_location"].is_number_integer()) {
+        int toolbar_int = j["page_location"].get<int>();
+        if (toolbar_int < 0 || toolbar_int > 1) {
+            log_error("Invalid value for 'page_location': " + std::to_string(toolbar_int));
+        } else
+            page_location_ = (PageLocation)toolbar_int;
+    } else {
+        log_error("Invalid or missing 'page_location'");
     }
 
     if (j.contains("page_view_count") && j["page_view_count"].is_number_integer()) {
@@ -416,6 +454,7 @@ json ConfigFile::to_json() const
 
     j["app_size"] = app_size_;
     j["toolbar_location"] = static_cast<int>(toolbar_location_);
+    j["page_location"] = static_cast<int>(page_location_);
     j["page_view_count"] = page_view_count_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;
@@ -486,6 +525,8 @@ bool ConfigFile::validate() const
           toolbar_location_ == ToolbarLocation::Left ||
           toolbar_location_ == ToolbarLocation::Right)) return false;
 
+    if (!(page_location_ == PageLocation::Left || page_location_ == PageLocation::Center)) return false;
+
     // Validate app_size
     if (!valid_window_rect(app_size_)) return false;
 
@@ -549,7 +590,8 @@ void ConfigFile::set_defaults()
     open_documents_.clear();
     recent_documents_.clear();
     app_size_ = { 10, 10, 640, 480 };
-    toolbar_location_= ToolbarLocation::Left;
+    toolbar_location_ = ToolbarLocation::Left;
+    page_location_= PageLocation::Center;
     page_view_count_ = 2;
     open_tab_ = 0;
     max_recent_documents_ = 20;
@@ -593,6 +635,7 @@ std::string ConfigFile::repr() const
 
     j["app_size"] = app_size_;
     j["toolbar_location"] = (int)(toolbar_location_);
+    j["page_location"] = (int)(page_location_);
     j["page_view_count"] = page_view_count_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;

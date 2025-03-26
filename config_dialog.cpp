@@ -1,4 +1,3 @@
-// config_dialog.cpp
 #include "config_dialog.h"
 #include <QSpinBox>
 #include <QComboBox>
@@ -46,6 +45,7 @@ void ConfigDialog::setup_ui()
     combo_log_level_->addItem("Normal", static_cast<int>(LogLevel::Normal));
     combo_log_level_->addItem("Diagnostic", static_cast<int>(LogLevel::Diagnostic));
 
+    check_center_ = new QCheckBox("Center Document in window", this);
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
     check_allow_oversize_ = new QCheckBox("Allow > 100% page zoom (recommended)", this);
@@ -80,6 +80,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(group_show);
 
     // Checkboxes
+    form_layout->addRow(check_center_);
     form_layout->addRow(check_restore_window_position_);
     form_layout->addRow(check_restore_documents_);
     form_layout->addRow(check_allow_oversize_);
@@ -146,6 +147,7 @@ void ConfigDialog::load_settings()
     //combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme())));
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
 
+    check_center_->setChecked(config_.page_location() == PageLocation::Center);
     check_restore_window_position_->setChecked(config_.restore_window_position());
     check_restore_documents_->setChecked(config_.restore_documents());
     check_allow_oversize_->setChecked(config_.allow_oversize());
@@ -183,6 +185,7 @@ void ConfigDialog::save_settings()
     config_.set_save_cadence_secs(spin_save_cadence_->value());
     //config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
+    config_.set_page_location(check_center_->isChecked() ? PageLocation::Center : PageLocation::Left);
     config_.set_restore_window_position(check_restore_window_position_->isChecked());
     config_.set_restore_documents(check_restore_documents_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
