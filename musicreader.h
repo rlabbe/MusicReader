@@ -84,7 +84,6 @@ private:
     void toggle_statusbar_visibility();
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
-    void update_undo_redo_state() {/*TODO*/ }
 
     void initialize_fast_search();
 

@@ -303,6 +303,13 @@ void MusicReader::create_edit_menu(auto *menu_bar)
     redo_action_->setEnabled(false);
     edit_menu_->addAction(redo_action_);
     addAction(redo_action_);
+
+    connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
+        auto doc = current_document();
+        undo_action_->setEnabled(doc && doc->can_undo());
+        redo_action_->setEnabled(doc && doc->can_redo());
+    });
+
 }
 
 void MusicReader::create_view_menu(auto *menu_bar)
@@ -366,10 +373,6 @@ void MusicReader::create_menus()
     create_file_menu(menu_bar);
     create_edit_menu(menu_bar);
     create_view_menu(menu_bar);
-
-
-
-    update_undo_redo_state();
 
     menuBar()->setStyleSheet(R"(
         QMenu::item {

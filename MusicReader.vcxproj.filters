@@ -73,9 +73,6 @@
     <ClCompile Include="qpdf_document.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fitz_utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="bookmark_setter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
