@@ -5,7 +5,6 @@
 #include "logger.h"
 #include "status_bar.h"
 #include "config_file.h"
-#include "log_timer.h"
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config,
@@ -45,6 +44,7 @@ PDFViewer::~PDFViewer()
         document_->save();
     }
 }
+
 
 void PDFViewer::update_status_bar()
 {
@@ -197,11 +197,11 @@ void PDFViewer::init_ui(int page)
     label_ = new QLabel(this);
     label_->setStyleSheet("border: 0px;");
 
-
     label_->setAlignment(Qt::AlignTop | page_alignment());
-
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
+    label_->setScaledContents(false);
+    label_->setContentsMargins(0, 0, 0, 0);
 
     layout_->addWidget(label_, 1);  // Stretch document display
     layout_->addWidget(scrollbar_);
@@ -462,21 +462,16 @@ void PDFViewer::update_image(const QString &message)
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
-    }
-
-    label_->setStyleSheet("");
+    } else
+        label_->setStyleSheet("");
 
     QSize max_size;
-
-    if (config_->allow_oversize()) {
+    if (config_->allow_oversize())
         max_size = label_->size();
-    } else {
+    else
         max_size = page_.img.size().boundedTo(label_->size());
-    }
 
     label_->setAlignment(Qt::AlignTop | page_alignment());
-    label_->setScaledContents(false);
-    label_->setContentsMargins(0, 0, 0, 0);
     QPixmap scaled_pixmap = page_.img.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     label_->setPixmap(scaled_pixmap);
 
@@ -499,6 +494,7 @@ void PDFViewer::adjust_initial_subwindow_size()
     setMinimumSize(1, 1);
 }
 
+
 Qt::AlignmentFlag PDFViewer::page_alignment() const
 {
     switch (config_->page_location()) {
@@ -506,7 +502,6 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
     default:  return Qt::AlignmentFlag::AlignHCenter;
     };
 }
-
 
 
 bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) const
