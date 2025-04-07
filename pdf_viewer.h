@@ -6,6 +6,7 @@
 #include "document.h"
 #include "page.h"
 
+
 class StatusBar;
 class ConfigFile;
 
@@ -52,6 +53,47 @@ private slots:
     void on_page_loaded(int page_index);
 
 private:
+
+    struct PrefetchEntry {
+
+        PrefetchEntry() = default;
+        PrefetchEntry(int page_num, bool double_page, bool zoom, int margin)
+            : page_num(page_num)
+            , double_page(double_page)
+            , zoom_to_content(zoom)
+            , border_margin(margin)
+        {
+        }
+
+        int page_num = -1;
+    
+        // render settings
+        bool double_page = false;
+        bool zoom_to_content = false;
+        int border_margin = 0;
+
+        Page p1;
+        Page p2;
+        QPixmap rendered;
+
+        void clear(){ page_num = -1; }
+        bool valid(int target_page_num, ConfigFile &config) const;
+    };
+
+    struct PrefetchCache {
+        PrefetchEntry next;
+        PrefetchEntry prev;
+    };
+
+    PrefetchCache prefetch_;
+    mutable std::mutex prefetch_mutex_;
+
+    void prefetch_async(int page_num);
+    QPixmap compose_double_page(const Page &p1, const Page &p2) const;
+    void clear_prefetch();
+    PrefetchEntry make_double_page_entry(int page_num) const;
+    PrefetchEntry make_single_page_entry(int page_num) const;
+
     void init_ui(int page);
     Page get_single_page(int page_num);
     Page get_double_page(int page_num);

@@ -596,7 +596,7 @@ void ConfigFile::set_defaults()
     open_tab_ = 0;
     max_recent_documents_ = 20;
     save_cadence_secs_ = 15;
-    dpi_ = 111;
+    dpi_ = 300;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
     fast_search_dialog_size_ = { 100, 100, 480, 320 };

@@ -25,7 +25,9 @@ ConfigDialog::ConfigDialog(ConfigFile &config, QWidget *parent)
 
 void ConfigDialog::setup_ui()
 {
-    // Initialize widgets
+    spin_dpi_ = new QSpinBox(this);
+    spin_dpi_->setRange(96, 360);
+
     spin_border_margin_ = new QSpinBox(this);
     spin_border_margin_->setRange(0, 100);
 
@@ -60,9 +62,6 @@ void ConfigDialog::setup_ui()
 
     // Layouts
     QFormLayout *form_layout = new QFormLayout;
-    QHBoxLayout *layout_border = new QHBoxLayout;
-    layout_border->addStretch();
-    layout_border->addWidget(spin_border_margin_);
 
     QGroupBox *group_show = new QGroupBox("Show", this);
     QVBoxLayout *group_layout = new QVBoxLayout;
@@ -87,13 +86,21 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_horiz_tabs_);
 
 
+    QHBoxLayout *layout_dpi = new QHBoxLayout;
+    layout_dpi->addStretch();
+    form_layout->addRow("DPI:", layout_dpi);
+    layout_dpi->addWidget(spin_dpi_);
+
+    QHBoxLayout *layout_border = new QHBoxLayout;
+    layout_border->addStretch();
     form_layout->addRow("Border Margin:", layout_border);
+    layout_border->addWidget(spin_border_margin_);
 
     // Max Recent Documents
     QHBoxLayout *layout_max_recent_documents = new QHBoxLayout;
     layout_max_recent_documents->addStretch();
-    layout_max_recent_documents->addWidget(spin_max_recent_documents_);
     form_layout->addRow("Max Recent Documents:", layout_max_recent_documents);
+    layout_max_recent_documents->addWidget(spin_max_recent_documents_);
 
     // Save Cadence
     QHBoxLayout *layout_save_cadence = new QHBoxLayout;
@@ -140,6 +147,7 @@ void ConfigDialog::setup_ui()
 void ConfigDialog::load_settings()
 {
     // Load values from config_
+    spin_dpi_->setValue(config_.dpi());
     spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_save_cadence_->setValue(config_.save_cadence_secs());
@@ -180,6 +188,7 @@ void ConfigDialog::save_settings()
     // Apply settings to config_
     ConfigFileGroupSave group_saver(config_);
 
+    config_.set_dpi(spin_dpi_->value());
     config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
     config_.set_save_cadence_secs(spin_save_cadence_->value());

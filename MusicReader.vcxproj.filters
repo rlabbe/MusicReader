@@ -158,6 +158,9 @@
     <ClInclude Include="bookmark_setter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="log_timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />

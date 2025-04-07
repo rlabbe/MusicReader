@@ -25,6 +25,7 @@ private:
     ConfigFile &config_;
 
     // Widgets
+    QSpinBox *spin_dpi_;
     QSpinBox *spin_border_margin_;
     QSpinBox *spin_max_recent_documents_;
     QSpinBox *spin_save_cadence_;

@@ -74,7 +74,7 @@ private:
     int open_tab_ = -1;
     int max_recent_documents_ = 20;
     int save_cadence_secs_ = 15;
-    int dpi_ = 96;
+    int dpi_ = 300;
     bool allow_oversize_ = true;
     Theme theme_ = Theme::Dark;
     std::vector<int> fast_search_dialog_size_ = {100, 100, 480, 320};
