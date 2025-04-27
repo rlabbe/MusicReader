@@ -7,7 +7,7 @@
 #include "logger.h"
 #include "exception_logger.h"
 
-using namespace logger;
+
 using json = nlohmann::json;
 
 
@@ -16,7 +16,7 @@ std::filesystem::path path_to_os_convention(const std::filesystem::path &path)
     try {
         return std::filesystem::canonical(std::filesystem::absolute(path));
     } catch (const std::filesystem::filesystem_error &e) {
-        log_error("Error canonicalizing path: " + std::string(e.what()));
+        logger::logger::error("Error canonicalizing path: " + std::string(e.what()));
         return std::filesystem::absolute(path);
     }
 }
@@ -54,7 +54,7 @@ bool point_to_same_file(const std::filesystem::path &path1, const std::filesyste
     try {
         return std::filesystem::equivalent(path1, path2);
     } catch (const std::filesystem::filesystem_error &e) {
-        log_error("Error comparing files '" + path1.string() + "' and '" + path2.string() + "': " + e.what());
+        logger::error("Error comparing files '" + path1.string() + "' and '" + path2.string() + "': " + e.what());
         return false;
     }
 }
@@ -188,14 +188,14 @@ void ConfigFile::read(bool reset_on_error)
     //std::cout << "Reading config file: " << filename_.string() << std::endl;
     std::ifstream infile(filename_);
     if (!infile.is_open()) {
-        log_error("Config file not found: " + filename_.string());
+        logger::error("Config file not found: " + filename_.string());
         goto CLEANUP;
     }
 
     try {
         infile >> j;
     } catch (const json::parse_error &e) {
-        log_error("JSON parse error: " + std::string(e.what()));
+        logger::error("JSON parse error: " + std::string(e.what()));
         goto CLEANUP;
     }
 
@@ -206,50 +206,50 @@ void ConfigFile::read(bool reset_on_error)
     if (j.contains("file_version") && j["file_version"].is_number_integer()) {
         file_version_ = j["file_version"].get<int>();
     } else {
-        log_error("Invalid or missing 'file_version'");
+        logger::error("Invalid or missing 'file_version'");
         goto CLEANUP;
     }
 
     if (j.contains("restore_window_position") && j["restore_window_position"].is_boolean()) {
         restore_window_position_ = j["restore_window_position"].get<bool>();
     } else {
-        log_error("Invalid or missing 'restore_window_position'");
+        logger::error("Invalid or missing 'restore_window_position'");
     }
 
     if (j.contains("restore_documents") && j["restore_documents"].is_boolean()) {
         restore_documents_ = j["restore_documents"].get<bool>();
     } else {
-        log_error("Invalid or missing 'restore_documents'");
+        logger::error("Invalid or missing 'restore_documents'");
     }
 
     if (j.contains("zoom_to_content") && j["zoom_to_content"].is_boolean()) {
         zoom_to_content_ = j["zoom_to_content"].get<bool>();
     } else {
-        log_error("Invalid or missing 'zoom_to_content'");
+        logger::error("Invalid or missing 'zoom_to_content'");
     }
 
     if (j.contains("show_status_bar") && j["show_status_bar"].is_boolean()) {
         show_status_bar_ = j["show_status_bar"].get<bool>();
     } else {
-        log_error("Invalid or missing 'show_status_bar'");
+        logger::error("Invalid or missing 'show_status_bar'");
     }
 
     if (j.contains("show_toolbar") && j["show_toolbar"].is_boolean()) {
         show_toolbar_ = j["show_toolbar"].get<bool>();
     } else {
-        log_error("Invalid or missing 'show_toolbar'");
+        logger::error("Invalid or missing 'show_toolbar'");
     }
 
     if (j.contains("show_menu") && j["show_menu"].is_boolean()) {
         show_menu_ = j["show_menu"].get<bool>();
     } else {
-        log_error("Invalid or missing 'show_menu'");
+        logger::error("Invalid or missing 'show_menu'");
     }
 
     if (j.contains("horiz_tabs") && j["horiz_tabs"].is_boolean()) {
         horiz_tabs_ = j["horiz_tabs"].get<bool>();
     } else {
-        log_error("Invalid or missing 'horiz_tabs'");
+        logger::error("Invalid or missing 'horiz_tabs'");
     }
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
@@ -265,12 +265,12 @@ void ConfigFile::read(bool reset_on_error)
                 od.page_count = doc["page_count"].get<int>();
                 open_documents_.push_back(od);
             } else {
-                log_error("Invalid entry in 'open_documents'");
+                logger::error("Invalid entry in 'open_documents'");
                 goto CLEANUP;
             }
         }
     } else {
-        log_error("Invalid or missing 'open_documents'");
+        logger::error("Invalid or missing 'open_documents'");
         open_documents_.clear();
     }
 
@@ -280,12 +280,12 @@ void ConfigFile::read(bool reset_on_error)
             if (path.is_string()) {
                 recent_documents_.emplace_back(std::filesystem::path(path.get<std::string>()));
             } else {
-                log_error("Invalid entry in 'recent_documents'");
+                logger::error("Invalid entry in 'recent_documents'");
                 goto CLEANUP;
             }
         }
     } else {
-        log_error("Invalid or missing 'recent_documents'");
+        logger::error("Invalid or missing 'recent_documents'");
     }
 
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
@@ -300,79 +300,79 @@ void ConfigFile::read(bool reset_on_error)
             }
         }
         if (!app_size_valid) {
-            log_error("Invalid entries in 'app_size'");
+            logger::error("Invalid entries in 'app_size'");
             app_size_ = { 0, 0, 640, 480 };
         }
     } else {
-        log_error("Invalid or missing 'app_size'");
+        logger::error("Invalid or missing 'app_size'");
     }
 
     if (j.contains("toolbar_location") && j["toolbar_location"].is_number_integer()) {
         int toolbar_int = j["toolbar_location"].get<int>();
         if (toolbar_int < 1 || toolbar_int > 4) {
-            log_error("Invalid value for 'toolbar_location': " + std::to_string(toolbar_int));
+            logger::error("Invalid value for 'toolbar_location': " + std::to_string(toolbar_int));
             toolbar_int = (int)ToolbarLocation::Left;
         } else
             toolbar_location_ = (ToolbarLocation)toolbar_int;
     } else {
-        log_error("Invalid or missing 'toolbar_location'");
+        logger::error("Invalid or missing 'toolbar_location'");
     }
 
     if (j.contains("page_location") && j["page_location"].is_number_integer()) {
         int toolbar_int = j["page_location"].get<int>();
         if (toolbar_int < 0 || toolbar_int > 1) {
-            log_error("Invalid value for 'page_location': " + std::to_string(toolbar_int));
+            logger::error("Invalid value for 'page_location': " + std::to_string(toolbar_int));
         } else
             page_location_ = (PageLocation)toolbar_int;
     } else {
-        log_error("Invalid or missing 'page_location'");
+        logger::error("Invalid or missing 'page_location'");
     }
 
     if (j.contains("page_view_count") && j["page_view_count"].is_number_integer()) {
         page_view_count_ = j["page_view_count"].get<int>();
     } else {
-        log_error("Invalid or missing 'page_view_count'");
+        logger::error("Invalid or missing 'page_view_count'");
     }
 
     if (j.contains("open_tab") && j["open_tab"].is_number_integer()) {
         open_tab_ = j["open_tab"].get<int>();
     } else {
-        log_error("Invalid or missing 'open_tab'");
+        logger::error("Invalid or missing 'open_tab'");
     }
 
     if (j.contains("max_recent_documents") && j["max_recent_documents"].is_number_integer()) {
         max_recent_documents_ = j["max_recent_documents"].get<int>();
     } else {
-        log_error("Invalid or missing 'max_recent_documents'");
+        logger::error("Invalid or missing 'max_recent_documents'");
     }
 
     if (j.contains("save_cadence_secs") && j["save_cadence_secs"].is_number_integer()) {
         save_cadence_secs_ = j["save_cadence_secs"].get<int>();
     } else {
-        log_error("Invalid or missing 'save_cadence_secs'");
+        logger::error("Invalid or missing 'save_cadence_secs'");
     }
 
     if (j.contains("dpi")) {
         if (j["dpi"].is_number_integer())
             dpi_ = j["dpi"].get<int>();
         else
-            log_error("Invalid value for 'dpi', setting to 96");
+            logger::error("Invalid value for 'dpi', setting to 96");
     } else
-        log_error("Missing 'dpi', setting to 96");
+        logger::error("Missing 'dpi', setting to 96");
 
     if (j.contains("allow_oversize") && j["allow_oversize"].is_boolean()) {
         allow_oversize_ = j["allow_oversize"].get<bool>();
     } else {
-        log_error("Invalid or missing 'allow_oversize'");
+        logger::error("Invalid or missing 'allow_oversize'");
     }
 
     if (j.contains("theme") && j["theme"].is_string()) {
         std::string theme_str = j["theme"].get<std::string>();
         if (!string_to_theme(theme_str, theme_)) {
-            log_error("Invalid value for 'theme': " + theme_str);
+            logger::error("Invalid value for 'theme': " + theme_str);
         }
     } else {
-        log_error("Invalid or missing 'theme'");
+        logger::error("Invalid or missing 'theme'");
     }
 
     // fast_search_dialog_size
@@ -388,32 +388,32 @@ void ConfigFile::read(bool reset_on_error)
             }
         }
         if (!fs_size_valid) {
-            log_error("Invalid entries in 'fast_search_dialog_size'");
+            logger::error("Invalid entries in 'fast_search_dialog_size'");
             fast_search_dialog_size_ = { 100, 100, 480, 320 };
         }
     } else {
-        log_error("Invalid or missing 'fast_search_dialog_size'");
+        logger::error("Invalid or missing 'fast_search_dialog_size'");
     }
 
     if (j.contains("border_margin") && j["border_margin"].is_number_integer()) {
         border_margin_ = j["border_margin"].get<int>();
     } else {
-        log_error("Invalid or missing 'border_margin'");
+        logger::error("Invalid or missing 'border_margin'");
     }
 
     if (j.contains("music_directory") && j["music_directory"].is_string()) {
         music_directory_ = std::filesystem::path(j["music_directory"].get<std::string>());
     } else {
-        log_error("Invalid or missing 'music_directory'");
+        logger::error("Invalid or missing 'music_directory'");
     }
 
     if (j.contains("log_level") && j["log_level"].is_string()) {
         std::string log_level_str = j["log_level"].get<std::string>();
         if (!string_to_log_level(log_level_str, log_level_)) {
-            log_error("Invalid value for 'log_level': " + log_level_str);
+            logger::error("Invalid value for 'log_level': " + log_level_str);
         }
     } else {
-        log_error("Invalid or missing 'log_level'");
+        logger::error("Invalid or missing 'log_level'");
     }
 
     // If all parsing succeeded
@@ -483,7 +483,7 @@ void ConfigFile::save() const
 
     std::ofstream outfile(filename_);
     if (!outfile.is_open()) {
-        log_error("Failed to open config file for writing: " + filename_.string());
+        logger::error("Failed to open config file for writing: " + filename_.string());
         return;
     }
 
@@ -700,7 +700,7 @@ std::vector<std::filesystem::path> ConfigFile::remove_duplicates(const std::vect
         if (!exists) {
             unique.push_back(doc);
         } else {
-            log_info("Removing duplicate document from config: " + doc.string());
+            logger::info("Removing duplicate document from config: " + doc.string());
         }
     }
     return unique;
@@ -716,7 +716,7 @@ bool ConfigFile::remove_missing_documents()
         if (std::filesystem::exists(doc.filename)) {
             valid_open_docs.push_back(doc);
         } else {
-            log_error("Missing open document: " + doc.filename.string());
+            logger::error("Missing open document: " + doc.filename.string());
             all_exist = false;
         }
     }
@@ -728,7 +728,7 @@ bool ConfigFile::remove_missing_documents()
         if (std::filesystem::exists(path)) {
             valid_recent_docs.push_back(path);
         } else {
-            log_error("Missing recent document: " + path.string());
+            logger::error("Missing recent document: " + path.string());
             all_exist = false;
         }
     }

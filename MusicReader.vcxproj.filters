@@ -70,10 +70,10 @@
     <ClCompile Include="fast_file_search_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="qpdf_document.cpp">
+    <ClCompile Include="bookmark_setter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bookmark_setter.cpp">
+    <ClCompile Include="fit_utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -143,9 +143,6 @@
     <ClInclude Include="utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="qpdf_document.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -164,6 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+    <None Include="M:\work\trunk\property-sheets\OpenCV.props" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="MusicReader.natvis" />

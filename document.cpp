@@ -7,17 +7,124 @@
 #include "bookmark.h"
 #include "bookmark_setter.h"
 
+#if !defined(NDEBUG)
+#include <opencv2/imgproc/imgproc.hpp>
 
-inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool>& quit_now)
+#define IF_DEBUG(x) x
+#else
+#define IF_DEBUG(x)
+#endif
+
+#if !defined(NDEBUG)
+cv::Mat qimage_to_mat(QImage img)
+{
+    cv::Mat mat;
+    switch (img.format()) {
+    case QImage::Format_RGB888:
+        mat = cv::Mat(img.height(), img.width(), CV_8UC3, img.bits(), img.bytesPerLine());
+        break;
+    case QImage::Format_Grayscale8:
+        mat = cv::Mat(img.height(), img.width(), CV_8UC1, img.bits(), img.bytesPerLine());
+        break;
+    case QImage::Format_Mono:
+        mat = cv::Mat(img.height(), img.width(), CV_8UC1, img.bits(), img.bytesPerLine());
+        cv::threshold(mat, mat, 128, 255, cv::THRESH_BINARY);
+        break;
+    case QImage::Format_RGBA8888:
+        mat = cv::Mat(img.height(), img.width(), CV_8UC4, img.bits(), img.bytesPerLine());
+        break;
+    default:
+        QImage converted = img.convertToFormat(QImage::Format_RGB888);
+        mat = cv::Mat(converted.height(), converted.width(), CV_8UC3, converted.bits(), converted.bytesPerLine());
+    }
+    return mat.clone();
+}
+#endif
+
+inline QImage qimage_from_pixmapdata(const PixmapData &data)
+{
+    QImage::Format format = image_format(data);
+    unsigned char *samples = fz_pixmap_samples(data.ctx, data.data);
+
+    // Create initial QImage with the source data
+    QImage source_img(samples, data.width, data.height, data.stride, QImage::Format_RGB888);
+
+    // Convert to the detected optimal format if needed
+    if (format != QImage::Format_RGB888) {
+        logger::debug("Converting image format from {} to {}", (int)source_img.format(), (int)format);
+        return source_img.convertToFormat(format);
+    }
+
+    return source_img;
+}
+
+
+inline std::string to_string(QImage::Format format)
+{
+    switch (format) {
+    case QImage::Format_Invalid: return "Format_Invalid";
+    case QImage::Format_Mono: return "Format_Mono";
+    case QImage::Format_MonoLSB: return "Format_MonoLSB";
+    case QImage::Format_Indexed8: return "Format_Indexed8";
+    case QImage::Format_RGB32: return "Format_RGB32";
+    case QImage::Format_ARGB32: return "Format_ARGB32";
+    case QImage::Format_ARGB32_Premultiplied: return "Format_ARGB32_Premultiplied";
+    case QImage::Format_RGB16: return "Format_RGB16";
+    case QImage::Format_ARGB8565_Premultiplied: return "Format_ARGB8565_Premultiplied";
+    case QImage::Format_RGB666: return "Format_RGB666";
+    case QImage::Format_ARGB6666_Premultiplied: return "Format_ARGB6666_Premultiplied";
+    case QImage::Format_RGB555: return "Format_RGB555";
+    case QImage::Format_ARGB8555_Premultiplied: return "Format_ARGB8555_Premultiplied";
+    case QImage::Format_RGB888: return "Format_RGB888";
+    case QImage::Format_RGB444: return "Format_RGB444";
+    case QImage::Format_ARGB4444_Premultiplied: return "Format_ARGB4444_Premultiplied";
+    case QImage::Format_RGBX8888: return "Format_RGBX8888";
+    case QImage::Format_RGBA8888: return "Format_RGBA8888";
+    case QImage::Format_RGBA8888_Premultiplied: return "Format_RGBA8888_Premultiplied";
+    case QImage::Format_BGR30: return "Format_BGR30";
+    case QImage::Format_A2BGR30_Premultiplied: return "Format_A2BGR30_Premultiplied";
+    case QImage::Format_RGB30: return "Format_RGB30";
+    case QImage::Format_A2RGB30_Premultiplied: return "Format_A2RGB30_Premultiplied";
+    case QImage::Format_Alpha8: return "Format_Alpha8";
+    case QImage::Format_Grayscale8: return "Format_Grayscale8";
+    case QImage::Format_RGBX64: return "Format_RGBX64";
+    case QImage::Format_RGBA64: return "Format_RGBA64";
+    case QImage::Format_RGBA64_Premultiplied: return "Format_RGBA64_Premultiplied";
+    case QImage::Format_Grayscale16: return "Format_Grayscale16";
+    case QImage::Format_BGR888: return "Format_BGR888";
+    default: return "Unknown_Format_" + std::to_string(static_cast<int>(format));
+    }
+}
+
+
+inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
 {
     PixmapData data = render_page_seh(ctx, doc, page_num, dpi, quit_now);
     if (!data.success) return QPixmap();
 
-    // Create a QImage with copied data
-    QImage img(data.data, data.width, data.height, data.stride, QImage::Format_RGB888);
-    QPixmap pixmap = QPixmap::fromImage(img.copy()); // Ensure independent copy
+    QImage img = qimage_from_pixmapdata(data);
+    QPixmap pixmap = QPixmap::fromImage(img.copy());
 
-    free(data.data); // Free copied data after QImage is created
+#if !defined(NDEBUG)
+    [[maybe_unused]] cv::Mat mat = qimage_to_mat(img.copy());
+
+    logger::debug("QImage: {}x{}, depth: {}, format: {}, bytesPerLine: {}",
+           img.width(),
+           img.height(),
+           img.depth(),
+           to_string(img.format()),
+           img.bytesPerLine());
+
+    logger::debug("QPixmap: {}x{}, depth: {}, format: {}",
+               pixmap.width(),
+               pixmap.height(),
+               pixmap.depth(),
+               to_string(pixmap.toImage().format()));
+
+    logger::debug("render_page_seh size {} width {} stride {} ratio {} format {}", data.size, data.width, data.stride, data.depth, (int)image_format(data));
+#endif
+
+    fz_drop_pixmap(ctx, data.data);
     return pixmap;
 }
 
@@ -35,14 +142,14 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     auto [ctx, doc] = open_fitz(filename_.string());
 
     if (!ctx || !doc) {
-        logger::log_error("Failed to open document: " + filename_.string());
+        logger::error("Failed to open document: " + filename_.string());
         return;
     }
 
     total_pages = fz_count_pages(ctx, doc);
 
     if (total_pages == 0) {
-        logger::log_error("Document has no pages: " + filename_.string());
+        logger::error("Document has no pages: " + filename_.string());
         close_fitz(ctx, doc);
         return;
     }
@@ -144,18 +251,24 @@ Page Document::get_page(int page_num) const
     auto count = page_count();
 
     if (page_num < 1 || page_num > count) {
-        logger::log_error(std::format("Invalid page number: {} for {}",
+        logger::error(std::format("Invalid page number: {} for {}",
                                       page_num, filename_.string()));
         if (count == 0)
             return Page(page_num);
         else
             page_num = 1;
     }
+    /*
+    * TODO - not working because we prefetch the next 2 pages, and that causes the initial
+    * page to not be loaded immediately because this gets called before the first pages are complete, 
+    
     std::lock_guard lock(read_mutex_);
     if (pages_[page_num - 1].is_empty()) {
         // start a new read as soon as we can, sure, it'll be a duplicate, who cares?
         request_page(page_num);
-    }
+    }*/
+
+
     return pages_[page_num - 1];
 }
 
@@ -206,7 +319,7 @@ void Document::load_document()
     std::tie(ctx, doc) = open_fitz(filename_.string());
 
     if (!ctx || !doc) {
-        logger::log_error("Failed to open document: " + filename_.string());
+        logger::error("Failed to open document: " + filename_.string());
         return;
     }
 
@@ -220,7 +333,7 @@ void Document::load_document()
     }
     fz_catch(ctx)
     {
-        logger::log_error("MuPDF exception while loading document: " + std::string(fz_caught_message(ctx)));
+        logger::error("MuPDF exception while loading document: " + std::string(fz_caught_message(ctx)));
         close_fitz(ctx, doc);
         return;
     }
@@ -250,7 +363,7 @@ void Document::load_document()
 
         auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
         if (!thread_ctx || !thread_doc) {
-            logger::log_error("Failed to open document in thread for page " + std::to_string(i));
+            logger::error("Failed to open document in thread for page " + std::to_string(i));
             close_fitz(thread_ctx, thread_doc);
             continue;
         }
@@ -262,7 +375,7 @@ void Document::load_document()
         }
         fz_catch(thread_ctx)
         {
-            logger::log_error("MuPDF exception rendering page " + std::to_string(i) + ": " + fz_caught_message(thread_ctx));
+            logger::error("MuPDF exception rendering page " + std::to_string(i) + ": " + fz_caught_message(thread_ctx));
             close_fitz(thread_ctx, thread_doc);
             continue;
         }
@@ -275,6 +388,7 @@ void Document::load_document()
             std::lock_guard lock(read_mutex_);
             pages_[i] = Page(std::move(pixmap), page_num, false);
         }
+        logger::debug("emitting page_loaded({})", page_num);
         emit page_loaded(page_num);
     }
     // may have terminated, this just means the function is done.
@@ -293,7 +407,7 @@ void Document::render_page_batch(int start_page,
 {
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
-        logger::log_error("Failed to create MuPDF context for rendering thread.");
+        logger::error("Failed to create MuPDF context for rendering thread.");
         return;
     }
 
@@ -336,7 +450,7 @@ void Document::render_page_batch(int start_page,
                 fz_drop_device(ctx, dev);
             fz_catch(ctx)
             {
-                logger::log_error("Failed to render page " + std::to_string(start_page + i));
+                logger::error("Failed to render page " + std::to_string(start_page + i));
             }
 
             if (temp_pixmap)
@@ -345,7 +459,7 @@ void Document::render_page_batch(int start_page,
     }
     fz_catch(ctx)
     {
-        logger::log_error("Exception in rendering thread.");
+        logger::error("Exception in rendering thread.");
     }
     fz_drop_context(ctx);
 }
@@ -577,7 +691,7 @@ bool Document::save()
         marks = as_python_list(bookmarks_);
         modified_ = false;
     }
- 
+
     bool result = BookmarkSetter::send(filename_, marks);
 
     {

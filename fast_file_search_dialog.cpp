@@ -165,7 +165,7 @@ void FastFileSearchDialog::init_ui(const QRect &size)
             setGeometry(size);
         }
     } catch (...) {
-        logger::log_warning("FastSearchDialog size not set in config file, using default size");
+        logger::warning("FastSearchDialog size not set in config file, using default size");
         resize(600, 600);
     }
 
@@ -180,7 +180,7 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
     // watcher to monitor the directory for changes, and reads the files in the
     // directory, if any.
     if (watcher_) {
-        logger::log_error("FastFileSearchDialog::initialize_data called more than once");
+        logger::error("FastFileSearchDialog::initialize_data called more than once");
         return;
     }
 

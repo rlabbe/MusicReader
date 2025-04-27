@@ -56,12 +56,12 @@ public:
             }
             catch (const std::exception &e)
             {
-                logger::log_error("Exception in " + func_name_ + ": " + e.what());
+                logger::error("Exception in " + func_name_ + ": " + e.what());
                 if (allow_throw_) throw;
             }
             catch (...)
             {
-                logger::log_error("Unknown exception in " + func_name_);
+                logger::error("Unknown exception in " + func_name_);
                 if (allow_throw_) throw;
             }
         }

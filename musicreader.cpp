@@ -34,6 +34,14 @@
 MusicReader::MusicReader(QWidget *parent)
     : QMainWindow(parent)
 {
+#if !defined(NDEBUG)
+    logger::initialize(true, &config_);
+#else
+    logger::initialize(false, &config_);
+#endif
+
+    logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
+
     setup_UI();
 }
 
@@ -94,9 +102,6 @@ void MusicReader::setup_UI()
 
     restore_window_state();
 
-    if (config_.restore_documents())
-        restore_open_documents();
-
     // hides background image if there are open documents
     update_background();
 
@@ -117,6 +122,9 @@ void MusicReader::setup_UI()
     });
 
     autosave_timer->start(config_.save_cadence_secs() * 1000);
+
+    if (config_.restore_documents())
+        QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
 }
 
 
@@ -688,7 +696,7 @@ std::shared_ptr<Document> MusicReader::current_document(const std::string &log_m
     PDFViewer *tab = current_tab();
     if (tab) return tab->document();
 
-    if (!log_msg.empty()) logger::log_error(log_msg);
+    if (!log_msg.empty()) logger::error(log_msg);
     return nullptr;
 }
 
@@ -698,7 +706,7 @@ std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
     PDFViewer *viewer = current_viewer(log_msg);
     if (viewer) return { viewer->current_page(), true };
 
-    if (!log_msg.empty()) logger::log_error(log_msg);
+    if (!log_msg.empty()) logger::error(log_msg);
     return { 1, false };
 }
 
@@ -716,8 +724,6 @@ std::shared_ptr<Document> MusicReader::document_at(int index) const
 }
 
 
-
-
 PDFViewer *MusicReader::viewer_tab(int index) const
 {
     try {
@@ -732,6 +738,7 @@ PDFViewer *MusicReader::viewer_tab(int index) const
     }
     return nullptr;
 }
+
 
 void MusicReader::save_config()
 {
@@ -869,9 +876,9 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
         PDFViewer *tab = current_tab();
         if (tab) return tab;
 
-        if (!log_err.empty()) logger::log_error(log_err);
+        if (!log_err.empty()) logger::error(log_err);
     } catch (...) {
-        if (!log_err.empty()) logger::log_error(log_err);
+        if (!log_err.empty()) logger::error(log_err);
     }
     return nullptr;
 }
@@ -937,7 +944,7 @@ void MusicReader::go_to_bookmark(int page_num)
         if (viewer)
             viewer->get_page(page_num);
         else
-            logger::log_error("No viewer to navigate to bookmark");
+            logger::error("No viewer to navigate to bookmark");
     }
 
     // Updates Undo and Redo menu states based on stack availability
@@ -981,7 +988,7 @@ void MusicReader::open_config_dialog()
             logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
         }
     } catch (const std::exception &e) {
-        logger::log_error("Failed to open settings dialog: " + std::string(e.what()));
+        logger::error("Failed to open settings dialog: " + std::string(e.what()));
     }
 }
 
@@ -997,7 +1004,7 @@ void MusicReader::restore_window_state()
                 ensure_window_is_visible(this);
             }
         } catch (...) {
-            logger::log_error("Failed to restore app position and size");
+            logger::error("Failed to restore app position and size");
         }
     }
 }
@@ -1048,7 +1055,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
         update_background();
     });
 
-    logger::log_info("Opened " + doc->filename());
+    logger::info("Opened " + doc->filename());
 
     if (!viewer) {
         QWidget *tab = new QWidget();
@@ -1127,7 +1134,7 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::string &file
     LOG_EXCEPTION;
 
     if (!std::filesystem::exists(filename)) {
-        logger::log_error(filename + " doesn't exist");
+        logger::error(filename + " doesn't exist");
         return {};
     }
 
@@ -1261,7 +1268,7 @@ void MusicReader::open_fast_search_dialog()
         fast_search_dialog_->show_dialog();
         //fast_search_dialog_->exec();
     } catch (const std::exception &e) {
-        logger::log_error("Failed to open fast search dialog: " + std::string(e.what()));
+        logger::error("Failed to open fast search dialog: " + std::string(e.what()));
     }
 
     tab_widget_->setEnabled(true);

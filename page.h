@@ -4,7 +4,7 @@
 #include <QImage>
 #include <QSize>
 #include "border.h"
-
+#include <iostream>
 
 QPixmap resize_by_border(QPixmap img, Border border, int relief);
 

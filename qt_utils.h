@@ -23,7 +23,7 @@ inline void ensure_window_is_visible(QWidget *win, bool move_only = false)
             win->move(screen_geometry.topLeft() + QPoint(50, 50));
         }
     } catch (...) {
-        logger::log_error("ensure_window_is_visible: unexpected error");
+        logger::error("ensure_window_is_visible: unexpected error");
     }
 }
 

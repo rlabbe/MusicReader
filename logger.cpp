@@ -8,12 +8,7 @@
 #include <iostream>
 
 
-namespace {
-std::shared_ptr<spdlog::logger> logger_;
-
-
-
-std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
+static std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
 {
     // Determine the operating system
     std::filesystem::path config_path;
@@ -41,7 +36,7 @@ std::string get_persistent_config_path(const std::string &file_name, const std::
     return (config_path / file_name).string();
 }
 
-void configure_logger(const std::string &filename, size_t max_size, bool log_to_console)
+void logger::configure_logger(const std::string &filename, size_t max_size, bool log_to_console)
 {
     try {
         std::vector<spdlog::sink_ptr> sinks;
@@ -58,7 +53,7 @@ void configure_logger(const std::string &filename, size_t max_size, bool log_to_
         spdlog::register_logger(logger_);
         logger_->set_level(spdlog::level::info);
         logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
-        logger_->flush_on(spdlog::level::err);
+        logger_->flush_on(spdlog::level::debug);
         spdlog::flush_every(std::chrono::seconds(10));
     } catch (const std::exception &ex) {
         std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
@@ -66,26 +61,17 @@ void configure_logger(const std::string &filename, size_t max_size, bool log_to_
 }
 
 
-}
 
-namespace logger {
-
-bool logged_error_{ false };
-bool logged_error()
-{
-    return logged_error_;
-}
-
-
-void initialize(size_t max_size_kb, bool log_to_console)
+void logger::initialize(bool log_to_console, ConfigFile* cf, size_t max_size_kb)
 {
     std::string log_file = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file << std::endl;
     configure_logger(log_file, max_size_kb, log_to_console);
     logged_error_ = false;
+    config_file_ = cf;
 }
 
-void shutdown()
+void logger::shutdown()
 {
     if (logger_) {
         logger_->flush();
@@ -96,30 +82,30 @@ void shutdown()
 }
 
 
-void log_info(const std::string &message)
+void logger::info(const std::string &message)
 {
     if (logger_) logger_->info(message);
 }
 
-void log_warning(const std::string &message)
+void logger::warning(const std::string &message)
 {
     if (logger_) logger_->warn(message);
 }
 
-void log_error(const std::string &message)
+void logger::error(const std::string &message)
 {
     logged_error_ = true;
     if (logger_) logger_->error(message);
 }
 
-void log_debug(const std::string &message)
+void logger::debug(const std::string &message)
 {
-    if (logger_) logger_->debug(message);
+    if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Diagnostic)) logger_->debug(message);
 }
 
 
 
-void logger::enable_debug_logging(bool enable)
+void logger::logger::enable_debug_logging(bool enable)
 {
     if (logger_)
     {
@@ -131,10 +117,10 @@ void logger::enable_debug_logging(bool enable)
     }
 }
 
-std::string get_log_content()
+std::string logger::get_log_content()
 {
     if (!logger_) 
-        return "";
+        return {};
 
     logger_->flush();
 
@@ -157,5 +143,3 @@ std::string get_log_content()
     return "";
 }
 
-
-}  // namespace logger

@@ -248,7 +248,7 @@ void BookmarkPanel::add_bookmark()
 
 
     if (!save_succcess) {
-        logger::log_error("Failed to save bookmark");
+        logger::error("Failed to save bookmark");
         main_window_->display_error_message("Failed to save bookmark");
         return;
     }
@@ -321,7 +321,7 @@ BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
     if (item) {
         return BookmarkHandle(item->data(0, Qt::UserRole + 1).toInt());
     } else {
-        logger::log_error("nullptr to item");
+        logger::error("nullptr to item");
         return {};
     }
 }
@@ -329,7 +329,7 @@ BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
 int BookmarkPanel::page_num_of(QTreeWidgetItem *item) const
 {
     if (!item) {
-        logger::log_error("nullptr to item");
+        logger::error("nullptr to item");
         return 1;
     }
 
@@ -339,7 +339,7 @@ int BookmarkPanel::page_num_of(QTreeWidgetItem *item) const
 std::string BookmarkPanel::title_of(QTreeWidgetItem *item) const
 {
     if (!item) {
-        logger::log_error("nullptr to item");
+        logger::error("nullptr to item");
         return "";
     }
     return item->text(0).trimmed().toStdString();

@@ -19,8 +19,6 @@ int main(int argc, char *argv[])
     int result = 0;
     {
         QApplication app(argc, argv);
-        logger::initialize();
-
         app.setStyle("fusion");
 
         MusicReader w;

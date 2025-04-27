@@ -138,7 +138,7 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
         break;
     case Qt::Key_Right:
         change_page(1);
-        logger::log_info("some stuff");
+        logger::info("some stuff");
         event->accept();
         break;
     default:

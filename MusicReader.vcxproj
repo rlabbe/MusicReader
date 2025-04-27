@@ -71,16 +71,19 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(QtMsBuild)\Qt.props" />
     <Import Project="spdlog.props" />
+    <Import Project="M:\work\trunk\property-sheets\OpenCV.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(QtMsBuild)\Qt.props" />
     <Import Project="spdlog.props" />
+    <Import Project="M:\work\trunk\property-sheets\OpenCV.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(QtMsBuild)\Qt.props" />
     <Import Project="spdlog.props" />
+    <Import Project="M:\work\trunk\property-sheets\OpenCV.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -94,11 +97,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalLibraryDirectories>C:\smusic\MusicReader\mupdf-1.25.4-source\platform\win32\x64\Debug;.\qpdf\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>.\mupdf-1.25.4-source\platform\win32\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include;.\qpdf\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -110,12 +113,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
-      <AdditionalLibraryDirectories>C:\smusic\MusicReader\mupdf-1.25.4-source\platform\win32\x64\Release;.\qpdf\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib;qpdf.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\mupdf-1.25.4-source\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>./qpdf;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include;.\qpdf\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -139,7 +142,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>./qpdf;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include;.\qpdf\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -200,8 +203,8 @@
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
+    <ClCompile Include="fit_utils.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
-    <ClCompile Include="qpdf_document.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
     <QtMoc Include="musicreader.h" />
@@ -241,7 +244,6 @@
     <ClInclude Include="fitz_utils.h" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="page.h" />
-    <ClInclude Include="qpdf_document.h" />
     <ClInclude Include="qt_utils.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />
@@ -254,6 +256,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+    <None Include="M:\work\trunk\property-sheets\OpenCV.props" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="MusicReader.natvis" />

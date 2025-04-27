@@ -116,7 +116,7 @@ std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline)
         std::string title = outline->title ? outline->title : "";  // Ensure valid UTF-8 title
 
         if (outline->page.chapter != 0) {
-            logger::log_error("Unexpected non-zero chapter in fz_outline: " + std::to_string(outline->page.chapter));
+            logger::error("Unexpected non-zero chapter in fz_outline: " + std::to_string(outline->page.chapter));
         }
 
         Bookmark bookmark(title, outline->page.page + 1); // page numbers are 0-based
