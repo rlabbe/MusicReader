@@ -55,7 +55,9 @@ inline QImage qimage_from_pixmapdata(const PixmapData &data)
         return source_img.convertToFormat(format);
     }
 
-    return source_img;
+    // return a copy so we copy the data from the fitz data structure, which will soon go away
+    // If you don't do this you end up crashing.
+    return source_img.copy();
 }
 
 
@@ -365,7 +367,7 @@ void Document::load_document()
         int page_num = i + 1;
         {
             std::lock_guard lock(read_mutex_);
-            pages_[i] = Page(std::move(img), page_num, false);
+            pages_[i] = Page(img, page_num, false);
         }
         logger::debug("emitting page_loaded({})", page_num);
         emit page_loaded(page_num);
