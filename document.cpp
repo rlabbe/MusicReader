@@ -97,35 +97,14 @@ inline std::string to_string(QImage::Format format)
 }
 
 
-inline QPixmap render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
+inline QImage render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
 {
     PixmapData data = render_page_seh(ctx, doc, page_num, dpi, quit_now);
-    if (!data.success) return QPixmap();
+    if (!data.success) return QImage();
 
     QImage img = qimage_from_pixmapdata(data);
-    QPixmap pixmap = QPixmap::fromImage(img.copy());
-
-#if !defined(NDEBUG)
-    [[maybe_unused]] cv::Mat mat = qimage_to_mat(img.copy());
-
-    logger::debug("QImage: {}x{}, depth: {}, format: {}, bytesPerLine: {}",
-           img.width(),
-           img.height(),
-           img.depth(),
-           to_string(img.format()),
-           img.bytesPerLine());
-
-    logger::debug("QPixmap: {}x{}, depth: {}, format: {}",
-               pixmap.width(),
-               pixmap.height(),
-               pixmap.depth(),
-               to_string(pixmap.toImage().format()));
-
-    logger::debug("render_page_seh size {} width {} stride {} ratio {} format {}", data.size, data.width, data.stride, data.depth, (int)image_format(data));
-#endif
-
     fz_drop_pixmap(ctx, data.data);
-    return pixmap;
+    return img;
 }
 
 
@@ -368,10 +347,10 @@ void Document::load_document()
             continue;
         }
 
-        QPixmap pixmap;
+        QImage img;
         fz_try(thread_ctx)
         {
-            pixmap = render_page(thread_ctx, thread_doc, i, dpi_, kill_loading_);
+            img = render_page(thread_ctx, thread_doc, i, dpi_, kill_loading_);
         }
         fz_catch(thread_ctx)
         {
@@ -386,7 +365,7 @@ void Document::load_document()
         int page_num = i + 1;
         {
             std::lock_guard lock(read_mutex_);
-            pages_[i] = Page(std::move(pixmap), page_num, false);
+            pages_[i] = Page(std::move(img), page_num, false);
         }
         logger::debug("emitting page_loaded({})", page_num);
         emit page_loaded(page_num);
@@ -437,12 +416,11 @@ void Document::render_page_batch(int start_page,
                 const uchar *data = fz_pixmap_samples(ctx, temp_pixmap);
 
                 QImage image(data, width, height, stride, QImage::Format_RGB888);
-                pixmap = QPixmap::fromImage(image);
                 int page_index = start_page + (int)i;
                 int page_num = page_index + 1;
                 {
                     std::lock_guard lock(read_mutex_);
-                    pages_[page_index] = Page(std::move(pixmap), page_num, false);
+                    pages_[page_index] = Page(std::move(image), page_num, false);
                 }
                 emit page_loaded(page_num);
             }

@@ -72,8 +72,8 @@ private:
         bool zoom_to_content = false;
         int border_margin = 0;
 
-        Page p1;
-        Page p2;
+        PixmapPage p1;
+        PixmapPage p2;
         QPixmap rendered;
 
         void clear(){ page_num = -1; }
@@ -89,14 +89,14 @@ private:
     mutable std::mutex prefetch_mutex_;
 
     void prefetch_async(int page_num);
-    QPixmap compose_double_page(const Page &p1, const Page &p2) const;
+    QPixmap compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const;
     void clear_prefetch();
     PrefetchEntry make_double_page_entry(int page_num) const;
     PrefetchEntry make_single_page_entry(int page_num) const;
 
     void init_ui(int page);
-    Page get_single_page(int page_num);
-    Page get_double_page(int page_num);
+    PixmapPage get_single_page(int page_num);
+    PixmapPage get_double_page(int page_num);
     void adjust_initial_subwindow_size();
     void update_scrollbar_visibility();
     void on_scrollbar_value_changed(int new_page);
@@ -109,7 +109,7 @@ private:
     QHBoxLayout *layout_;
     std::shared_ptr<Document> document_;
     ConfigFile *config_;
-    Page page_;
+    PixmapPage page_;
     bool drawing_margin_ = false;
     double aspect_ratio_ = 1.0;
     QRect margin_rect_;

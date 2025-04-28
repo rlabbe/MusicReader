@@ -275,7 +275,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
 {
     PrefetchEntry entry(page_num, true, config_->zoom_to_content(), config_->border_margin());
 
-    entry.p1 = document_->get_page(page_num);
+    entry.p1 = PixmapPage(document_->get_page(page_num));
     if (page_num < document_->page_count())
         entry.p2 = document_->get_page(page_num + 1);
     else
@@ -294,9 +294,9 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
     entry.p1 = document_->get_page(page_num);
     if (!entry.p1.is_empty()) {
         if (config_->zoom_to_content())
-            entry.rendered = entry.p1.resize_by_border(config_->border_margin());
+            entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
         else
-            entry.rendered = entry.p1.img;
+            entry.rendered = entry.p1.as_pixmap();
     }
 
     return entry;
@@ -323,11 +323,11 @@ void PDFViewer::get_page(int page_num, bool first_call)
     {
         std::lock_guard lock(prefetch_mutex_);
         if (prefetch_.next.valid(page_num, *config_)) {
-            page_ = Page(prefetch_.next.rendered, page_num, is_double);
+            page_ = PixmapPage(prefetch_.next.rendered, page_num, is_double);
             update_image();
             return;
         } else if (prefetch_.prev.valid(page_num, *config_)) {
-            page_ = Page(prefetch_.prev.rendered, page_num, is_double);
+            page_ = PixmapPage(prefetch_.prev.rendered, page_num, is_double);
             update_image();
             return;
         }
@@ -337,14 +337,14 @@ void PDFViewer::get_page(int page_num, bool first_call)
         ? make_double_page_entry(page_num)
         : make_single_page_entry(page_num);
 
-    page_ = Page(entry.rendered, page_num, is_double);
+    page_ = PixmapPage(entry.rendered, page_num, is_double);
     update_image();
 }
 
 
-Page PDFViewer::get_single_page(int page_num)
+PixmapPage PDFViewer::get_single_page(int page_num)
 {
-    auto page = document_->get_page(page_num);
+    PixmapPage page = document_->get_page(page_num);
     if (!page.is_empty())
         aspect_ratio_ = double(page.width()) / page.height();
 
@@ -352,14 +352,14 @@ Page PDFViewer::get_single_page(int page_num)
 }
 
 
-Page PDFViewer::get_double_page(int page_num)
+PixmapPage PDFViewer::get_double_page(int page_num)
 {
     const bool zoom = config_->zoom_to_content();
     const int margin = config_->border_margin();
     const bool last_page = (page_num == page_count());
 
-    Page p1 = document_->get_page(page_num);
-    Page p2;
+    PixmapPage p1 = document_->get_page(page_num);
+    PixmapPage p2;
     if (!last_page)
         p2 = document_->get_page(page_num + 1);
     else
@@ -392,19 +392,19 @@ Page PDFViewer::get_double_page(int page_num)
     int p1_offset = (max_height - p1_crop.height()) / 2;
     int p2_offset = (max_height - p2_crop.height()) / 2;
 
-    auto w = p2.img.width();
-    auto h = p2.img.height();
+    auto w = p2.width();
+    auto h = p2.height();
 
     // Draw cropped pages directly
     QPainter painter(&combined_image);
-    painter.drawPixmap(0, p1_offset, p1.img, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
-    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.img, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
+    painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
+    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
     painter.end();
 
-    return Page(combined_image, page_num, true); //true for double page
+    return PixmapPage(combined_image, page_num, true); //true for double page
 }
 
-QPixmap PDFViewer::compose_double_page(const Page &p1, const Page &p2) const
+QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
 {
     const bool zoom = config_->zoom_to_content();
     const int margin = config_->border_margin();
@@ -423,8 +423,8 @@ QPixmap PDFViewer::compose_double_page(const Page &p1, const Page &p2) const
     int p2_offset = (max_height - p2_crop.height()) / 2;
 
     QPainter painter(&combined_image);
-    painter.drawPixmap(0, p1_offset, p1.img, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
-    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.img, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
+    painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
+    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
     painter.end();
 
     return combined_image;
@@ -439,13 +439,13 @@ void PDFViewer::on_page_loaded(int page_index)
     if (single_page_view() || count == 1) {
         if (page_num == page_index) {
             PrefetchEntry entry = make_single_page_entry(page_num);
-            page_ = Page(entry.rendered, page_num, false);
+            page_ = PixmapPage(entry.rendered, page_num, false);
             update_image();
         }
     } else {
         if (page_num == page_index || page_num + 1 == page_index) {
             PrefetchEntry entry = make_double_page_entry(page_num);
-            page_ = Page(entry.rendered, page_num, true);
+            page_ = PixmapPage(entry.rendered, page_num, true);
             update_image();
         }
     }
@@ -469,10 +469,10 @@ void PDFViewer::update_image(const QString &message)
     if (config_->allow_oversize())
         max_size = label_->size();
     else
-        max_size = page_.img.size().boundedTo(label_->size());
+        max_size = page_.pixmap.size().boundedTo(label_->size());
 
     label_->setAlignment(Qt::AlignTop | page_alignment());
-    QPixmap scaled_pixmap = page_.img.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     label_->setPixmap(scaled_pixmap);
 
     adjust_initial_subwindow_size(); // safe to call multiple times
