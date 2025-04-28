@@ -9,6 +9,11 @@
 QPixmap resize_by_border(QPixmap img, Border border, int relief);
 QImage resize_by_border(QImage img, Border border, int relief);
 
+
+// This is used to store a page as a QImage. The QImage can be of any format,
+// such as RGB, RGBA, etc. Most music is grayscale or mono, so this lets
+// us use a smaller image format. PixmapPage below is used by the UI to
+// display the page.
 struct Page {
     QImage img;
     int page_num{ 1 };
@@ -44,7 +49,7 @@ struct Page {
     }
 
 
-    QImage resize_by_border(int relief=0)
+    QImage resize_by_border(int relief = 0)
     {
         return ::resize_by_border(img, border, relief);
     }
@@ -55,14 +60,20 @@ struct PixmapPage : public Page {
     QPixmap pixmap;
     PixmapPage() {}
     PixmapPage(const Page &page)
-        : Page(page), pixmap(Page::as_pixmap(page.img)){}
-    
+        : Page(page), pixmap(Page::as_pixmap(page.img))
+    {
+    }
+
 
     PixmapPage(const QImage &image, int page_number, bool doubled)
-        : Page(image, page_number, doubled), pixmap(Page::as_pixmap(image)) {}
+        : Page(image, page_number, doubled), pixmap(Page::as_pixmap(image))
+    {
+    }
 
     PixmapPage(const QPixmap &pixmap, int page_number, bool doubled)
-        : Page(pixmap.toImage(), page_number, doubled), pixmap(pixmap){}
+        : Page(pixmap.toImage(), page_number, doubled), pixmap(pixmap)
+    {
+    }
 };
 
 
@@ -96,7 +107,7 @@ inline QImage resize_by_border(QImage img, Border border, int relief = 0)
 
 inline QRect border_to_qrect(const Border &border, int relief)
 {
-    return QRect(border.left - relief, 
+    return QRect(border.left - relief,
                  border.top - relief,
                  border.right - border.left + (2 * relief),
                  border.bottom - border.top + (2 * relief));
@@ -108,11 +119,11 @@ inline QRect border_to_qrect(const Border &border, int relief)
 //
 // This is to make it easy to have a blank page at the
 // end of a document for viewing in 2 page mode with
-// odd # of pages. 
+// odd # of pages.
 //
 // returns true if the source image is not null, false otherwise,
 // but stil works if source is null, it then just ensures the target
-// is also null. 
+// is also null.
 inline bool copy_blank_image(const Page &source, Page &target)
 {
     if (source.img.isNull()) {
@@ -131,6 +142,3 @@ inline bool copy_blank_image(const Page &source, Page &target)
     target.double_page = source.double_page;
     return true;
 }
-
-
-
