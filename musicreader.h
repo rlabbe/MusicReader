@@ -23,8 +23,9 @@ public:
     std::shared_ptr<Document> current_document(const std::string &log_msg = "") const;
     std::pair<int, bool> current_page(const std::string &log_msg = "") const;
 
-    void on_page_down();
-    void on_page_up();
+
+    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer *tab_to_use = nullptr);
+    std::shared_ptr<Document> open_pdf_document(const std::string &filename, int page_num);
 
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
@@ -37,7 +38,16 @@ private slots:
     void copy_log_to_clipboard();
     void goto_page_dialog();
 
+
 private:
+    std::shared_ptr<Document> document_at(int index) const;
+    PDFViewer *current_tab() const;
+    std::string current_document_name() const;
+    PDFViewer *viewer_tab(int index) const;
+    PDFViewer *current_viewer(const std::string &log_err = "") const;
+
+    void on_page_down();
+    void on_page_up();
 
     void closeEvent(QCloseEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
@@ -96,16 +106,6 @@ private:
     void save_window_state_to_config();
     void check_for_errors_on_exit();
 
-public:
-    PDFViewer *current_tab() const;
-    std::string current_document_name() const;
-    std::shared_ptr<Document> document_at(int index) const;
-    PDFViewer *viewer_tab(int index) const;
-    PDFViewer *current_viewer(const std::string &log_err = "") const;
-    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer *tab_to_use = nullptr);
-    std::shared_ptr<Document> open_pdf_document(const std::string &filename, int page_num);
-
-private:
     // Focuses on the specified tab
     void focus_on_tab(int index);
 

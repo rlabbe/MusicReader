@@ -78,7 +78,6 @@ inline static void logger::debug(std::format_string<Args...> fmt, Args&&... args
 template<typename... Args>
 inline static void logger::info(std::format_string<Args...> fmt, Args&&... args)
 {
-    extern std::shared_ptr<spdlog::logger> logger_;
     if (logger_) {
         std::string message = std::format(fmt, std::forward<Args>(args)...);
         logger_->info(message);
@@ -88,7 +87,6 @@ inline static void logger::info(std::format_string<Args...> fmt, Args&&... args)
 template<typename... Args>
 inline static void logger::warning(std::format_string<Args...> fmt, Args&&... args)
 {
-    extern std::shared_ptr<spdlog::logger> logger_;
     if (logger_) {
         std::string message = std::format(fmt, std::forward<Args>(args)...);
         logger_->warn(message);
@@ -99,7 +97,6 @@ inline static void logger::warning(std::format_string<Args...> fmt, Args&&... ar
 template<typename... Args>
 inline static void logger::error(std::format_string<Args...> fmt, Args&&... args)
 {
-    extern std::shared_ptr<spdlog::logger> logger_;
     if (logger_) {
         std::string message = std::format(fmt, std::forward<Args>(args)...);
         logger_->error(message);

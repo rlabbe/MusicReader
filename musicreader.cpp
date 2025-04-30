@@ -1324,10 +1324,9 @@ void MusicReader::reopen_all_documents()
 }
 
 
-
 void MusicReader::restore_open_documents()
 {
-    // make a copy, as we open tabs it modifies open_documents
+    // Make a copy of the open documents list
     const auto docs = config_.open_documents();
     int num_docs = static_cast<int>(docs.size());
 
@@ -1336,28 +1335,72 @@ void MusicReader::restore_open_documents()
         return;
     }
 
-    for (const auto &doc : docs) {
-        open_pdf_in_tab(doc.u8filename(), doc.page);
+    // Get current tab from config
+    int current_tab = config_.open_tab();
+    if (current_tab < 0 || current_tab >= num_docs) {
+        current_tab = 0;
     }
 
-    // Ensure the last open tab is focused
-    if (config_.open_tab() > -1) {
-        if (config_.open_tab() < tab_widget_->count())
-            focus_on_tab(config_.open_tab());
-        else
-            config_.set_open_tab(-1);
-    } else {
-        focus_on_tab(0);
-        config_.set_open_tab(0);
+    // First create all tabs but don't start loading yet
+    std::vector<PDFViewer *> viewers;
+    std::vector<std::shared_ptr<Document>> documents;
+
+    for (int i = 0; i < num_docs; ++i) {
+        QWidget *tab = new QWidget();
+
+        // Only create document objects, don't load them yet
+        auto doc = std::make_shared<Document>(docs[i].u8filename(), config_.dpi(), docs[i].page);
+        documents.push_back(doc);
+
+        PDFViewer *viewer = new PDFViewer(doc, &config_, docs[i].page, status_bar_, tab);
+        viewers.push_back(viewer);
+
+        QVBoxLayout *layout = new QVBoxLayout();
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(viewer);
+        tab->setLayout(layout);
+
+        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(docs[i].u8filename()).stem().string()));
+        tab_widget_->setTabToolTip(index, QString::fromStdString(docs[i].u8filename()));
     }
 
-    if (tab_widget_->count() > 0)
-        auto *first_viewer = viewer_tab(tab_widget_->currentIndex());
+    // Set focus to current tab
+    tab_widget_->setCurrentIndex(current_tab);
+
+    // Process events to ensure UI updates immediately
+    QApplication::processEvents();
+
+    // Start loading documents in separate threads with current tab first
+    // First start loading the current tab
+    std::thread current_thread([current_tab, documents]() {
+        ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+        documents[current_tab]->load_document();
+    });
+    current_thread.detach();
+
+    // Process events again to ensure UI updates and first document starts loading
+    QApplication::processEvents();
+
+    // Then start loading all other tabs with delays
+    for (int i = 0; i < num_docs; i++) {
+        if (i == current_tab) continue; // Skip the current tab
+
+        // Use lambdas with copies to prevent issues with documents going out of scope
+        int index = i;
+        QTimer::singleShot(200 + (i * 100), this, [documents, index]() {
+            std::thread loading_thread([doc = documents[index]]() {
+                doc->load_document();
+            });
+            loading_thread.detach();
+        });
+    }
 
     bookmark_panel_->adjust_width();
     update_background();
-}
 
+    // Save the current open tab setting
+    config_.set_open_tab(current_tab);
+}
 
 void MusicReader::initialize_fast_search()
 {

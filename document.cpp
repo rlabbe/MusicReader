@@ -123,14 +123,14 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     auto [ctx, doc] = open_fitz(filename_.string());
 
     if (!ctx || !doc) {
-        logger::error("Failed to open document: " + filename_.string());
+        logger::error("Failed to open document: {}", filename_.string());
         return;
     }
 
     total_pages = fz_count_pages(ctx, doc);
 
     if (total_pages == 0) {
-        logger::error("Document has no pages: " + filename_.string());
+        logger::debug("Document has no pages: {}", filename_.string());
         close_fitz(ctx, doc);
         return;
     }
@@ -156,7 +156,6 @@ Document::~Document()
     if (!modified_) return;
 
     // gotta save it before destroying it. 
-
     std::unique_lock<std::mutex> lock(save_state_mutex_);
     save_cv_.wait(lock, [this]() { return !is_saving_; });
 
@@ -300,7 +299,7 @@ void Document::load_document()
     std::tie(ctx, doc) = open_fitz(filename_.string());
 
     if (!ctx || !doc) {
-        logger::error("Failed to open document: " + filename_.string());
+        logger::error("Failed to open document: {}", filename_.string());
         return;
     }
 
@@ -314,7 +313,7 @@ void Document::load_document()
     }
     fz_catch(ctx)
     {
-        logger::error("MuPDF exception while loading document: " + std::string(fz_caught_message(ctx)));
+        logger::error("MuPDF exception while loading {}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
         close_fitz(ctx, doc);
         return;
     }
@@ -344,7 +343,7 @@ void Document::load_document()
 
         auto [thread_ctx, thread_doc] = open_fitz(filename_.string());
         if (!thread_ctx || !thread_doc) {
-            logger::error("Failed to open document in thread for page " + std::to_string(i));
+            logger::error("Failed to open document in thread for page {} ", i);
             close_fitz(thread_ctx, thread_doc);
             continue;
         }
@@ -356,7 +355,7 @@ void Document::load_document()
         }
         fz_catch(thread_ctx)
         {
-            logger::error("MuPDF exception rendering page " + std::to_string(i) + ": " + fz_caught_message(thread_ctx));
+            logger::error("MuPDF exception rendering page {} : {}", i, fz_caught_message(thread_ctx));
             close_fitz(thread_ctx, thread_doc);
             continue;
         }
@@ -369,7 +368,7 @@ void Document::load_document()
             std::lock_guard lock(read_mutex_);
             pages_[i] = Page(img, page_num, false);
         }
-        logger::debug("emitting page_loaded({})", page_num);
+        logger::debug("{} emitting page_loaded({})", filename_.string(), page_num);
         emit page_loaded(page_num);
     }
     // may have terminated, this just means the function is done.
@@ -430,7 +429,7 @@ void Document::render_page_batch(int start_page,
                 fz_drop_device(ctx, dev);
             fz_catch(ctx)
             {
-                logger::error("Failed to render page " + std::to_string(start_page + i));
+                logger::error("Failed to render page {}", start_page + i);
             }
 
             if (temp_pixmap)
