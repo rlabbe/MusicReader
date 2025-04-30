@@ -191,7 +191,7 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
     if (!directory.empty())
         watcher_->start(path_);
 
-    std::thread([] {
+    //std::thread([] {
         auto files = find_files(FastFileSearchDialog::path_, FastFileSearchDialog::file_ending_);
         {
             std::lock_guard lk(files_mutex_);
@@ -199,7 +199,7 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
             files_ready_ = true;
         }
         files_cv_.notify_one();
-    }).detach();
+    //}).detach();
 }
 
 

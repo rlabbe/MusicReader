@@ -19,7 +19,6 @@
 #include "logger.h"
 #include "bookmark_panel.h"
 #include "pdf_viewer.h"
-#include "wait_cursor.h"
 #include "exception_logger.h"
 #include "status_bar.h"
 #include "config_dialog.h"
@@ -30,7 +29,7 @@
 #include "vertical_tabs_widget.h"
 #include "file_viewer.h"
 
-constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000; 
+constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
 
 MusicReader::MusicReader(QWidget *parent)
@@ -50,11 +49,6 @@ MusicReader::MusicReader(QWidget *parent)
 
 void MusicReader::setup_UI()
 {
-    // this will search the directories and create the fast search dialog
-    // asynchronously, because it can take many seconds to populate all the
-    // files. Users of
-    initialize_fast_search();
-
     this->resize(600, 400);
     this->setWindowTitle("MusicReader");
 
@@ -129,6 +123,10 @@ void MusicReader::setup_UI()
         QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
 
     setup_mouse_hiding();
+    // this will search the directories and create the fast search dialog
+    // asynchronously, because it can take many seconds to populate all the
+    // files.
+    initialize_fast_search();
 }
 
 
@@ -1089,7 +1087,6 @@ void MusicReader::open_file_dialog(const std::string &pathname)
         this, "Open PDF", QString::fromStdString(default_directory), "PDF Files (*.pdf)");
 
     if (!filenames.isEmpty()) {
-        WaitCursor cursor;
         for (const QString &name : filenames)
             open_pdf_in_tab(name.toStdString());
     }
@@ -1107,8 +1104,6 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
             return nullptr;
         }
     }
-
-    WaitCursor cursor;
 
     auto doc = open_pdf_document(filename, page);
     if (!doc)
@@ -1150,9 +1145,6 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
 
     return viewer;
 }
-
-
-
 
 
 
@@ -1315,15 +1307,36 @@ void MusicReader::on_page_selected(int index)
     show_page_count();  // Ensure status bar reflects any adjustments
 }
 
-void MusicReader::open_fast_search_dialog()
+void MusicReader::initialize_fast_search()
 {
-    if (!fast_search_dialog_) {
-        WaitCursor cursor;
+    std::string name = config_.music_directory().string();
 
+    QTimer::singleShot(100, this, [this, name]() {
+        FastFileSearchDialog::initialize_data(name);
         auto dsize = config_.fast_search_dialog_size();
         QRect size(dsize[0], dsize[1], dsize[2], dsize[3]);
 
-        fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory().string(), size);
+        // Use mutex to safely initialize
+        {
+            std::lock_guard<std::mutex> lock(fast_search_mutex_);
+
+            // Create dialog - constructor will load and prepare file display while hidden
+            fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory().string(), size);
+            fast_search_initialized_ = true;
+        }
+        logger::debug("initialize_fast_search done");
+
+
+    });
+}
+
+
+void MusicReader::open_fast_search_dialog()
+{
+    {
+        std::unique_lock<std::mutex> lock(fast_search_mutex_);
+        if (!fast_search_initialized_)
+            fast_search_cv_.wait(lock, [this]() { return fast_search_initialized_; });
     }
 
     try {
@@ -1389,20 +1402,17 @@ void MusicReader::reopen_all_documents()
 
 void MusicReader::restore_open_documents()
 {
-    // Make a copy of the open documents list
-    const auto docs = config_.open_documents();
-    int num_docs = static_cast<int>(docs.size());
+    // Make a copy of the open documents list as it will
+    // change when we add new tabs
+    const auto docs_info = config_.open_documents();
+    int num_docs = static_cast<int>(docs_info.size());
 
     if (num_docs == 0) {
         update_background();
         return;
     }
 
-    // Get current tab from config
     int current_tab = config_.open_tab();
-    if (current_tab < 0 || current_tab >= num_docs) {
-        current_tab = 0;
-    }
 
     // First create all tabs but don't start loading yet
     std::vector<PDFViewer *> viewers;
@@ -1412,10 +1422,10 @@ void MusicReader::restore_open_documents()
         QWidget *tab = new QWidget();
 
         // Only create document objects, don't load them yet
-        auto doc = std::make_shared<Document>(docs[i].u8filename(), config_.dpi(), docs[i].page);
+        auto doc = std::make_shared<Document>(docs_info[i].u8filename(), config_.dpi(), docs_info[i].page);
         documents.push_back(doc);
 
-        PDFViewer *viewer = new PDFViewer(doc, &config_, docs[i].page, status_bar_, tab);
+        PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab);
         viewers.push_back(viewer);
 
         QVBoxLayout *layout = new QVBoxLayout();
@@ -1423,8 +1433,8 @@ void MusicReader::restore_open_documents()
         layout->addWidget(viewer);
         tab->setLayout(layout);
 
-        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(docs[i].u8filename()).stem().string()));
-        tab_widget_->setTabToolTip(index, QString::fromStdString(docs[i].u8filename()));
+        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(docs_info[i].u8filename()).stem().string()));
+        tab_widget_->setTabToolTip(index, QString::fromStdString(docs_info[i].u8filename()));
     }
 
     // Set focus to current tab
@@ -1448,7 +1458,8 @@ void MusicReader::restore_open_documents()
     for (int i = 0; i < num_docs; i++) {
         if (i == current_tab) continue; // Skip the current tab
 
-        // Use lambdas with copies to prevent issues with documents going out of scope
+        // Use lambdas with copies of the shared_ptrs to prevent issues 
+        // with documents going out of scope
         int index = i;
         QTimer::singleShot(200 + (i * 100), this, [documents, index]() {
             std::thread loading_thread([doc = documents[index]]() {
@@ -1463,11 +1474,6 @@ void MusicReader::restore_open_documents()
 
     // Save the current open tab setting
     config_.set_open_tab(current_tab);
-}
-
-void MusicReader::initialize_fast_search()
-{
-    FastFileSearchDialog::initialize_data(config_.music_directory().string());
 }
 
 

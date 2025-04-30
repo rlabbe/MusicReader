@@ -416,6 +416,10 @@ void ConfigFile::read(bool reset_on_error)
         logger::error("Invalid or missing 'log_level'");
     }
 
+    // sanity check
+    if (open_tab_ < 0 || open_tab_ >= static_cast<int>(open_documents_.size()))
+        open_tab_ = 0;
+
     // If all parsing succeeded
     valid = true;
 
