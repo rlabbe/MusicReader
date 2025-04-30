@@ -40,9 +40,8 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
 
 PDFViewer::~PDFViewer()
 {
-    if (document_) {
+    if (document_)
         document_->save();
-    }
 }
 
 
@@ -60,22 +59,11 @@ void PDFViewer::update_status_bar()
 }
 
 
-int PDFViewer::page_count() const
-{
-    return document_->page_count();
-}
-
-
-int PDFViewer::current_page() const
-{
-    //if (page_.is_empty()) return 1;
-    return page_.page_num;
-}
-
-bool PDFViewer::single_page_view() const
+bool PDFViewer::in_single_page_view() const
 {
     return config_->page_view_count() == 1 || page_count() == 1;
 }
+
 
 void PDFViewer::refresh()
 {
@@ -85,12 +73,12 @@ void PDFViewer::refresh()
 
 void PDFViewer::page_up()
 {
-    change_page(single_page_view() ? -1 : -2);
+    change_page(in_single_page_view() ? -1 : -2);
 }
 
 void PDFViewer::page_down()
 {
-    change_page(single_page_view() ? 1 : 2);
+    change_page(in_single_page_view() ? 1 : 2);
 }
 
 void PDFViewer::change_page(int step)
@@ -99,7 +87,7 @@ void PDFViewer::change_page(int step)
     int new_page = qBound(1, current_page() + step, count);
 
     // don't go to last page if even number of pages
-    if (new_page == count && double_page_view() && new_page % 2 == 0)
+    if (new_page == count && in_double_page_view() && new_page % 2 == 0)
         new_page = count - 1;
 
     manual_scrollbar_change_ = true;
@@ -227,7 +215,7 @@ void PDFViewer::update_scrollbar_visibility()
 
     if (page_count == 1)
         all_pages_shown = true;
-    else if (page_count == 2 && !single_page_view())
+    else if (page_count == 2 && !in_single_page_view())
         all_pages_shown = true;
 
     scrollbar_->setVisible(!all_pages_shown);
@@ -235,19 +223,18 @@ void PDFViewer::update_scrollbar_visibility()
 
 void PDFViewer::prefetch_async(int page_num)
 {
-    const int count = document_->page_count();
-    if (page_num < 1 || page_num > count)
-        return;
+    std::jthread([this, page_num]() {
+        const int count = document_->page_count();
+        if (page_num < 1 || page_num > count)
+            return;
 
-    const bool is_double = double_page_view();
+        const bool is_double = in_double_page_view();
 
-    // Choose correct slot
-    PrefetchEntry &slot = (page_num > page_.page_num) ? prefetch_.next : prefetch_.prev;
+        // Choose correct slot
+        PrefetchEntry &slot = (page_num > page_.page_num) ? prefetch_.next : prefetch_.prev;
+        if (slot.page_num == page_num && slot.double_page == is_double)
+            return; // Already prefetched, matching mode
 
-    if (slot.page_num == page_num && slot.double_page == is_double)
-        return; // Already prefetched, matching mode
-
-    std::jthread([this, page_num, is_double]() {
         PrefetchEntry entry = is_double
             ? make_double_page_entry(page_num)
             : make_single_page_entry(page_num);
@@ -308,7 +295,13 @@ void PDFViewer::get_page(int page_num, bool first_call)
     const int count = document_->page_count();
     if (count == 0) return;
 
-    const bool is_double = double_page_view();
+    const bool is_double = in_double_page_view();
+    PrefetchEntry entry = is_double
+        ? make_double_page_entry(page_num)
+        : make_single_page_entry(page_num);
+
+    page_ = PixmapPage(entry.rendered, page_num, is_double);
+    update_image();
 
     // Prefetch next and previous pages asap to maximize chances of being done
     // by the next request
@@ -319,26 +312,6 @@ void PDFViewer::get_page(int page_num, bool first_call)
 
     if (page_num - delta >= 1)
         prefetch_async(page_num - delta);
-
-    {
-        std::lock_guard lock(prefetch_mutex_);
-        if (prefetch_.next.valid(page_num, *config_)) {
-            page_ = PixmapPage(prefetch_.next.rendered, page_num, is_double);
-            update_image();
-            return;
-        } else if (prefetch_.prev.valid(page_num, *config_)) {
-            page_ = PixmapPage(prefetch_.prev.rendered, page_num, is_double);
-            update_image();
-            return;
-        }
-    }
-
-    PrefetchEntry entry = is_double
-        ? make_double_page_entry(page_num)
-        : make_single_page_entry(page_num);
-
-    page_ = PixmapPage(entry.rendered, page_num, is_double);
-    update_image();
 }
 
 
@@ -436,7 +409,7 @@ void PDFViewer::on_page_loaded(int page_index)
     int page_num = current_page();
     int count = page_count();
 
-    if (single_page_view() || count == 1) {
+    if (in_single_page_view() || count == 1) {
         if (page_num == page_index) {
             PrefetchEntry entry = make_single_page_entry(page_num);
             page_ = PixmapPage(entry.rendered, page_num, false);
@@ -476,6 +449,10 @@ void PDFViewer::update_image(const QString &message)
     label_->setPixmap(scaled_pixmap);
 
     adjust_initial_subwindow_size(); // safe to call multiple times
+
+    // make sure everything is rendered asap
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
 }
 
 

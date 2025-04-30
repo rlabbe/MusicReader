@@ -651,8 +651,7 @@ void MusicReader::on_toggle_view_mode()
     // Update the icon
     view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
 
-    // Emit signal to notify viewers
-    emit view_mode_signal_(config_.page_view_count());
+    refresh_all_documents();
 }
 
 
@@ -671,8 +670,7 @@ void MusicReader::toggle_page_zoom()
     QIcon icon = config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_;
     zoom_in_out_action_->setIcon(icon);
 
-    // Emit signal to notify viewers
-    emit view_mode_signal_(config_.page_view_count());
+    refresh_all_documents();
 }
 
 PDFViewer *MusicReader::current_tab() const
@@ -961,17 +959,20 @@ void MusicReader::update_menu_bookmark_visibility()
     //TODO
 }
 
-
 void MusicReader::refresh_all_documents()
 {
-    for (int index = 0; index < tab_widget_->count(); ++index) {
-        PDFViewer *viewer = viewer_tab(index);
-        if (viewer) {
+    // Handle current tab first for responsiveness
+    PDFViewer *current = current_viewer();
+    if (current)
+        current->refresh();
+
+    // Then update other tabs in the background
+    for (int i = 0; i < tab_widget_->count(); ++i) {
+        PDFViewer *viewer = viewer_tab(i);
+        if (viewer && viewer != current)
             viewer->refresh();
-        }
     }
 }
-
 
 void MusicReader::open_config_dialog()
 {
@@ -1071,7 +1072,6 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
         tab_widget_->setCurrentWidget(tab);
 
         focus_on_tab(tab_widget_->currentIndex());
-        connect(this, &MusicReader::view_mode_signal_, viewer, &PDFViewer::refresh);
     } else
         viewer->replace_document(doc, page);
 

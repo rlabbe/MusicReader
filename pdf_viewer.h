@@ -26,10 +26,11 @@ public:
 
     ~PDFViewer();
 
-    int page_count() const;
-    int current_page() const;
-    bool single_page_view() const;
-    bool double_page_view() const { return !single_page_view(); }
+    int page_count() const { return document_->page_count(); }
+    int current_page() const { return page_.page_num; }
+
+    bool in_single_page_view() const;
+    bool in_double_page_view() const { return !in_single_page_view(); }
 
     void get_page(int page_num, bool first_call = false);
 
@@ -66,7 +67,7 @@ private:
         }
 
         int page_num = -1;
-    
+
         // render settings
         bool double_page = false;
         bool zoom_to_content = false;
@@ -76,7 +77,7 @@ private:
         PixmapPage p2;
         QPixmap rendered;
 
-        void clear(){ page_num = -1; }
+        void clear() { page_num = -1; }
         bool valid(int target_page_num, ConfigFile &config) const;
     };
 

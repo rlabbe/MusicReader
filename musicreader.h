@@ -29,9 +29,6 @@ public:
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
 
-signals:
-    void view_mode_signal_(int page_view_count);
-
 private slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
