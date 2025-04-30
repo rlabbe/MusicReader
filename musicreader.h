@@ -167,6 +167,15 @@ private:
 
     FastFileSearchDialog *fast_search_dialog_ = nullptr;
 
+    // Mouse hiding related members
+    QTimer *mouse_hide_timer_ = nullptr;
+    bool cursor_hidden_ = false;
+
+    // Mouse hide methods
+    void setup_mouse_hiding();
+    void reset_cursor_timer();
+    bool handle_mouse_movement(QObject *watched, QEvent *event);
+
 signals:
     void fastSearchInitialized();
 

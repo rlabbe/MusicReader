@@ -30,6 +30,8 @@
 #include "vertical_tabs_widget.h"
 #include "file_viewer.h"
 
+constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000; 
+
 
 MusicReader::MusicReader(QWidget *parent)
     : QMainWindow(parent)
@@ -125,11 +127,19 @@ void MusicReader::setup_UI()
 
     if (config_.restore_documents())
         QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
+
+    setup_mouse_hiding();
 }
 
 
 bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 {
+    // Handle mouse movement for cursor hiding
+    if (event->type() == QEvent::MouseMove) {
+        if (handle_mouse_movement(watched, event))
+            return true;
+    }
+    // handle fullscreen logic
     if (event->type() == QEvent::MouseMove && isFullScreen()) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
         auto y = QCursor::pos().y();
@@ -143,6 +153,59 @@ bool MusicReader::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QMainWindow::eventFilter(watched, event);
+}
+
+
+bool MusicReader::handle_mouse_movement(QObject *watched, QEvent *event)
+{
+    Q_UNUSED(watched);
+    Q_UNUSED(event);
+
+    // Show cursor if it was hidden
+    if (cursor_hidden_) {
+        QApplication::restoreOverrideCursor();
+        cursor_hidden_ = false;
+    }
+
+    // Reset the timer
+    mouse_hide_timer_->start(3000); // 3 seconds
+
+    // Return false to allow event propagation
+    return false;
+}
+
+
+void MusicReader::setup_mouse_hiding()
+{
+    // Create timer for hiding the mouse cursor after inactivity
+    mouse_hide_timer_ = new QTimer(this);
+    mouse_hide_timer_->setSingleShot(true);
+    connect(mouse_hide_timer_, &QTimer::timeout, this, [this]() {
+        // Only hide cursor if we're over a document
+        PDFViewer *current = current_viewer();
+        if (current) {
+            QRect viewerRect = current->rect();
+            QPoint globalPos = QCursor::pos();
+            QPoint localPos = current->mapFromGlobal(globalPos);
+
+            if (viewerRect.contains(localPos)) {
+                QApplication::setOverrideCursor(Qt::BlankCursor);
+                cursor_hidden_ = true;
+            }
+        }
+    });
+
+    mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
+}
+
+
+void MusicReader::reset_cursor_timer()
+{
+    if (cursor_hidden_) {
+        QApplication::restoreOverrideCursor();
+        cursor_hidden_ = false;
+    }
+    mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
 }
 
 void MusicReader::closeEvent(QCloseEvent *event)
