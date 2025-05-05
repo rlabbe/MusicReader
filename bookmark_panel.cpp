@@ -67,12 +67,43 @@ void BookmarkPanel::init_ui()
     connect(delete_button_, &QPushButton::clicked, this, &BookmarkPanel::delete_selected_bookmark);
     button_layout->addWidget(delete_button_);
 
+    // Separator
+    QFrame *separator = new QFrame();
+    separator->setFrameShape(QFrame::VLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    button_layout->addWidget(separator);
+
+    unindent_button_ = new QPushButton();
+    unindent_button_->setIcon(QIcon(":/MusicReader/images/left.ico"));
+    unindent_button_->setToolTip("Unindent (Ctrl+-)");
+    unindent_button_->setFocusPolicy(Qt::NoFocus);
+    unindent_button_->setEnabled(true);
+    connect(unindent_button_, &QPushButton::clicked, this, &BookmarkPanel::unindent_selected_bookmarks);
+    button_layout->addWidget(unindent_button_);
+
+    // Redo button
+    indent_button_ = new QPushButton();
+    indent_button_->setIcon(QIcon(":/MusicReader/images/right.ico"));
+    indent_button_->setToolTip("Indent (CTRL++)");
+    indent_button_->setFocusPolicy(Qt::NoFocus);
+    indent_button_->setEnabled(true);
+    connect(indent_button_, &QPushButton::clicked, this, &BookmarkPanel::indent_selected_bookmarks);
+    button_layout->addWidget(indent_button_);
+
+
     button_layout->addStretch();
     layout->insertWidget(1, button_bar_);
 
     setup_context_menu();
     setup_shortcuts();
     adjust_width();
+    //update_undo_redo_buttons();
+}
+
+void BookmarkPanel::update_undo_redo_buttons()
+{
+    unindent_button_->setEnabled(can_undo());
+    indent_button_->setEnabled(can_redo());
 }
 
 
@@ -153,8 +184,9 @@ void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidge
 
 void BookmarkPanel::populate()
 {
-    tree_widget_->clear();
+    //update_undo_redo_buttons();
 
+    tree_widget_->clear();
     auto doc = document();
     if (!doc || doc->bookmarks().empty()) return;
 
@@ -253,13 +285,15 @@ void BookmarkPanel::add_bookmark()
         return;
     }
 
+    // enter edit mode, because you almost certainly want to change
+    // the name from "Untitled"
     auto *item = find_item_by_handle(handle);
     if (item) {
         tree_widget_->setCurrentItem(item);
         tree_widget_->editItem(item, 0);
     }
-    //return_focus_to_main();
 }
+
 
 QTreeWidgetItem *BookmarkPanel::find_item_recursive(QTreeWidgetItem *item, const BookmarkHandle &handle)
 {
@@ -271,6 +305,7 @@ QTreeWidgetItem *BookmarkPanel::find_item_recursive(QTreeWidgetItem *item, const
     }
     return nullptr;
 }
+
 
 QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const BookmarkHandle &handle)
 {
@@ -296,9 +331,8 @@ bool BookmarkPanel::can_redo() const
 void BookmarkPanel::undo()
 {
     auto doc = document();
-    if (!doc) {
+    if (!doc)
         return;
-    }
 
     doc->undo();
     populate();
@@ -307,9 +341,8 @@ void BookmarkPanel::undo()
 void BookmarkPanel::redo()
 {
     auto doc = document();
-    if (!doc) {
+    if (!doc)
         return;
-    }
 
     doc->redo();
     populate();
@@ -318,30 +351,22 @@ void BookmarkPanel::redo()
 
 BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
 {
-    if (item) {
+    if (item)
         return BookmarkHandle(item->data(0, Qt::UserRole + 1).toInt());
-    } else {
-        logger::error("nullptr to item");
-        return {};
-    }
+
+
+    logger::error("nullptr to item");
+    return {};
+
 }
 
 int BookmarkPanel::page_num_of(QTreeWidgetItem *item) const
 {
-    if (!item) {
-        logger::error("nullptr to item");
-        return 1;
-    }
-
     return item->data(0, Qt::UserRole).toInt();
 }
 
 std::string BookmarkPanel::title_of(QTreeWidgetItem *item) const
 {
-    if (!item) {
-        logger::error("nullptr to item");
-        return "";
-    }
     return item->text(0).trimmed().toStdString();
 }
 
@@ -354,36 +379,64 @@ void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmar
 }
 
 
-void BookmarkPanel::indent_selected_bookmarks()
-{
-    auto doc = document();
-    if (!doc) return;
 
+
+QList<int> BookmarkPanel::selected_rows() const
+{
+    auto selected_items = tree_widget_->selectedItems();
+    auto *parent = selected_items.first()->parent();
+
+    QList<int> rows;
+    for (auto *item : selected_items)
+        rows.append(parent ? parent->indexOfChild(item) : tree_widget_->indexOfTopLevelItem(item));
+
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+
+
+bool BookmarkPanel::is_bookmark_selected(bool indent) const
+{
     auto selected_items = tree_widget_->selectedItems();
     if (selected_items.size() < 1)
-        return;
+        return false;
 
     // All items must have the same parent
     auto *parent = selected_items.first()->parent();
     for (auto *item : selected_items) {
-        if (item->parent() != parent) return;
+        if (item->parent() != parent)
+            return false;
     }
 
     // All items must be visually contiguous
-    QList<int> rows;
-    for (auto *item : selected_items) {
-        rows.append(parent ? parent->indexOfChild(item) : tree_widget_->indexOfTopLevelItem(item));
-    }
-    std::sort(rows.begin(), rows.end());
+    QList<int> rows = selected_rows();
     for (int i = 1; i < rows.size(); ++i) {
         if (rows[i] != rows[i - 1] + 1)
-            return; // Not contiguous
+            return false; // Not contiguous
     }
 
-    // Ensure the first selected item has a previous sibling
+    if (indent) {
+        // Ensure the first selected item has a previous sibling
+        int first_row = rows.first();
+        if (first_row == 0)
+            return false; // No previous sibling to indent under
+    }
+    return true;
+}
+
+
+void BookmarkPanel::indent_selected_bookmarks()
+{
+    auto doc = document();
+
+    if (!doc || !is_bookmark_selected(true))
+        return;
+
+    auto selected_items = tree_widget_->selectedItems();
+    auto *parent = selected_items.first()->parent();
+
+    QList<int> rows = selected_rows();
     int first_row = rows.first();
-    if (first_row == 0)
-        return; // No previous sibling to indent under
 
     QTreeWidgetItem *new_parent =
         parent ? parent->child(first_row - 1)
@@ -405,28 +458,10 @@ void BookmarkPanel::indent_selected_bookmarks()
 void BookmarkPanel::unindent_selected_bookmarks()
 {
     auto doc = document();
-    if (!doc) return;
+    if (!doc || !is_bookmark_selected(false))
+        return;
 
     auto selected_items = tree_widget_->selectedItems();
-    if (selected_items.size() < 1) return;
-
-    // All items must have the same parent
-    auto *parent = selected_items.first()->parent();
-    for (auto *item : selected_items) {
-        if (item->parent() != parent) return;
-    }
-
-    // All items must be visually contiguous
-    QList<int> rows;
-    for (auto *item : selected_items) {
-        rows.append(parent ? parent->indexOfChild(item) : tree_widget_->indexOfTopLevelItem(item));
-    }
-    std::sort(rows.begin(), rows.end());
-    for (int i = 1; i < rows.size(); ++i) {
-        if (rows[i] != rows[i - 1] + 1)
-            return; // Not contiguous
-    }
-
     for (auto *item : selected_items) {
         auto handle = handle_of(item);
         doc->unindent_bookmark(handle);

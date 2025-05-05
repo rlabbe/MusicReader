@@ -1109,10 +1109,6 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
     if (!doc)
         return nullptr;
 
-    connect(doc.get(), &Document::bookmarks_loaded, this, [&]() {
-        bookmark_panel_->populate();
-        update_background();
-    });
 
     logger::info("Opened " + doc->filename());
 
@@ -1193,7 +1189,12 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::string &file
         return {};
     }
 
-    return std::make_shared<Document>(filename, config_.dpi(), page_num);
+    auto doc = std::make_shared<Document>(filename, config_.dpi(), page_num);
+    connect(doc.get(), &Document::bookmarks_loaded, this, [&]() {
+        bookmark_panel_->populate();
+        update_background();
+    });
+    return doc;
 }
 
 
@@ -1422,7 +1423,7 @@ void MusicReader::restore_open_documents()
         QWidget *tab = new QWidget();
 
         // Only create document objects, don't load them yet
-        auto doc = std::make_shared<Document>(docs_info[i].u8filename(), config_.dpi(), docs_info[i].page);
+        auto doc = open_pdf_document(docs_info[i].u8filename(), docs_info[i].page);
         documents.push_back(doc);
 
         PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab);

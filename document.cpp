@@ -313,7 +313,7 @@ void Document::load_document()
     }
     fz_catch(ctx)
     {
-        logger::error("MuPDF exception while loading {}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
+        logger::error("MuPDF exception while loading bookmarks{}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
         close_fitz(ctx, doc);
         return;
     }
@@ -568,8 +568,8 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
         grandparent->add_child(bookmark);
         bookmark.parent_handle_ = parent->parent_handle_;
     } else {
-        bookmarks_.push_back(bookmark);
         bookmark.parent_handle_.clear();
+        bookmarks_.push_back(bookmark);
         std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
     }
     modified_ = true;

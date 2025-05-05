@@ -128,11 +128,11 @@ private:
     // Check if the given document is open in a tab, returning either the tab index or None
     std::optional<int> doc_is_open(std::filesystem::path name);
 
-    QToolBar *main_toolbar_;
-    StatusBar *status_bar_;
-    QSplitter *splitter_;
-    BookmarkPanel *bookmark_panel_;
-    QTabWidget *tab_widget_;
+    QToolBar *main_toolbar_ = nullptr;
+    StatusBar *status_bar_ = nullptr;
+    QSplitter *splitter_ = nullptr;
+    BookmarkPanel *bookmark_panel_ = nullptr;
+    QTabWidget *tab_widget_ = nullptr;
 
 private:
 

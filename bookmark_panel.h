@@ -67,17 +67,25 @@ private:
 
     void on_bookmark_clicked(QTreeWidgetItem *item, int);
     void on_bookmark_edited(QTreeWidgetItem *item, int);
+    void update_undo_redo_buttons();
+    QList<int> selected_rows() const;
+
+
+    // true iff the selection allows for indent/unindent
+    bool is_bookmark_selected(bool indent) const;
 
     // Finds a tree widget item by its bookmark handle.
     QTreeWidgetItem *find_item_by_handle(const BookmarkHandle &handle);
 
     std::shared_ptr<Document> document() const;
 
-    MusicReader *main_window_;
-    bool visible_;
-    BookmarkTitleBar *title_bar_;
-    BookmarkTreeWidget *tree_widget_;
-    QWidget *button_bar_;
-    QPushButton *add_button_;
-    QPushButton *delete_button_;
+    MusicReader *main_window_ = nullptr;
+    bool visible_ = false;
+    BookmarkTitleBar *title_bar_ = nullptr;
+    BookmarkTreeWidget *tree_widget_ = nullptr;
+    QWidget *button_bar_ = nullptr;
+    QPushButton *add_button_ = nullptr;
+    QPushButton *delete_button_ = nullptr;
+    QPushButton *indent_button_ = nullptr;
+    QPushButton *unindent_button_ = nullptr;
 };
