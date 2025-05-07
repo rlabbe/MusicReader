@@ -84,7 +84,6 @@ FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &d
 
     init_ui(size);
 
-
     if (files_.empty())
         update_files();
 
@@ -110,18 +109,23 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     connect(search_field_, &QLineEdit::textChanged, this, &FastFileSearchDialog::on_search);
     top_layout_->addWidget(search_field_);
 
-    // Create the browse button
-    browse_button_ = new QPushButton("...", this);
-    size_button(browse_button_);
-    top_layout_->addWidget(browse_button_);
-    connect(browse_button_, &QPushButton::clicked, this, &FastFileSearchDialog::on_select_directory);
+
+    auto update_button = new QPushButton();
+    update_button->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+    //size_button(update_button);
+    top_layout_->addWidget(update_button);
+    connect(update_button, &QPushButton::clicked, this, &FastFileSearchDialog::update_files);
+
+    auto browse_button = new QPushButton("...", this);
+    size_button(browse_button);
+    top_layout_->addWidget(browse_button);
+    connect(browse_button, &QPushButton::clicked, this, &FastFileSearchDialog::on_select_directory);
 
 
-    // button to open file dialog
-    open_button_ = new QPushButton("Open Dialog...", this);
-    size_button(open_button_);
-    connect(open_button_, &QPushButton::clicked, this, &FastFileSearchDialog::on_open_file_dialog);
-    top_layout_->addWidget(open_button_);
+    auto open_button = new QPushButton("Open Dialog...", this);
+    size_button(open_button);
+    connect(open_button, &QPushButton::clicked, this, &FastFileSearchDialog::on_open_file_dialog);
+    top_layout_->addWidget(open_button);
 
     layout_->addLayout(top_layout_);
 
@@ -161,9 +165,8 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     set_title();
 
     try {
-        if (size.x() >= 0 && size.y() >= 0) {
+        if (size.x() >= 0 && size.y() >= 0) 
             setGeometry(size);
-        }
     } catch (...) {
         logger::warning("FastSearchDialog size not set in config file, using default size");
         resize(600, 600);
@@ -230,9 +233,8 @@ void FastFileSearchDialog::on_search()
             return human_search(term.toStdString(), file.toStdString());
         });
 
-        if (match) {
+        if (match) 
             filtered_files.append(file);
-        }
     }
 
     display_files(filtered_files);
@@ -250,9 +252,14 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
         QString date_text = QLocale().toString(file_info.lastModified(), QLocale::ShortFormat);
         QString size_text = QString::fromStdString(human_size(file_info.size()));
 
-        auto *path_item = new SortableTableWidgetItem(i, relative_path);
-        auto *date_item = new QTableWidgetItem(date_text);
-        auto *size_item = new SortableTableWidgetItem(i, size_text);
+        // Use string for path sorting
+        auto *path_item = new QTableWidgetItem(relative_path);
+
+        // Use timestamp for date sorting
+        auto *date_item = new SortableTableWidgetItem(file_info.lastModified().toSecsSinceEpoch(), date_text);
+
+        // Use actual file size for size sorting
+        auto *size_item = new SortableTableWidgetItem(file_info.size(), size_text);
 
         path_item->setFlags(path_item->flags() ^ Qt::ItemIsEditable);
         date_item->setFlags(date_item->flags() ^ Qt::ItemIsEditable);
@@ -271,14 +278,11 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
     if (resize)
         file_table_->resizeColumnsToContents();
 
-    file_table_->setSortingEnabled(true);
-
     // select if only one file so user can just press return
     // to open the single file they found
     if (file_paths.size() == 1)
         file_table_->selectAll();
 }
-
 
 
 void FastFileSearchDialog::class_file_changed()
@@ -403,9 +407,8 @@ void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_F1) {
         show_help();
         event->accept();
-    } else {
+    } else 
         QDialog::keyPressEvent(event);
-    }
 }
 
 
@@ -425,9 +428,8 @@ QStringList FastFileSearchDialog::find_files(const QString &path, QString &file_
     QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString file_path = it.next();
-        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive)) {
+        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive)) 
             file_paths.append(file_path);
-        }
     }
     return file_paths;
 }
@@ -439,21 +441,18 @@ void FastFileSearchDialog::directory_changed(const std::string &new_search_path,
 
     path_ = QDir::toNativeSeparators(QString::fromStdString(new_search_path));
 
-    if (watcher_) {
+    if (watcher_) 
         watcher_->start(path_);
-    }
 
-    if (self) {
+    if (self)
         self->update_files();
-    }
 }
 
 
 void FastFileSearchDialog::set_title()
 {
-    if (!path_.isEmpty()) {
+    if (!path_.isEmpty())
         setWindowTitle(QString("Fast File Search: %1").arg(path_));
-    } else {
+    else
         setWindowTitle("Fast File Search");
-    }
 }

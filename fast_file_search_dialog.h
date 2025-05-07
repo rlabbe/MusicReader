@@ -106,8 +106,6 @@ private:
     QHBoxLayout *top_layout_;
     QLabel *label_;
     QLineEdit *search_field_;
-    QPushButton *browse_button_;
-    QPushButton *open_button_;
     QTableWidget *file_table_;
     QStringList selected_items_;
     QString open_path_;
