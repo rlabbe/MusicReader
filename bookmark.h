@@ -89,7 +89,6 @@ public:
     // Returns:
     // True if reparenting was successful, False otherwise.
     bool reparent(const BookmarkHandle& parent_handle, std::vector<Bookmark> &top_level_bookmarks);
-    bool reparent_top(std::vector<Bookmark> &top_level_bookmarks);
 
 private:
     // Generates a unique handle for bookmarks.

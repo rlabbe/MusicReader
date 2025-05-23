@@ -64,9 +64,9 @@ void logger::configure_logger(const std::string &filename, size_t max_size, bool
 
 void logger::initialize(bool log_to_console, ConfigFile* cf, size_t max_size_kb)
 {
-    std::string log_file = get_persistent_config_path("MusicReader.log");
-    std::cout << "opening log file: " << log_file << std::endl;
-    configure_logger(log_file, max_size_kb, log_to_console);
+    log_file_path_ = get_persistent_config_path("MusicReader.log");
+    std::cout << "opening log file: " << log_file_path_ << std::endl;
+    configure_logger(log_file_path_, max_size_kb, log_to_console);
     logged_error_ = false;
     config_file_ = cf;
 }
@@ -79,6 +79,11 @@ void logger::shutdown()
         logger_ = nullptr;
         logged_error_ = false;
     }
+}
+
+void logger::flush()
+{
+    if (logger_) logger_->flush();
 }
 
 

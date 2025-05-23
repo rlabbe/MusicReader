@@ -26,13 +26,13 @@ public:
 
     ~PDFViewer();
 
-    int page_count() const { return document_->page_count(); }
+    int page_count() const { return (document_ ?  document_->page_count() : 0); }
     int current_page() const { return page_.page_num; }
 
     bool in_single_page_view() const;
     bool in_double_page_view() const { return !in_single_page_view(); }
 
-    void get_page(int page_num, bool first_call = false);
+    void get_page(int page_num);
 
     void refresh();
     void page_up();

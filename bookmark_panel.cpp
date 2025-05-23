@@ -4,6 +4,7 @@
 #include "logger.h"
 #include "bookmark.h"
 #include "pdf_viewer.h"
+#include "exception_logger.h"
 
 BookmarkPanel::BookmarkPanel(MusicReader *main_window)
     : QWidget(main_window)
@@ -15,6 +16,8 @@ BookmarkPanel::BookmarkPanel(MusicReader *main_window)
 
 void BookmarkPanel::dropEvent(QDropEvent *event)
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc) return;
 
@@ -35,6 +38,8 @@ void BookmarkPanel::dropEvent(QDropEvent *event)
 
 void BookmarkPanel::init_ui()
 {
+    SAFE_METHOD;
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -102,6 +107,8 @@ void BookmarkPanel::init_ui()
 
 void BookmarkPanel::update_undo_redo_buttons()
 {
+    SAFE_METHOD;
+
     unindent_button_->setEnabled(can_undo());
     indent_button_->setEnabled(can_redo());
 }
@@ -109,17 +116,20 @@ void BookmarkPanel::update_undo_redo_buttons()
 
 void BookmarkPanel::setup_shortcuts()
 {
+    SAFE_METHOD;
+
     new QShortcut(QKeySequence("Del"), this, SLOT(delete_selected_bookmark()));
     new QShortcut(QKeySequence("Ctrl+Z"), this, SLOT(undo()));
     new QShortcut(QKeySequence("Ctrl+Y"), this, SLOT(redo()));
-    new QShortcut(QKeySequence("Ctrl++"), this, SLOT(indent_selected_bookmarks()));
-    new QShortcut(QKeySequence("Ctrl+="), this, SLOT(indent_selected_bookmarks()));
-    new QShortcut(QKeySequence("Ctrl+-"), this, SLOT(unindent_selected_bookmarks()));
+    new QShortcut(QKeySequence("Ctrl+Left"), this, SLOT(unindent_selected_bookmarks()));
+    new QShortcut(QKeySequence("Ctrl+Right"), this, SLOT(indent_selected_bookmarks()));
 }
 
 
 void BookmarkPanel::setup_context_menu()
 {
+    SAFE_METHOD;
+
     tree_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(tree_widget_, &QTreeWidget::customContextMenuRequested, this, &BookmarkPanel::show_context_menu);
 }
@@ -127,6 +137,8 @@ void BookmarkPanel::setup_context_menu()
 
 void BookmarkPanel::toggle_visibility()
 {
+    SAFE_METHOD;
+
     visible_ = !visible_;
     setVisible(visible_);
     emit bookmark_visibility_changed(visible_);
@@ -135,6 +147,8 @@ void BookmarkPanel::toggle_visibility()
 
 void BookmarkPanel::show_context_menu(const QPoint &position)
 {
+    SAFE_METHOD;
+
     QMenu menu(tree_widget_);
     auto *add_action = menu.addAction("Create Bookmark");
     auto *add_nested_action = menu.addAction("Create Nested Bookmark");
@@ -167,6 +181,8 @@ void BookmarkPanel::show_context_menu(const QPoint &position)
 
 void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidgetItem *parent)
 {
+    SAFE_METHOD;
+
     for (const auto &bookmark : bookmarks) {
         auto *item = new QTreeWidgetItem(QStringList() << QString::fromStdString(bookmark.title_));
         set_item_info(item, bookmark);
@@ -184,6 +200,8 @@ void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidge
 
 void BookmarkPanel::populate()
 {
+    SAFE_METHOD;
+
     //update_undo_redo_buttons();
 
     tree_widget_->clear();
@@ -201,6 +219,8 @@ void BookmarkPanel::populate()
 
 void BookmarkPanel::return_focus_to_main()
 {
+    SAFE_METHOD;
+
     /*if (!main_window_)
         return;
 
@@ -212,6 +232,8 @@ void BookmarkPanel::return_focus_to_main()
 
 void BookmarkPanel::adjust_width()
 {
+    SAFE_METHOD;
+
     tree_widget_->resizeColumnToContents(0);
     int content_width = tree_widget_->header()->sectionSizeHint(0);
     setMinimumWidth(std::max(content_width + 20, 100));
@@ -219,6 +241,8 @@ void BookmarkPanel::adjust_width()
 
 void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 {
+    SAFE_METHOD;
+
     int page_num = page_num_of(item);
     emit bookmark_clicked(page_num);
     return_focus_to_main();
@@ -227,12 +251,16 @@ void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
 
 std::shared_ptr<Document> BookmarkPanel::document() const
 {
+    SAFE_METHOD;
+
     return main_window_->current_document();
 }
 
 
 void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc)
         return;
@@ -249,7 +277,8 @@ void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
 
 void BookmarkPanel::delete_selected_bookmark()
 {
-    auto *item = tree_widget_->currentItem();
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc)
         return;
@@ -269,6 +298,8 @@ void BookmarkPanel::delete_selected_bookmark()
 
 void BookmarkPanel::add_bookmark()
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc)
         return;
@@ -297,6 +328,8 @@ void BookmarkPanel::add_bookmark()
 
 QTreeWidgetItem *BookmarkPanel::find_item_recursive(QTreeWidgetItem *item, const BookmarkHandle &handle)
 {
+    SAFE_METHOD;
+
     if (handle_of(item) == handle)
         return item;
     for (int i = 0; i < item->childCount(); ++i) {
@@ -309,6 +342,8 @@ QTreeWidgetItem *BookmarkPanel::find_item_recursive(QTreeWidgetItem *item, const
 
 QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const BookmarkHandle &handle)
 {
+    SAFE_METHOD;
+
     for (int i = 0; i < tree_widget_->topLevelItemCount(); ++i) {
         if (auto *found = find_item_recursive(tree_widget_->topLevelItem(i), handle))
             return found;
@@ -318,18 +353,24 @@ QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const BookmarkHandle &handle
 
 bool BookmarkPanel::can_undo() const
 {
+    SAFE_METHOD;
+
     auto doc = document();
     return doc && doc->can_undo();
 }
 
 bool BookmarkPanel::can_redo() const
 {
+    SAFE_METHOD;
+
     auto doc = document();
     return doc && doc->can_redo();
 }
 
 void BookmarkPanel::undo()
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc)
         return;
@@ -340,6 +381,8 @@ void BookmarkPanel::undo()
 
 void BookmarkPanel::redo()
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc)
         return;
@@ -351,6 +394,8 @@ void BookmarkPanel::redo()
 
 BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
 {
+    SAFE_METHOD;
+
     if (item)
         return BookmarkHandle(item->data(0, Qt::UserRole + 1).toInt());
 
@@ -362,17 +407,23 @@ BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
 
 int BookmarkPanel::page_num_of(QTreeWidgetItem *item) const
 {
+    SAFE_METHOD;
+
     return item->data(0, Qt::UserRole).toInt();
 }
 
 std::string BookmarkPanel::title_of(QTreeWidgetItem *item) const
 {
+    SAFE_METHOD;
+
     return item->text(0).trimmed().toStdString();
 }
 
 
 void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmark)
 {
+    SAFE_METHOD;
+
     item->setData(0, Qt::UserRole, bookmark.page_num_ ? QVariant(*bookmark.page_num_) : QVariant());
     item->setData(0, Qt::UserRole + 1, int(bookmark.handle_));
     item->setFlags(item->flags() | Qt::ItemIsEditable);
@@ -383,6 +434,8 @@ void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmar
 
 QList<int> BookmarkPanel::selected_rows() const
 {
+    SAFE_METHOD;
+
     auto selected_items = tree_widget_->selectedItems();
     auto *parent = selected_items.first()->parent();
 
@@ -397,6 +450,8 @@ QList<int> BookmarkPanel::selected_rows() const
 
 bool BookmarkPanel::is_bookmark_selected(bool indent) const
 {
+    SAFE_METHOD;
+
     auto selected_items = tree_widget_->selectedItems();
     if (selected_items.size() < 1)
         return false;
@@ -427,6 +482,8 @@ bool BookmarkPanel::is_bookmark_selected(bool indent) const
 
 void BookmarkPanel::indent_selected_bookmarks()
 {
+    SAFE_METHOD;
+
     auto doc = document();
 
     if (!doc || !is_bookmark_selected(true))
@@ -457,6 +514,8 @@ void BookmarkPanel::indent_selected_bookmarks()
 
 void BookmarkPanel::unindent_selected_bookmarks()
 {
+    SAFE_METHOD;
+
     auto doc = document();
     if (!doc || !is_bookmark_selected(false))
         return;
@@ -469,4 +528,3 @@ void BookmarkPanel::unindent_selected_bookmarks()
 
     populate();
 }
-

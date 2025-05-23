@@ -11,7 +11,7 @@ class EventHandler : public QFileSystemWatcher {
     Q_OBJECT
 
 public:
-    explicit EventHandler(QObject *parent, const QString &file_ending, int debounce_time_ms = 500)
+    explicit EventHandler(const QString &file_ending, int debounce_time_ms = 500)
         : file_ending_(file_ending), debounce_time_(debounce_time_ms)
     {
         connect(&timer_, &QTimer::timeout, this, &EventHandler::emit_signal);
@@ -25,7 +25,7 @@ public:
         }
     }
 
-    void on_directory_changed(const QString &path)
+    void on_directory_changed()
     {
         start_timer();
     }
@@ -58,7 +58,7 @@ public:
     {
         supported_ = QOperatingSystemVersion::currentType() != QOperatingSystemVersion::Unknown;
         if (supported_) {
-            event_handler_ = new EventHandler(this, file_ending_);
+            event_handler_ = new EventHandler(file_ending_);
             connect(event_handler_, &EventHandler::file_changed_signal, this, &DirectoryWatcher::file_changed);
         }
     }

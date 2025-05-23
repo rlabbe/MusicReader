@@ -28,6 +28,8 @@
 #include "fullscreen_exit_button.h"
 #include "vertical_tabs_widget.h"
 #include "file_viewer.h"
+#include "requires.h"
+
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -38,7 +40,7 @@ MusicReader::MusicReader(QWidget *parent)
 #if !defined(NDEBUG)
     logger::initialize(true, &config_);
 #else
-    logger::initialize(false, &config_);
+    logger::initialize(true, &config_);
 #endif
 
     logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
@@ -49,6 +51,8 @@ MusicReader::MusicReader(QWidget *parent)
 
 void MusicReader::setup_UI()
 {
+    SAFE_METHOD;
+
     this->resize(600, 400);
     this->setWindowTitle("MusicReader");
 
@@ -71,7 +75,7 @@ void MusicReader::setup_UI()
         if (i.has_value()) {
             auto viewer = viewer_tab(i.value());
             if (viewer)
-                viewer->get_page(page, true);  // Show the loaded page
+                viewer->get_page(page);  // Show the loaded page
         }
     });
 
@@ -132,6 +136,8 @@ void MusicReader::setup_UI()
 
 bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 {
+    SAFE_METHOD;
+
     // Handle mouse movement for cursor hiding
     if (event->type() == QEvent::MouseMove) {
         if (handle_mouse_movement(watched, event))
@@ -139,7 +145,6 @@ bool MusicReader::eventFilter(QObject *watched, QEvent *event)
     }
     // handle fullscreen logic
     if (event->type() == QEvent::MouseMove && isFullScreen()) {
-        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
         auto y = QCursor::pos().y();
         if (y <= 15) { // If mouse is near the top
             if (!exit_button_->isVisible())
@@ -156,6 +161,8 @@ bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 
 bool MusicReader::handle_mouse_movement(QObject *watched, QEvent *event)
 {
+    SAFE_METHOD;
+
     Q_UNUSED(watched);
     Q_UNUSED(event);
 
@@ -175,6 +182,8 @@ bool MusicReader::handle_mouse_movement(QObject *watched, QEvent *event)
 
 void MusicReader::setup_mouse_hiding()
 {
+    SAFE_METHOD;
+
     // Create timer for hiding the mouse cursor after inactivity
     mouse_hide_timer_ = new QTimer(this);
     mouse_hide_timer_->setSingleShot(true);
@@ -199,12 +208,15 @@ void MusicReader::setup_mouse_hiding()
 
 void MusicReader::reset_cursor_timer()
 {
+    SAFE_METHOD;
+
     if (cursor_hidden_) {
         QApplication::restoreOverrideCursor();
         cursor_hidden_ = false;
     }
     mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
 }
+
 
 void MusicReader::closeEvent(QCloseEvent *event)
 {
@@ -216,6 +228,7 @@ void MusicReader::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);  // Call base class implementation
     check_for_errors_on_exit();
 }
+
 
 void MusicReader::save_window_state_to_config()
 {
@@ -311,6 +324,8 @@ void MusicReader::show_log_content()
 
 void MusicReader::create_file_menu(auto *menu_bar)
 {
+    SAFE_METHOD;
+
     // File menu
     QMenu *file_menu = menu_bar->addMenu("&File");
 
@@ -350,6 +365,8 @@ void MusicReader::create_file_menu(auto *menu_bar)
 
 void MusicReader::create_edit_menu(auto *menu_bar)
 {
+    SAFE_METHOD;
+
     edit_menu_ = menu_bar->addMenu("&Edit");
 
     /* TODO
@@ -383,6 +400,8 @@ void MusicReader::create_edit_menu(auto *menu_bar)
 
 void MusicReader::create_view_menu(auto *menu_bar)
 {
+    SAFE_METHOD;
+
     QMenu *view_menu = menu_bar->addMenu("&View");
 
     bookmark_menu_action_ = new QAction("Show Bookmarks", this);
@@ -437,6 +456,8 @@ void MusicReader::create_view_menu(auto *menu_bar)
 
 void MusicReader::create_menus()
 {
+    SAFE_METHOD;
+
     QMenuBar *menu_bar = menuBar();
 
     create_file_menu(menu_bar);
@@ -490,6 +511,8 @@ void MusicReader::create_menus()
 
 void MusicReader::update_recent_files_list()
 {
+    SAFE_METHOD;
+
     open_recent_menu_->clear();
 
     for (const auto &path : std::views::reverse(config_.recent_documents())) {
@@ -508,6 +531,8 @@ void MusicReader::update_recent_files_list()
 
 void MusicReader::show_context_menu(const QPoint &pos)
 {
+    SAFE_METHOD;
+
     QMenu context_menu(this);
 
     QAction *reload_action = new QAction("Reload", this);
@@ -537,6 +562,8 @@ void MusicReader::show_context_menu(const QPoint &pos)
 
 void MusicReader::browse_folder()
 {
+    SAFE_METHOD;
+
     auto doc = current_document();
     if (!doc) return;
 
@@ -551,13 +578,15 @@ void MusicReader::browse_folder()
 void MusicReader::show_log_file()
 {
     SAFE_METHOD;
-    auto viewer = new FileViewer("C:\\Users\\rlabbe\\AppData\\Roaming\\MusicReader\\MusicReader.log", this);
+    auto viewer = new FileViewer(logger::log_file_path(), this);
     viewer->show();
 }
 
 
 bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
+    SAFE_METHOD;
+
 #ifdef Q_OS_WIN
 
     if (!config_.show_menu()) {
@@ -577,6 +606,7 @@ bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintpt
 void MusicReader::reload_document()
 {
     SAFE_METHOD;
+
     auto viewer = current_viewer();
     auto doc = current_document();
     if (!viewer || !doc) return;
@@ -589,6 +619,7 @@ void MusicReader::reload_document()
 void MusicReader::edit_document()
 {
     SAFE_METHOD;
+
     auto doc = current_document();
     if (!doc) return;
 
@@ -599,6 +630,8 @@ void MusicReader::edit_document()
 
 void MusicReader::show_titlebar_menu()
 {
+    SAFE_METHOD;
+
     QMenu menu(this);
 
     create_file_menu(&menu);
@@ -630,15 +663,14 @@ void MusicReader::add_bookmark()
 
 void MusicReader::create_toolbar()
 {
-    Qt::ToolBarArea toolbar_location = Qt::TopToolBarArea;
-
     toolbar_ = new QToolBar("Toolbar");
-    Qt::ToolBarArea area;
+    Qt::ToolBarArea area = Qt::LeftToolBarArea;
     switch (config_.toolbar_location()) {
     case ToolbarLocation::Top: area = Qt::TopToolBarArea; break;
     case ToolbarLocation::Bottom: area = Qt::BottomToolBarArea; break;
     case ToolbarLocation::Left: area = Qt::LeftToolBarArea; break;
     case ToolbarLocation::Right: area = Qt::RightToolBarArea; break;
+    default: logger::error("Invalid toolbar location in config"); ;
     }
     addToolBar(area, toolbar_);
 
@@ -704,6 +736,8 @@ void MusicReader::create_toolbar()
 
 void MusicReader::on_toggle_view_mode()
 {
+    SAFE_METHOD;
+
     ConfigFileGroupSave group_saver(config_);
 
     // Toggle between single and double page view mode
@@ -723,6 +757,8 @@ bool MusicReader::in_single_page_mode() const
 
 void MusicReader::toggle_page_zoom()
 {
+    SAFE_METHOD;
+
     // Toggle zoom setting and save config
     config_.set_zoom_to_content(!config_.zoom_to_content());
     config_.save();
@@ -736,6 +772,8 @@ void MusicReader::toggle_page_zoom()
 
 PDFViewer *MusicReader::current_tab() const
 {
+    SAFE_METHOD;
+
     if (!tab_widget_) return nullptr;
 
     int i = tab_widget_->currentIndex();
@@ -752,6 +790,8 @@ PDFViewer *MusicReader::current_tab() const
 
 std::shared_ptr<Document> MusicReader::current_document(const std::string &log_msg) const
 {
+    SAFE_METHOD;
+
     PDFViewer *tab = current_tab();
     if (tab) return tab->document();
 
@@ -762,6 +802,8 @@ std::shared_ptr<Document> MusicReader::current_document(const std::string &log_m
 
 std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 {
+    SAFE_METHOD;
+
     PDFViewer *viewer = current_viewer(log_msg);
     if (viewer) return { viewer->current_page(), true };
 
@@ -772,12 +814,16 @@ std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 
 std::string MusicReader::current_document_name() const
 {
+    SAFE_METHOD;
+
     auto doc = current_document();
     return doc ? doc->filename() : "";
 }
 
 std::shared_ptr<Document> MusicReader::document_at(int index) const
 {
+    SAFE_METHOD;
+
     PDFViewer *tab = viewer_tab(index);
     return tab ? tab->document() : nullptr;
 }
@@ -801,6 +847,8 @@ PDFViewer *MusicReader::viewer_tab(int index) const
 
 void MusicReader::save_config()
 {
+    SAFE_METHOD;
+
     save_open_documents_to_config();
     logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
 }
@@ -875,6 +923,8 @@ void MusicReader::update_title(int index)
 }
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
+    SAFE_METHOD;
+
     if (event->key() == Qt::Key_F11) {
         if (isFullScreen()) {
             status_bar_->setVisible(config_.show_status_bar());
@@ -916,12 +966,16 @@ void MusicReader::keyPressEvent(QKeyEvent *event)
 
 void MusicReader::on_page_up()
 {
+    SAFE_METHOD;
+
     auto tab = current_viewer();
     if (tab) tab->page_up();
 }
 
 void MusicReader::on_page_down()
 {
+    SAFE_METHOD;
+
     auto tab = current_viewer();
     if (tab) tab->page_down();
 }
@@ -945,6 +999,8 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 
 void MusicReader::create_bookmark_panel()
 {
+    SAFE_METHOD;
+
     bookmark_panel_ = new BookmarkPanel(this);
     [[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
 
@@ -963,12 +1019,16 @@ void MusicReader::update_bookmark_panel()
 
 void MusicReader::update_bookmarks_for_doc()
 {
-    bookmark_panel_->populate();
+    SAFE_METHOD;
+
+    if (bookmark_panel_) bookmark_panel_->populate();
     update_background();
 }
 
 QIcon MusicReader::create_double_icon()
 {
+    SAFE_METHOD;
+
     QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
     QSize icon_size = single_icon.actualSize(QSize(32, 32));
 
@@ -985,6 +1045,8 @@ QIcon MusicReader::create_double_icon()
 
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
+    SAFE_METHOD;
+
     for (int i = 0; i < tab_widget_->count(); ++i) {
         auto widget = viewer_tab(i);
         if (widget && widget->document()->filename() == name) return i;
@@ -1018,10 +1080,14 @@ void MusicReader::go_to_bookmark(int page_num)
 void MusicReader::update_menu_bookmark_visibility()
 {
     //TODO
+    SAFE_METHOD;
+
 }
 
 void MusicReader::refresh_all_documents()
 {
+    SAFE_METHOD;
+
     // Handle current tab first for responsiveness
     PDFViewer *current = current_viewer();
     if (current)
@@ -1057,6 +1123,8 @@ void MusicReader::open_config_dialog()
 
 void MusicReader::restore_window_state()
 {
+    SAFE_METHOD;
+
     if (config_.restore_window_position()) {
         try {
             const auto &app_size = config_.app_size();
@@ -1073,6 +1141,8 @@ void MusicReader::restore_window_state()
 
 void MusicReader::open_file_dialog(const std::string &pathname)
 {
+    SAFE_METHOD;
+
     std::string default_directory;
 
     if (!pathname.empty()) {
@@ -1146,6 +1216,8 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
 
 void MusicReader::goto_page_dialog()
 {
+    SAFE_METHOD;
+
     auto viewer = current_viewer();
     if (!viewer) return;
 
@@ -1185,7 +1257,7 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::string &file
     LOG_EXCEPTION;
 
     if (!std::filesystem::exists(filename)) {
-        logger::error(filename + " doesn't exist");
+        logger::debug(filename + " doesn't exist");
         return {};
     }
 
@@ -1238,6 +1310,8 @@ bool MusicReader::display_query(const std::string &msg)
 
 void MusicReader::create_status_bar()
 {
+    SAFE_METHOD;
+
     status_bar_ = new StatusBar();
     setStatusBar(status_bar_);
     status_bar_->setVisible(config_.show_status_bar());
@@ -1288,6 +1362,8 @@ void MusicReader::update_memory_usage()
 
 void MusicReader::show_page_count()
 {
+    SAFE_METHOD;
+
     PDFViewer *viewer = current_viewer();
     if (!viewer) {
         status_bar_->clear_page_count();
@@ -1301,15 +1377,19 @@ void MusicReader::show_page_count()
 
 void MusicReader::on_page_selected(int index)
 {
+    SAFE_METHOD;
+
     PDFViewer *viewer = current_viewer();
-    if (viewer) {
+    if (viewer)
         viewer->get_page(index + 1);  // Convert index to 1-based page number
-    }
+
     show_page_count();  // Ensure status bar reflects any adjustments
 }
 
 void MusicReader::initialize_fast_search()
 {
+    SAFE_METHOD;
+
     std::string name = config_.music_directory().string();
 
     QTimer::singleShot(100, this, [this, name]() {
@@ -1334,6 +1414,8 @@ void MusicReader::initialize_fast_search()
 
 void MusicReader::open_fast_search_dialog()
 {
+    SAFE_METHOD;
+
     {
         std::unique_lock<std::mutex> lock(fast_search_mutex_);
         if (!fast_search_initialized_)
@@ -1373,6 +1455,8 @@ void MusicReader::open_fast_search_dialog()
 
 void MusicReader::update_background()
 {
+    SAFE_METHOD;
+
     if (tab_widget_->count() == 0) {
         tab_widget_->setStyleSheet(R"(
             background-image: url(":/MusicReader/images/gclef.png");
@@ -1403,6 +1487,10 @@ void MusicReader::reopen_all_documents()
 
 void MusicReader::restore_open_documents()
 {
+    SAFE_METHOD;
+    REQUIRES(bookmark_panel_);
+    REQUIRES(tab_widget_);
+
     // Make a copy of the open documents list as it will
     // change when we add new tabs
     const auto docs_info = config_.open_documents();
@@ -1424,6 +1512,11 @@ void MusicReader::restore_open_documents()
 
         // Only create document objects, don't load them yet
         auto doc = open_pdf_document(docs_info[i].u8filename(), docs_info[i].page);
+        // nullptr if failed to open document
+        if (!doc) {
+            logger::debug("Failed to re-open document: " + docs_info[i].u8filename());
+            continue;
+        }
         documents.push_back(doc);
 
         PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab);
@@ -1436,6 +1529,13 @@ void MusicReader::restore_open_documents()
 
         int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(docs_info[i].u8filename()).stem().string()));
         tab_widget_->setTabToolTip(index, QString::fromStdString(docs_info[i].u8filename()));
+    }
+    num_docs = (int)documents.size(); // Update num_docs as not all may have been opened
+    if (num_docs == 0) {
+        update_background();
+        bookmark_panel_->adjust_width();
+        config_.set_open_tab(-1);
+        return;
     }
 
     // Set focus to current tab
@@ -1480,6 +1580,8 @@ void MusicReader::restore_open_documents()
 
 void MusicReader::toggle_bookmark_panel()
 {
+    SAFE_METHOD;
+
     if (bookmark_panel_) {
         bool visible = !bookmark_panel_->isVisible();
         bookmark_panel_->setVisible(visible);
@@ -1490,6 +1592,8 @@ void MusicReader::toggle_bookmark_panel()
 
 void MusicReader::set_statusbar_visibility()
 {
+    SAFE_METHOD;
+
     if (!status_bar_) return;
     if (!statusbar_menu_action_) return;
 
@@ -1501,6 +1605,8 @@ void MusicReader::set_statusbar_visibility()
 
 void MusicReader::toggle_statusbar_visibility()
 {
+    SAFE_METHOD;
+
     config_.set_show_status_bar(!config_.show_status_bar());
     set_statusbar_visibility();
 }
@@ -1508,6 +1614,8 @@ void MusicReader::toggle_statusbar_visibility()
 
 void MusicReader::set_toolbar_visibility()
 {
+    SAFE_METHOD;
+
     if (!toolbar_) return;
     if (!toolbar_menu_action_) return;
 
@@ -1520,18 +1628,24 @@ void MusicReader::set_toolbar_visibility()
 
 void MusicReader::toggle_toolbar_visibility()
 {
+    SAFE_METHOD;
+
     config_.set_show_toolbar(!config_.show_toolbar());
     set_toolbar_visibility();
 }
 
 void MusicReader::toggle_menu_visibility()
 {
+    SAFE_METHOD;
+
     config_.set_show_menu(!config_.show_menu());
     set_menu_visibility();
 }
 
 void MusicReader::set_menu_visibility()
 {
+    SAFE_METHOD;
+
     config_.show_menu() ? menuBar()->show() : menuBar()->hide();
 }
 
@@ -1548,6 +1662,8 @@ void MusicReader::on_config_saved()
 
 void MusicReader::copy_log_to_clipboard()
 {
+    SAFE_METHOD;
+
     if (!OpenClipboard(nullptr)) return;
     EmptyClipboard();
 

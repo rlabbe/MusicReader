@@ -158,6 +158,9 @@
     <ClInclude Include="log_timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="requires.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />

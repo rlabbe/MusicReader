@@ -2,6 +2,9 @@
 
 #include "logger.h"
 #include <format>
+#pragma warning(disable : 4611) // disable warning about _setjump not working with c++ destructors
+
+
 
 inline PixmapData render_page_seh(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
 {
@@ -40,6 +43,7 @@ inline void close_fitz(fz_context *ctx, fz_document *doc)
     doc = nullptr;
     if (ctx) fz_drop_context(ctx);
 }
+
 
 
 inline std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename)

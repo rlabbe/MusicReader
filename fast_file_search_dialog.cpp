@@ -112,18 +112,24 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 
     auto update_button = new QPushButton();
     update_button->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
-    //size_button(update_button);
-    top_layout_->addWidget(update_button);
+    update_button->setToolTip("refresh all files");
+    update_button->setFocusPolicy(Qt::NoFocus);
     connect(update_button, &QPushButton::clicked, this, &FastFileSearchDialog::update_files);
+    top_layout_->addWidget(update_button);
+
 
     auto browse_button = new QPushButton("...", this);
     size_button(browse_button);
-    top_layout_->addWidget(browse_button);
+    browse_button->setToolTip("select music directory");
+    browse_button->setFocusPolicy(Qt::NoFocus);
     connect(browse_button, &QPushButton::clicked, this, &FastFileSearchDialog::on_select_directory);
+    top_layout_->addWidget(browse_button);
 
 
     auto open_button = new QPushButton("Open Dialog...", this);
     size_button(open_button);
+    open_button->setToolTip("use Windows open file dialog...");
+    open_button->setFocusPolicy(Qt::NoFocus);
     connect(open_button, &QPushButton::clicked, this, &FastFileSearchDialog::on_open_file_dialog);
     top_layout_->addWidget(open_button);
 
@@ -194,7 +200,7 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
     if (!directory.empty())
         watcher_->start(path_);
 
-    //std::thread([] {
+    std::thread([] {
         auto files = find_files(FastFileSearchDialog::path_, FastFileSearchDialog::file_ending_);
         {
             std::lock_guard lk(files_mutex_);
@@ -202,7 +208,7 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
             files_ready_ = true;
         }
         files_cv_.notify_one();
-    //}).detach();
+    }).detach();
 }
 
 
@@ -274,9 +280,13 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
 
     file_table_->setSortingEnabled(true);
 
-    // Resize columns only if reloading the full directory
-    if (resize)
-        file_table_->resizeColumnsToContents();
+    // Only resize columns 1 and 2 (date and size), never column 0 (name)
+    // This preserves the stretch behavior for column 0
+    if (resize) {
+        // Resize only the date and size columns
+        file_table_->resizeColumnToContents(1);
+        file_table_->resizeColumnToContents(2);
+    }
 
     // select if only one file so user can just press return
     // to open the single file they found
@@ -421,6 +431,7 @@ bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
     return QDialog::eventFilter(object, event);
 }
 
+#include <iostream>
 
 QStringList FastFileSearchDialog::find_files(const QString &path, QString &file_ending)
 {

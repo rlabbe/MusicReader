@@ -58,13 +58,6 @@ Bookmark *Bookmark::find(const BookmarkHandle &handle)
 }
 
 
-
-bool Bookmark::reparent_top(std::vector<Bookmark> &top_level_bookmarks)
-{
-    return false;
-}
-
-
 bool Bookmark::reparent(const BookmarkHandle &new_parent, std::vector<Bookmark> &top_level_bookmarks)
 {
     if (new_parent)

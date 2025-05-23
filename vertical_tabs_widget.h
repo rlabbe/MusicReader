@@ -42,7 +42,7 @@ protected:
         return size;
     }
 
-    void paintEvent(QPaintEvent *event) override
+    void paintEvent(QPaintEvent *) override
     {
         QStylePainter painter(this);
         for (int i = 0; i < count(); ++i) {

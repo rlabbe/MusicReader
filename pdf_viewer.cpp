@@ -5,6 +5,9 @@
 #include "logger.h"
 #include "status_bar.h"
 #include "config_file.h"
+#include "log_timer.h"
+#include "exception_logger.h"
+#include "requires.h"
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config,
@@ -20,8 +23,10 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
 
-    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-    get_page(page, true);
+    if (document) {
+        connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
+        get_page(page);
+    }
 
     //TODO Qt6 might use QEvent::ApplicationPaletteChange
     /*
@@ -40,6 +45,7 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
 
 PDFViewer::~PDFViewer()
 {
+    REQUIRES(document_);
     if (document_)
         document_->save();
 }
@@ -47,6 +53,10 @@ PDFViewer::~PDFViewer()
 
 void PDFViewer::update_status_bar()
 {
+    SAFE_METHOD;
+    REQUIRES(document_);
+    REQUIRES(status_bar_);
+
     if (!status_bar_) return;
     if (!isVisible()) return;
 
@@ -61,28 +71,37 @@ void PDFViewer::update_status_bar()
 
 bool PDFViewer::in_single_page_view() const
 {
+    SAFE_METHOD;
+    REQUIRES_RET(config_, true);
+
     return config_->page_view_count() == 1 || page_count() == 1;
 }
 
 
 void PDFViewer::refresh()
 {
+    SAFE_METHOD;
     get_page(current_page());
     update_scrollbar_visibility();
 }
 
 void PDFViewer::page_up()
 {
+    SAFE_METHOD;
     change_page(in_single_page_view() ? -1 : -2);
 }
 
 void PDFViewer::page_down()
 {
+    SAFE_METHOD;
     change_page(in_single_page_view() ? 1 : 2);
 }
 
 void PDFViewer::change_page(int step)
 {
+    SAFE_METHOD;
+    REQUIRES(scrollbar_);
+
     int count = page_count();
     int new_page = qBound(1, current_page() + step, count);
 
@@ -99,14 +118,19 @@ void PDFViewer::change_page(int step)
 
 void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
 {
+    SAFE_METHOD;
+
+    if (!document || document == document_) return;
     document_ = document;
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-    get_page(page, false);
+    get_page(page);
 }
 
 
 void PDFViewer::keyPressEvent(QKeyEvent *event)
 {
+    SAFE_METHOD;
+
     switch (event->key()) {
     case Qt::Key_PageUp:
     case Qt::Key_Up:
@@ -136,15 +160,18 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
 
 void PDFViewer::wheelEvent(QWheelEvent *event)
 {
-    if (event->angleDelta().y() > 0) {
+    SAFE_METHOD;
+
+    if (event->angleDelta().y() > 0)
         page_up();
-    } else {
+    else
         page_down();
-    }
 }
 
 bool PDFViewer::event(QEvent *event)
 {
+    SAFE_METHOD;
+
     if (event->type() == QEvent::Gesture) {
         auto *gesture = dynamic_cast<QSwipeGesture *>(static_cast<QGestureEvent *>(event)->gesture(Qt::SwipeGesture));
 
@@ -160,6 +187,8 @@ bool PDFViewer::event(QEvent *event)
 
 void PDFViewer::resizeEvent(QResizeEvent *event)
 {
+    SAFE_METHOD;
+
     QWidget::resizeEvent(event);
     update_image();
 }
@@ -167,6 +196,8 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
 
 void PDFViewer::init_ui(int page)
 {
+    SAFE_METHOD;
+
     layout_ = new QHBoxLayout(this);
 
     // Remove extra spacing/margins
@@ -201,6 +232,8 @@ void PDFViewer::init_ui(int page)
 
 void PDFViewer::on_scrollbar_value_changed(int new_page)
 {
+    SAFE_METHOD;
+
     if (manual_scrollbar_change_) return;
 
     if (new_page != current_page()) {
@@ -210,6 +243,10 @@ void PDFViewer::on_scrollbar_value_changed(int new_page)
 
 void PDFViewer::update_scrollbar_visibility()
 {
+    SAFE_METHOD;
+    REQUIRES(scrollbar_);
+    REQUIRES(document_);
+
     bool all_pages_shown = false;
     int page_count = document_->page_count();
 
@@ -223,6 +260,9 @@ void PDFViewer::update_scrollbar_visibility()
 
 void PDFViewer::prefetch_async(int page_num)
 {
+    SAFE_METHOD;
+    REQUIRES(document_);
+
     std::jthread([this, page_num]() {
         const int count = document_->page_count();
         if (page_num < 1 || page_num > count)
@@ -253,6 +293,8 @@ void PDFViewer::prefetch_async(int page_num)
 
 void PDFViewer::clear_prefetch()
 {
+    SAFE_METHOD;
+
     prefetch_.next.clear();
     prefetch_.prev.clear();
 }
@@ -260,9 +302,14 @@ void PDFViewer::clear_prefetch()
 
 PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
 {
-    PrefetchEntry entry(page_num, true, config_->zoom_to_content(), config_->border_margin());
+    SAFE_METHOD;
 
+    if (!config_ || !document_)
+        return PrefetchEntry(page_num, false, false, 0);
+
+    PrefetchEntry entry(page_num, true, config_->zoom_to_content(), config_->border_margin());
     entry.p1 = PixmapPage(document_->get_page(page_num));
+
     if (page_num < document_->page_count())
         entry.p2 = document_->get_page(page_num + 1);
     else
@@ -274,8 +321,15 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
     return entry;
 }
 
+
 PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 {
+    SAFE_METHOD;
+
+    if (!config_ || !document_)
+        return PrefetchEntry(page_num, false, false, 0);
+
+
     PrefetchEntry entry(page_num, false, config_->zoom_to_content(), config_->border_margin());
 
     entry.p1 = document_->get_page(page_num);
@@ -285,13 +339,15 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
         else
             entry.rendered = entry.p1.as_pixmap();
     }
-
     return entry;
 }
 
 
-void PDFViewer::get_page(int page_num, bool first_call)
+void PDFViewer::get_page(int page_num)
 {
+    SAFE_METHOD;
+    REQUIRES(document_);
+
     const int count = document_->page_count();
     if (count == 0) return;
 
@@ -301,6 +357,7 @@ void PDFViewer::get_page(int page_num, bool first_call)
         : make_single_page_entry(page_num);
 
     page_ = PixmapPage(entry.rendered, page_num, is_double);
+
     update_image();
 
     // Prefetch next and previous pages asap to maximize chances of being done
@@ -317,6 +374,9 @@ void PDFViewer::get_page(int page_num, bool first_call)
 
 PixmapPage PDFViewer::get_single_page(int page_num)
 {
+    SAFE_METHOD;
+    if (!document_) return PixmapPage();
+
     PixmapPage page = document_->get_page(page_num);
     if (!page.is_empty())
         aspect_ratio_ = double(page.width()) / page.height();
@@ -327,6 +387,11 @@ PixmapPage PDFViewer::get_single_page(int page_num)
 
 PixmapPage PDFViewer::get_double_page(int page_num)
 {
+    SAFE_METHOD;
+
+    if (!document_ || !config_)
+        return PixmapPage();
+
     const bool zoom = config_->zoom_to_content();
     const int margin = config_->border_margin();
     const bool last_page = (page_num == page_count());
@@ -365,9 +430,6 @@ PixmapPage PDFViewer::get_double_page(int page_num)
     int p1_offset = (max_height - p1_crop.height()) / 2;
     int p2_offset = (max_height - p2_crop.height()) / 2;
 
-    auto w = p2.width();
-    auto h = p2.height();
-
     // Draw cropped pages directly
     QPainter painter(&combined_image);
     painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
@@ -379,6 +441,9 @@ PixmapPage PDFViewer::get_double_page(int page_num)
 
 QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
 {
+    SAFE_METHOD;
+    REQUIRES_RET(config_, QPixmap());
+
     const bool zoom = config_->zoom_to_content();
     const int margin = config_->border_margin();
 
@@ -406,6 +471,8 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 
 void PDFViewer::on_page_loaded(int page_index)
 {
+    SAFE_METHOD;
+
     int page_num = current_page();
     int count = page_count();
 
@@ -428,6 +495,11 @@ void PDFViewer::on_page_loaded(int page_index)
 
 void PDFViewer::update_image(const QString &message)
 {
+    SAFE_METHOD;
+
+    REQUIRES(label_);
+    REQUIRES(config_);
+
     update_status_bar();
 
     if (page_.is_empty()) {
@@ -458,6 +530,9 @@ void PDFViewer::update_image(const QString &message)
 
 void PDFViewer::adjust_initial_subwindow_size()
 {
+    SAFE_METHOD;
+    REQUIRES(label_);
+
     if (page_.is_empty()) return;
 
     static bool first_time = true;
@@ -474,6 +549,9 @@ void PDFViewer::adjust_initial_subwindow_size()
 
 Qt::AlignmentFlag PDFViewer::page_alignment() const
 {
+    SAFE_METHOD;
+    REQUIRES_RET(config_, Qt::AlignmentFlag::AlignLeft);
+
     switch (config_->page_location()) {
     case PageLocation::Left: return Qt::AlignmentFlag::AlignLeft;
     default:  return Qt::AlignmentFlag::AlignHCenter;
@@ -483,6 +561,8 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
 
 bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) const
 {
+    SAFE_METHOD;
+
     return page_num == target_page_num &&
         double_page == (config.page_view_count() == 2) &&
         zoom_to_content == config.zoom_to_content() &&

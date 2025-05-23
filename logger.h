@@ -14,8 +14,12 @@ struct logger {
     // Parameters:
     // log_to_console - Whether to also log to the console.
     // max_size_kb - The maximum log file size in kilobytes.
-    static void initialize(bool log_to_console, ConfigFile* config_file, size_t max_size_kb = 4);
+    static void initialize(bool log_to_console, ConfigFile *config_file, size_t max_size_kb = 4);
     static void shutdown();
+
+    static void flush();
+
+    static std::string log_file_path() { return log_file_path_; }
 
     static std::string get_log_content();
 
@@ -63,6 +67,8 @@ private:
     static inline bool logged_error_{ false };
     static inline ConfigFile *config_file_{ nullptr };
 
+    static inline std::string log_file_path_;
+
 };
 
 
@@ -103,3 +109,8 @@ inline static void logger::error(std::format_string<Args...> fmt, Args&&... args
     }
 }
 
+#define LOG_CALL() \
+    do { \
+        std::string fullName = __PRETTY_FUNCTION__; \
+        logger::debug("File: {}, Line: {} {}", __FILE__, __LINE__, __FUNCSIG__ ); \
+    } while(0)
