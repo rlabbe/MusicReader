@@ -60,7 +60,7 @@ void BookmarkPanel::init_ui()
 
     add_button_ = new QPushButton();
     add_button_->setIcon(style()->standardIcon(QStyle::SP_FileDialogNewFolder));
-    add_button_->setToolTip("Add Bookmark (Ctrl+D)");
+    add_button_->setToolTip("Add Bookmark (Ctrl+D or B)");
     add_button_->setFocusPolicy(Qt::NoFocus);
     connect(add_button_, &QPushButton::clicked, this, &BookmarkPanel::add_bookmark);
     button_layout->addWidget(add_button_);
@@ -80,7 +80,7 @@ void BookmarkPanel::init_ui()
 
     unindent_button_ = new QPushButton();
     unindent_button_->setIcon(QIcon(":/MusicReader/images/left.ico"));
-    unindent_button_->setToolTip("Unindent (Ctrl+-)");
+    unindent_button_->setToolTip("Unindent (Ctrl+Right)");
     unindent_button_->setFocusPolicy(Qt::NoFocus);
     unindent_button_->setEnabled(true);
     connect(unindent_button_, &QPushButton::clicked, this, &BookmarkPanel::unindent_selected_bookmarks);
@@ -89,7 +89,7 @@ void BookmarkPanel::init_ui()
     // Redo button
     indent_button_ = new QPushButton();
     indent_button_->setIcon(QIcon(":/MusicReader/images/right.ico"));
-    indent_button_->setToolTip("Indent (CTRL++)");
+    indent_button_->setToolTip("Indent (CTRL+Left)");
     indent_button_->setFocusPolicy(Qt::NoFocus);
     indent_button_->setEnabled(true);
     connect(indent_button_, &QPushButton::clicked, this, &BookmarkPanel::indent_selected_bookmarks);

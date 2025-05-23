@@ -481,6 +481,10 @@ void MusicReader::create_menus()
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
 
+    shortcut = new QShortcut(Qt::Key_B, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
+
     shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
@@ -694,10 +698,14 @@ void MusicReader::create_toolbar()
         action = new QAction(double_icon_, "", this);
     }
 
-    action->setToolTip("View one/two pages");
+    action->setToolTip("View one/two pages (V)");
     connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
     toolbar_->addAction(action);
     view_toggle_action_ = action;
+
+    auto shortcut = new QShortcut(Qt::Key_V, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_toggle_view_mode);
 
     page_by_1_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_1.png"));
     page_by_2_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_2.png"));
@@ -708,7 +716,7 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);
     page_step_action_ = action;
 
-    auto shortcut = new QShortcut(Qt::Key_1, this);
+    shortcut = new QShortcut(Qt::Key_1, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, [this]() {
         config_.set_page_step_size(1);
@@ -727,11 +735,16 @@ void MusicReader::create_toolbar()
     zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.svg"));
     zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.svg"));
 
+
     action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
-    action->setToolTip("Toggle zoom to content");
+    action->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(action);
     zoom_in_out_action_ = action;
+
+    shortcut = new QShortcut(Qt::Key_Z, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
 
     action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
     action->setToolTip("Settings");
