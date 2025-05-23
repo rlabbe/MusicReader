@@ -210,47 +210,40 @@ void ConfigFile::read(bool reset_on_error)
         goto CLEANUP;
     }
 
-    if (j.contains("restore_window_position") && j["restore_window_position"].is_boolean()) {
+    if (j.contains("restore_window_position") && j["restore_window_position"].is_boolean())
         restore_window_position_ = j["restore_window_position"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'restore_window_position'");
-    }
 
-    if (j.contains("restore_documents") && j["restore_documents"].is_boolean()) {
+    if (j.contains("restore_documents") && j["restore_documents"].is_boolean())
         restore_documents_ = j["restore_documents"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'restore_documents'");
-    }
 
-    if (j.contains("zoom_to_content") && j["zoom_to_content"].is_boolean()) {
+    if (j.contains("zoom_to_content") && j["zoom_to_content"].is_boolean())
         zoom_to_content_ = j["zoom_to_content"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'zoom_to_content'");
-    }
 
-    if (j.contains("show_status_bar") && j["show_status_bar"].is_boolean()) {
+    if (j.contains("show_status_bar") && j["show_status_bar"].is_boolean())
         show_status_bar_ = j["show_status_bar"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'show_status_bar'");
-    }
 
-    if (j.contains("show_toolbar") && j["show_toolbar"].is_boolean()) {
+    if (j.contains("show_toolbar") && j["show_toolbar"].is_boolean())
         show_toolbar_ = j["show_toolbar"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'show_toolbar'");
-    }
 
-    if (j.contains("show_menu") && j["show_menu"].is_boolean()) {
+    if (j.contains("show_menu") && j["show_menu"].is_boolean())
         show_menu_ = j["show_menu"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'show_menu'");
-    }
 
-    if (j.contains("horiz_tabs") && j["horiz_tabs"].is_boolean()) {
+    if (j.contains("horiz_tabs") && j["horiz_tabs"].is_boolean())
         horiz_tabs_ = j["horiz_tabs"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'horiz_tabs'");
-    }
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
@@ -284,9 +277,8 @@ void ConfigFile::read(bool reset_on_error)
                 goto CLEANUP;
             }
         }
-    } else {
+    } else
         logger::error("Invalid or missing 'recent_documents'");
-    }
 
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
         bool app_size_valid = true;
@@ -303,9 +295,8 @@ void ConfigFile::read(bool reset_on_error)
             logger::error("Invalid entries in 'app_size'");
             app_size_ = { 0, 0, 640, 480 };
         }
-    } else {
+    } else
         logger::error("Invalid or missing 'app_size'");
-    }
 
     if (j.contains("toolbar_location") && j["toolbar_location"].is_number_integer()) {
         int toolbar_int = j["toolbar_location"].get<int>();
@@ -320,37 +311,43 @@ void ConfigFile::read(bool reset_on_error)
 
     if (j.contains("page_location") && j["page_location"].is_number_integer()) {
         int toolbar_int = j["page_location"].get<int>();
-        if (toolbar_int < 0 || toolbar_int > 1) {
+        if (toolbar_int < 0 || toolbar_int > 1)
             logger::error("Invalid value for 'page_location': " + std::to_string(toolbar_int));
-        } else
+        else
             page_location_ = (PageLocation)toolbar_int;
-    } else {
+    } else
         logger::error("Invalid or missing 'page_location'");
-    }
 
-    if (j.contains("page_view_count") && j["page_view_count"].is_number_integer()) {
+    if (j.contains("page_view_count") && j["page_view_count"].is_number_integer())
         page_view_count_ = j["page_view_count"].get<int>();
-    } else {
+    else
         logger::error("Invalid or missing 'page_view_count'");
-    }
 
-    if (j.contains("open_tab") && j["open_tab"].is_number_integer()) {
+    if (j.contains("page_step_size") && j["page_step_size"].is_number_integer()) {
+        page_step_size_ = j["page_step_size"].get<int>();
+        if (page_step_size_ < 1 || page_step_size_ > 2) {
+            logger::error("Invalid value for 'page_step_size': {}", page_step_size_);
+            page_view_count_ = 2;
+        }
+    } else
+        logger::error("Invalid or missing 'page_step_size'");
+
+
+    if (j.contains("open_tab") && j["open_tab"].is_number_integer())
         open_tab_ = j["open_tab"].get<int>();
-    } else {
+    else
         logger::error("Invalid or missing 'open_tab'");
-    }
 
-    if (j.contains("max_recent_documents") && j["max_recent_documents"].is_number_integer()) {
+    if (j.contains("max_recent_documents") && j["max_recent_documents"].is_number_integer())
         max_recent_documents_ = j["max_recent_documents"].get<int>();
-    } else {
+    else
         logger::error("Invalid or missing 'max_recent_documents'");
-    }
 
-    if (j.contains("save_cadence_secs") && j["save_cadence_secs"].is_number_integer()) {
+
+    if (j.contains("save_cadence_secs") && j["save_cadence_secs"].is_number_integer())
         save_cadence_secs_ = j["save_cadence_secs"].get<int>();
-    } else {
+    else
         logger::error("Invalid or missing 'save_cadence_secs'");
-    }
 
     if (j.contains("dpi")) {
         if (j["dpi"].is_number_integer())
@@ -360,20 +357,18 @@ void ConfigFile::read(bool reset_on_error)
     } else
         logger::error("Missing 'dpi', setting to 96");
 
-    if (j.contains("allow_oversize") && j["allow_oversize"].is_boolean()) {
+    if (j.contains("allow_oversize") && j["allow_oversize"].is_boolean())
         allow_oversize_ = j["allow_oversize"].get<bool>();
-    } else {
+    else
         logger::error("Invalid or missing 'allow_oversize'");
-    }
 
     if (j.contains("theme") && j["theme"].is_string()) {
         std::string theme_str = j["theme"].get<std::string>();
         if (!string_to_theme(theme_str, theme_)) {
             logger::error("Invalid value for 'theme': " + theme_str);
         }
-    } else {
+    } else
         logger::error("Invalid or missing 'theme'");
-    }
 
     // fast_search_dialog_size
     if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() && j["fast_search_dialog_size"].size() == 4) {
@@ -391,29 +386,27 @@ void ConfigFile::read(bool reset_on_error)
             logger::error("Invalid entries in 'fast_search_dialog_size'");
             fast_search_dialog_size_ = { 100, 100, 480, 320 };
         }
-    } else {
+    } else
         logger::error("Invalid or missing 'fast_search_dialog_size'");
-    }
 
-    if (j.contains("border_margin") && j["border_margin"].is_number_integer()) {
+
+    if (j.contains("border_margin") && j["border_margin"].is_number_integer())
         border_margin_ = j["border_margin"].get<int>();
-    } else {
+    else
         logger::error("Invalid or missing 'border_margin'");
-    }
 
-    if (j.contains("music_directory") && j["music_directory"].is_string()) {
+
+    if (j.contains("music_directory") && j["music_directory"].is_string())
         music_directory_ = std::filesystem::path(j["music_directory"].get<std::string>());
-    } else {
+    else
         logger::error("Invalid or missing 'music_directory'");
-    }
 
     if (j.contains("log_level") && j["log_level"].is_string()) {
         std::string log_level_str = j["log_level"].get<std::string>();
-        if (!string_to_log_level(log_level_str, log_level_)) {
+        if (!string_to_log_level(log_level_str, log_level_))
             logger::error("Invalid value for 'log_level': " + log_level_str);
-        }
-    } else {
-        logger::error("Invalid or missing 'log_level'");
+        else
+            logger::error("Invalid or missing 'log_level'");
     }
 
     // sanity check
@@ -429,6 +422,7 @@ CLEANUP:
         save();
     }
 }
+
 
 json ConfigFile::to_json() const
 {
@@ -460,6 +454,7 @@ json ConfigFile::to_json() const
     j["toolbar_location"] = static_cast<int>(toolbar_location_);
     j["page_location"] = static_cast<int>(page_location_);
     j["page_view_count"] = page_view_count_;
+    j["page_step_size"] = page_step_size_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;
     j["save_cadence_secs"] = save_cadence_secs_;
@@ -499,44 +494,25 @@ void ConfigFile::save() const
 // Validation method
 bool ConfigFile::validate() const
 {
-    // Validate file_version
     if (file_version_ <= 0) return false;
 
-    // Validate page_view_count
     if (page_view_count_ != 1 && page_view_count_ != 2) return false;
-
-    // Validate open_tab
+    if (page_step_size_ != 1 && page_step_size_ != 2) return false;
     if (open_tab_ < -1) return false;
-
-    // Validate max_recent_documents
     if (max_recent_documents_ < 0) return false;
-
-    // Validate save_cadence_secs
     if (save_cadence_secs_ < 0) return false;
-
-    // Validate dpi
     if (dpi_ < 1) return false;
-
-    // Validate theme
     if (!(theme_ == Theme::Dark || theme_ == Theme::Light)) return false;
-
-    // Validate log_level
     if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic)) return false;
 
-    // Validate toolbar_location
     if (!(toolbar_location_ == ToolbarLocation::Top ||
           toolbar_location_ == ToolbarLocation::Bottom ||
           toolbar_location_ == ToolbarLocation::Left ||
           toolbar_location_ == ToolbarLocation::Right)) return false;
 
     if (!(page_location_ == PageLocation::Left || page_location_ == PageLocation::Center)) return false;
-
-    // Validate app_size
     if (!valid_window_rect(app_size_)) return false;
-
-    // Validate fast_search_dialog_size
     if (!valid_window_rect(fast_search_dialog_size_)) return false;
-
     return true;
 }
 
@@ -595,8 +571,9 @@ void ConfigFile::set_defaults()
     recent_documents_.clear();
     app_size_ = { 10, 10, 640, 480 };
     toolbar_location_ = ToolbarLocation::Left;
-    page_location_= PageLocation::Center;
+    page_location_ = PageLocation::Center;
     page_view_count_ = 2;
+    page_step_size_ = 2;
     open_tab_ = 0;
     max_recent_documents_ = 20;
     save_cadence_secs_ = 15;
@@ -641,6 +618,7 @@ std::string ConfigFile::repr() const
     j["toolbar_location"] = (int)(toolbar_location_);
     j["page_location"] = (int)(page_location_);
     j["page_view_count"] = page_view_count_;
+    j["page_step_size"] = page_step_size_;
     j["open_tab"] = open_tab_;
     j["max_recent_documents"] = max_recent_documents_;
     j["save_cadence_secs"] = save_cadence_secs_;
@@ -681,13 +659,13 @@ void ConfigFile::remove_duplicate_documents()
 {
     // Remove duplicates in open_documents
     open_documents_.erase(std::unique(open_documents_.begin(), open_documents_.end(),
-                                     [&](const OpenDocument &a, const OpenDocument &b) -> bool {
+                                      [&](const OpenDocument &a, const OpenDocument &b) -> bool {
         return point_to_same_file(a.filename, b.filename);
     }), open_documents_.end());
 
     // Remove duplicates in recent_documents
     recent_documents_.erase(std::unique(recent_documents_.begin(), recent_documents_.end(),
-                                       [&](const std::filesystem::path &a, const std::filesystem::path &b) -> bool {
+                                        [&](const std::filesystem::path &a, const std::filesystem::path &b) -> bool {
         return point_to_same_file(a, b);
     }), recent_documents_.end());
 }

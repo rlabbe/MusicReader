@@ -111,6 +111,8 @@ private:
 
     bool in_single_page_mode() const;
     void toggle_page_zoom();
+    void toggle_page_step();
+
 
     void on_close_tab(int index);
     void update_title(int index = 0);
@@ -149,6 +151,7 @@ private:
     QAction *dark_theme_menu_item_ = nullptr;
     QToolBar *toolbar_ = nullptr;
     QAction *view_toggle_action_ = nullptr;
+    QAction *page_step_action_ = nullptr;
     QAction *zoom_in_out_action_ = nullptr;
     QAction *margin_action_ = nullptr;
     QAction *statusbar_menu_action_ = nullptr;
@@ -158,6 +161,9 @@ private:
     QIcon double_icon_;
     QIcon zoomin_icon_;
     QIcon zoomout_icon_;
+    QIcon page_by_1_icon_;
+    QIcon page_by_2_icon_;
+
     QTimer *timer_ = nullptr;
     FullscreenExitButton *exit_button_ = nullptr;
     bool has_full_menu_bar_ = true;

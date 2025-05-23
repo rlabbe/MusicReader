@@ -699,6 +699,31 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);
     view_toggle_action_ = action;
 
+    page_by_1_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_1.png"));
+    page_by_2_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_2.png"));
+
+    action = new QAction(config_.page_step_size() == 1? page_by_1_icon_ : page_by_2_icon_, "", this);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
+    action->setToolTip("Page Step (1)");
+    toolbar_->addAction(action);
+    page_step_action_ = action;
+
+    auto shortcut = new QShortcut(Qt::Key_1, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        config_.set_page_step_size(1);
+        page_step_action_->setIcon(page_by_1_icon_);
+        page_step_action_->setToolTip("Page Step (1)");
+    });
+
+    shortcut = new QShortcut(Qt::Key_2, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        config_.set_page_step_size(2);
+        page_step_action_->setIcon(page_by_2_icon_);
+        page_step_action_->setToolTip("Page Step (2)");
+    });
+
     zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.svg"));
     zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.svg"));
 
@@ -769,6 +794,24 @@ void MusicReader::toggle_page_zoom()
 
     refresh_all_documents();
 }
+
+
+void MusicReader::toggle_page_step()
+{
+    SAFE_METHOD;
+
+    config_.toggle_page_step_size();
+
+    // Update the icon
+    if (config_.page_step_size() == 1) {
+        page_step_action_->setIcon(page_by_1_icon_);
+        page_step_action_->setToolTip("Page Step (1)");
+    } else {
+        page_step_action_->setIcon(page_by_2_icon_);
+        page_step_action_->setToolTip("Page Step (2)");
+    }
+}
+
 
 PDFViewer *MusicReader::current_tab() const
 {

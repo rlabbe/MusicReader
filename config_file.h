@@ -71,6 +71,7 @@ private:
     ToolbarLocation toolbar_location_ = ToolbarLocation::Left;
     PageLocation page_location_ = PageLocation::Center;
     int page_view_count_ = 2;
+    int page_step_size_ = 2; // when in 2 page view, this is the number of pages to step on page up/down.
     int open_tab_ = -1;
     int max_recent_documents_ = 20;
     int save_cadence_secs_ = 15;
@@ -133,6 +134,10 @@ public:
     // 1 or 2
     int page_view_count() const { return page_view_count_; }
     void set_page_view_count(int value) { page_view_count_ = value; save(); }
+
+    int page_step_size() const { return page_step_size_; }
+    void set_page_step_size(int value) { page_step_size_ = value; save(); }
+    void toggle_page_step_size() { page_step_size_ = (page_step_size_ == 1) ? 2 : 1; save(); }
 
     // -1 or >=0
     int open_tab() const { return open_tab_; }

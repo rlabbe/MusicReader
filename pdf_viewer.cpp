@@ -88,13 +88,16 @@ void PDFViewer::refresh()
 void PDFViewer::page_up()
 {
     SAFE_METHOD;
-    change_page(in_single_page_view() ? -1 : -2);
+    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
+
+    change_page(single_page ? -1 : -2);
 }
 
 void PDFViewer::page_down()
 {
     SAFE_METHOD;
-    change_page(in_single_page_view() ? 1 : 2);
+    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
+    change_page(single_page ? 1 : 2);
 }
 
 void PDFViewer::change_page(int step)
