@@ -131,8 +131,47 @@ void MusicReader::setup_UI()
     // asynchronously, because it can take many seconds to populate all the
     // files.
     initialize_fast_search();
+
+    setAcceptDrops(true);
 }
 
+void MusicReader::dragEnterEvent(QDragEnterEvent *event)
+{
+    SAFE_METHOD;
+
+    if (event->mimeData()->hasUrls()) {
+        // Check if any URLs are PDF files
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                QString file_path = url.toLocalFile();
+                if (file_path.toLower().endsWith(".pdf")) {
+                    event->acceptProposedAction();
+                    return;
+                }
+            }
+        }
+    }
+    event->ignore();
+}
+
+void MusicReader::dropEvent(QDropEvent *event)
+{
+    SAFE_METHOD;
+
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                QString file_path = url.toLocalFile();
+                if (file_path.toLower().endsWith(".pdf")) {
+                    open_pdf_in_tab(file_path.toStdString());
+                }
+            }
+        }
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
 
 bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 {
