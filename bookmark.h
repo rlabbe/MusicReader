@@ -129,10 +129,6 @@ std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline);
 std::string to_json(std::vector<Bookmark> &bookmarks) noexcept;
 std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks);
 
-// Converts a vector of Bookmark objects to a Python list string to be
-// used by an external python utility to write bookmarks.
-std::string as_python_list(const std::vector<Bookmark> &bookmarks);
-
 
 inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
 {

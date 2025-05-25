@@ -1,12 +1,24 @@
 #include "musicreader.h"
 #include <QtWidgets/QApplication>
 #include "logger.h"
-#include "bookmark_setter.h"
+#include <iostream>
+
+#pragma warning(disable: 4611) 
+#pragma warning(push,1)
+#include <mupdf/fitz.h>
+#include <mupdf/pdf.h>
+#pragma warning(pop)
+
+#include <vector>
+#include <string>
+#include <tuple>
+
+
+
 
 
 BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 {
-    BookmarkSetter::shutdown();
     return FALSE; // Allow default behavior (process exits)
 }
 
@@ -14,7 +26,6 @@ BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 int main(int argc, char *argv[])
 {
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
-    BookmarkSetter::startup();
 
     int result = 0;
     {
@@ -30,7 +41,6 @@ int main(int argc, char *argv[])
         result = app.exec();
     }
     logger::shutdown();
-    BookmarkSetter::shutdown();
 
     return result;
 }

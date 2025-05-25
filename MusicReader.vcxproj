@@ -205,7 +205,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bookmark_setter.cpp" />
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
@@ -222,8 +221,10 @@
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="musicreader.cpp" />
     <ClCompile Include="main.cpp">
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Level4</WarningLevel>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Level3</WarningLevel>
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">Level4</WarningLevel>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Level3</WarningLevel>
+      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</TreatWarningAsError>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -237,7 +238,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bookmark.h" />
-    <ClInclude Include="bookmark_setter.h" />
     <ClInclude Include="border.h" />
     <QtMoc Include="config_dialog.h" />
     <ClInclude Include="config_file.h" />

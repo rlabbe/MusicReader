@@ -6,8 +6,10 @@
 #include <utility>
 #include <string>
 #include <atomic>
+#include <vector>
 #include <excpt.h>
 #include <QImage>
+#include "bookmark.h"
 
 
 // cannot have constructor/destructor or unique_ptr, because being used inside __try
@@ -30,3 +32,17 @@ extern void close_fitz(fz_context *ctx, fz_document *doc);
 // exit as soon as possible to make ui as fast as possible.
 extern QImage::Format image_format(const PixmapData &data);
 extern PixmapData render_page_seh(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now);
+
+
+enum class BookmarkResult {
+    Success,
+    ContextCreationFailed,
+    DocumentOpenFailed,
+    NotPdfDocument,
+    NoDocumentRoot,
+    SaveFailed,
+    MuPdfException
+};
+
+BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
+                                    const std::vector<Bookmark> &bookmarks);

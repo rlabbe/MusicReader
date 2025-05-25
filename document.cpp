@@ -8,7 +8,6 @@
 #include "logger.h"
 #include "fitz_utils.h"
 #include "bookmark.h"
-#include "bookmark_setter.h"
 
 #if !defined(NDEBUG)
 #pragma warning(push)
@@ -439,7 +438,7 @@ void Document::load_document()
             std::lock_guard lock(read_mutex_);
             pages_[i] = Page(img, page_num, false);
         }
-        logger::debug("{} emitting page_loaded({})", filename_.string(), page_num);
+        //logger::debug("{} emitting page_loaded({})", filename_.string(), page_num);
         emit page_loaded(page_num);
     }
     // may have terminated, this just means the function is done.
@@ -673,14 +672,23 @@ bool Document::save()
         is_saving_ = true;
     }
 
-    std::string marks;
+    std::vector<Bookmark> bookmarks_copy;
     {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-        marks = as_python_list(bookmarks_);
+        bookmarks_copy = bookmarks_;  // Make a copy to avoid holding the lock during save
         modified_ = false;
     }
 
-    bool result = BookmarkSetter::send(filename_, marks);
+    BookmarkResult result = add_bookmarks_to_pdf(filename_.string(), bookmarks_copy);
+    bool success = (result == BookmarkResult::Success);
+
+    if (!success) {
+        logger::error("Failed to save bookmarks to {}: error code {}",
+                     filename_.string(), static_cast<int>(result));
+        // Restore modified state if save failed
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        modified_ = true;
+    }
 
     {
         std::lock_guard<std::mutex> lock(save_state_mutex_);
@@ -688,10 +696,8 @@ bool Document::save()
     }
     save_cv_.notify_all();
 
-    return result == 0;
+    return success;
 }
-
-
 void save_annotations(fz_context *, fz_document *)
 {
     //TODO

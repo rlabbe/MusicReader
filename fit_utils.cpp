@@ -1,7 +1,11 @@
 #include "fitz_utils.h"
+#include <format>
+
+#pragma warning(push,1)
+#include <mupdf/pdf.h>
+#pragma warning(pop)
 
 #include "logger.h"
-#include <format>
 #pragma warning(disable : 4611) // disable warning about _setjump not working with c++ destructors
 
 
@@ -122,4 +126,156 @@ QImage::Format image_format(const PixmapData &data)
 
     // Default case
     return QImage::Format_RGB888;
+}
+
+
+
+
+
+BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
+                                   const std::vector<Bookmark> &bookmarks)
+{
+    fz_context *ctx = nullptr;
+    fz_document *fz_doc = nullptr;
+    pdf_document *pdf = nullptr;
+
+    ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx) {
+        return BookmarkResult::ContextCreationFailed;
+    }
+
+    fz_register_document_handlers(ctx);
+
+    fz_try(ctx)
+    {
+        fz_doc = fz_open_document(ctx, pdf_filename.c_str());
+        if (!fz_doc) {
+            fz_drop_context(ctx);
+            return BookmarkResult::DocumentOpenFailed;
+        }
+
+        pdf = pdf_specifics(ctx, fz_doc);
+        if (!pdf) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return BookmarkResult::NotPdfDocument;
+        }
+
+        // Get document root
+        pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, pdf), PDF_NAME(Root));
+        if (!root) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return BookmarkResult::NoDocumentRoot;
+        }
+
+        // Remove existing outline if it exists
+        pdf_obj *existing_outlines = pdf_dict_get(ctx, root, PDF_NAME(Outlines));
+        if (existing_outlines) {
+            pdf_dict_del(ctx, root, PDF_NAME(Outlines));
+        }
+
+        // If not empty vector, create new outline structure
+        if (!bookmarks.empty()) {
+            pdf_obj *outlines_dict = pdf_new_dict(ctx, pdf, 3);
+            pdf_obj *outlines = pdf_add_object(ctx, pdf, outlines_dict);
+            pdf_drop_obj(ctx, outlines_dict);
+
+            pdf_dict_put(ctx, root, PDF_NAME(Outlines), outlines);
+            pdf_dict_put(ctx, outlines, PDF_NAME(Type), PDF_NAME(Outlines));
+
+            // Recursive function to create bookmark items
+            std::function<pdf_obj *(const std::vector<Bookmark> &, pdf_obj *)> create_bookmarks =
+                [&](const std::vector<Bookmark> &bmarks, pdf_obj *parent) -> pdf_obj * {
+
+                pdf_obj *first = nullptr;
+                pdf_obj *last = nullptr;
+                int count = 0;
+
+                for (const auto &bookmark : bmarks) {
+                    // Create bookmark item as indirect object
+                    pdf_obj *item_dict = pdf_new_dict(ctx, pdf, 6);
+                    pdf_obj *item = pdf_add_object(ctx, pdf, item_dict);
+                    pdf_drop_obj(ctx, item_dict);
+
+                    // Set title
+                    pdf_dict_put_text_string(ctx, item, PDF_NAME(Title), bookmark.title_.c_str());
+
+                    // Set destination if page number exists
+                    if (bookmark.page_num_.has_value()) {
+                        pdf_obj *dest_array = pdf_new_array(ctx, pdf, 2);
+                        pdf_obj *page_ref = pdf_lookup_page_obj(ctx, pdf, bookmark.page_num_.value() - 1);
+                        if (page_ref) {
+                            pdf_array_push(ctx, dest_array, page_ref);
+                            pdf_array_push(ctx, dest_array, PDF_NAME(Fit));
+                            pdf_dict_put(ctx, item, PDF_NAME(Dest), dest_array);
+                        }
+                    }
+
+                    // Set parent
+                    pdf_dict_put(ctx, item, PDF_NAME(Parent), parent);
+
+                    // Handle children
+                    if (!bookmark.children_.empty()) {
+                        pdf_obj *child_first = create_bookmarks(bookmark.children_, item);
+                        if (child_first) {
+                            pdf_dict_put(ctx, item, PDF_NAME(First), child_first);
+                            // Find last child
+                            pdf_obj *child_last = child_first;
+                            while (pdf_dict_get(ctx, child_last, PDF_NAME(Next))) {
+                                child_last = pdf_dict_get(ctx, child_last, PDF_NAME(Next));
+                            }
+                            pdf_dict_put(ctx, item, PDF_NAME(Last), child_last);
+                            pdf_dict_put_int(ctx, item, PDF_NAME(Count), static_cast<int>(bookmark.children_.size()));
+                        }
+                    }
+
+                    // Link siblings
+                    if (!first) {
+                        first = item;
+                    } else {
+                        pdf_dict_put(ctx, last, PDF_NAME(Next), item);
+                        pdf_dict_put(ctx, item, PDF_NAME(Prev), last);
+                    }
+                    last = item;
+                    count++;
+                }
+
+                // Update parent's count
+                if (first) {
+                    pdf_dict_put_int(ctx, parent, PDF_NAME(Count), count);
+                }
+
+                return first;
+            };
+
+            // Create all bookmarks
+            pdf_obj *first_bookmark = create_bookmarks(bookmarks, outlines);
+            if (first_bookmark) {
+                pdf_dict_put(ctx, outlines, PDF_NAME(First), first_bookmark);
+
+                // Find last top-level bookmark
+                pdf_obj *last_bookmark = first_bookmark;
+                while (pdf_dict_get(ctx, last_bookmark, PDF_NAME(Next))) {
+                    last_bookmark = pdf_dict_get(ctx, last_bookmark, PDF_NAME(Next));
+                }
+                pdf_dict_put(ctx, outlines, PDF_NAME(Last), last_bookmark);
+            }
+        }
+
+        // Save document incrementally
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, pdf_filename.c_str(), &opts);
+    }
+    fz_catch(ctx)
+    {
+        if (fz_doc) fz_drop_document(ctx, fz_doc);
+        fz_drop_context(ctx);
+        return BookmarkResult::MuPdfException;
+    }
+
+    if (fz_doc) fz_drop_document(ctx, fz_doc);
+    fz_drop_context(ctx);
+    return BookmarkResult::Success;
 }

@@ -70,9 +70,6 @@
     <ClCompile Include="fast_file_search_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bookmark_setter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="fit_utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,9 +147,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fitz_utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="bookmark_setter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="log_timer.h">
