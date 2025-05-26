@@ -2,6 +2,8 @@
 
 #include <string>
 #include <vector>
+#include "font_info.h"
+
 
 class AnnotationHandle {
 public:
@@ -25,7 +27,6 @@ inline bool operator==(const AnnotationHandle &lhs, const AnnotationHandle &rhs)
     return static_cast<int>(lhs) == static_cast<int>(rhs);
 }
 
-#include "font_info.h"
 
 class Annotation {
 public:
@@ -43,10 +44,3 @@ public:
     float width_, height_;
     bool visible_ = true;
 };
-
-// Forward declarations
-struct fz_document;
-struct fz_context;
-
-// Convert MuPDF annotations to our format
-std::vector<Annotation> load_annotations_from_pdf(fz_context *ctx, fz_document *doc);

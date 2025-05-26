@@ -103,6 +103,9 @@ private:
 
     std::vector<PageInfo> page_info_;
 
+    static std::vector<Annotation> load_annotations_from_pdf(fz_context *ctx, fz_document *doc);
+        
+
     bool reparent_bookmark(Bookmark bookmark,
                            const BookmarkHandle &new_parent_handle,
                            bool internal_call);
