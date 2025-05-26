@@ -13,6 +13,8 @@
 #include <string>
 #include <tuple>
 
+#include "fitz_utils.h"
+
 
 
 

@@ -790,6 +790,19 @@ void MusicReader::create_toolbar()
     connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
     toolbar_->addAction(action);
 
+    // Add this after the settings button and before the margin action:
+    action = new QAction(QIcon(), "T", this);
+    action->setToolTip("Text annotation mode (T)");
+    action->setCheckable(true);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
+    toolbar_->addAction(action);
+    text_annotation_action_ = action;
+
+    // Add T shortcut
+    shortcut = new QShortcut(Qt::Key_T, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
+
     /* TODO
     action = new QAction(QIcon(QPixmap(":/MusicReader/images/border.svg")), "", this);
     action->setCheckable(true);
@@ -1279,7 +1292,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
 
     if (!viewer) {
         QWidget *tab = new QWidget();
-        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab);
+        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this);
 
         QVBoxLayout *layout = new QVBoxLayout();
         layout->setContentsMargins(0, 0, 0, 0);
@@ -1614,7 +1627,7 @@ void MusicReader::restore_open_documents()
         }
         documents.push_back(doc);
 
-        PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab);
+        PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab, this);
         viewers.push_back(viewer);
 
         QVBoxLayout *layout = new QVBoxLayout();
@@ -1774,4 +1787,25 @@ void MusicReader::copy_log_to_clipboard()
     GlobalUnlock(hglob);
     SetClipboardData(CF_TEXT, hglob);
     CloseClipboard();
+}
+
+
+void MusicReader::on_annotation_mode_changed(bool enabled)
+{
+    std::cout << "MusicReader::on_annotation_mode_changed\n";
+    text_annotation_mode_ = enabled;
+    text_annotation_action_->setChecked(enabled);
+}
+
+
+void MusicReader::toggle_text_annotation_mode()
+{
+    SAFE_METHOD;
+
+    text_annotation_mode_ = !text_annotation_mode_;
+    text_annotation_action_->setChecked(text_annotation_mode_);
+
+    auto viewer = current_viewer();
+    if (viewer) 
+        viewer->set_text_annotation_mode(text_annotation_mode_);
 }

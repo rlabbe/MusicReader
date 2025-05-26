@@ -8,12 +8,16 @@
 #include "log_timer.h"
 #include "exception_logger.h"
 #include "requires.h"
+#include "fitz_utils.h"
+#include "in_place_annotation_editor.h"
+#include "musicreader.h"
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config,
                      int page,
                      StatusBar *sbar,
-                     QWidget *parent)
+                     QWidget *parent,
+                     MusicReader *reader)
     : QWidget(parent)
     , document_(document)
     , status_bar_(sbar)
@@ -27,6 +31,8 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
         connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
         get_page(page);
     }
+
+    connect(this, &PDFViewer::annotation_mode_changed, reader, &MusicReader::on_annotation_mode_changed);
 
     //TODO Qt6 might use QEvent::ApplicationPaletteChange
     /*
@@ -227,6 +233,12 @@ void PDFViewer::init_ui(int page)
 
     layout_->addWidget(label_, 1);  // Stretch document display
     layout_->addWidget(scrollbar_);
+
+    annotation_editor_ = new InPlaceAnnotationEditor(annotation_font_, this);
+    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_finished,
+            this, &PDFViewer::on_annotation_text_finished);
+    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_cancelled,
+            this, &PDFViewer::on_annotation_text_cancelled);
 
     setLayout(layout_);
     update_scrollbar_visibility();
@@ -571,4 +583,100 @@ bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) co
         zoom_to_content == config.zoom_to_content() &&
         border_margin == config.border_margin() &&
         !rendered.isNull();
+}
+
+
+
+
+void PDFViewer::set_text_annotation_mode(bool enabled)
+{
+    SAFE_METHOD;
+    text_annotation_mode_ = enabled;
+    setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
+}
+
+
+void PDFViewer::mousePressEvent(QMouseEvent *event)
+{
+    SAFE_METHOD;
+    if (!document_) return;
+    if (page_.is_empty()) return;
+
+    if (event->button() == Qt::LeftButton && text_annotation_mode_) {
+        QPixmap displayed = label_->pixmap();
+        last_click_target_ = get_click_target(event);
+
+        // Position editor directly at click point (screen coordinates)
+        annotation_editor_->start_editing(event->pos());
+
+        event->accept();
+        return;
+    }   
+    
+    QWidget::mousePressEvent(event);
+}
+
+
+void PDFViewer::on_annotation_text_finished(const QString &text)
+{
+    if (!text.trimmed().isEmpty() && last_click_target_.page_num > 0) {
+        QSize size = calculate_text_size(text, annotation_font_);
+        Annotation annotation(text.toStdString(), last_click_target_.page_num,
+                            last_click_target_.points_x, last_click_target_.points_y,
+                            static_cast<float>(size.width()), static_cast<float>(size.height()),
+                            annotation_font_);
+        document_->add_annotation(annotation);
+    }
+
+    text_annotation_mode_ = false;
+    setCursor(Qt::ArrowCursor);
+    std::cout << "Annotation text finished: " << text.toStdString() << std::endl;
+    emit annotation_mode_changed(false);
+}
+
+void PDFViewer::on_annotation_text_cancelled()
+{
+    text_annotation_mode_ = false;
+    setCursor(Qt::ArrowCursor);
+    emit annotation_mode_changed(false);
+}
+
+
+PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
+{
+    if (!document_ || page_.is_empty())
+        return { 0, 0.0f, 0.0f };
+
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return { 0, 0.0f, 0.0f };
+
+    int target_page = current_page();
+    int mouse_x = event->pos().x();
+    int mouse_y = event->pos().y();
+    int display_width = displayed.width();
+    int display_height = displayed.height();
+
+    bool double_page = in_double_page_view();
+    if (double_page)
+        display_width /= 2;
+    if (double_page && mouse_x > display_width) {
+        target_page++;
+        mouse_x -= display_width;
+    }
+
+    int pixel_width = double_page ? page_.width() / 2 : page_.width();
+    int pixel_height = page_.height();
+
+    float scale_x = float(pixel_width) / display_width;
+    float scale_y = float(pixel_height) / display_height;
+    int scaled_mouse_x = int(mouse_x * scale_x);
+    int scaled_mouse_y = int(mouse_y * scale_y);
+
+    auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(target_page);
+    auto [points_x, points_y] = pixels_to_pdf_points(scaled_mouse_x, scaled_mouse_y,
+                                                     pixel_width, pixel_height,
+                                                     pdf_width_points, pdf_height_points);
+
+    return { target_page, points_x, points_y };
 }

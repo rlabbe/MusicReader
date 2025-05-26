@@ -73,6 +73,12 @@
     <ClCompile Include="fit_utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="annotation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="in_place_annotation_editor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -106,6 +112,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="document.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="in_place_annotation_editor.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -153,6 +162,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="requires.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="annotation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="font_info.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

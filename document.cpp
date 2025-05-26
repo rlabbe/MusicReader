@@ -8,6 +8,9 @@
 #include "logger.h"
 #include "fitz_utils.h"
 #include "bookmark.h"
+#pragma warning(push,1)
+#include <mupdf/pdf.h>
+#pragma warning(pop)
 
 #if !defined(NDEBUG)
 #pragma warning(push)
@@ -380,12 +383,31 @@ void Document::load_document()
         if (outline) {
             bookmarks_ = convert_outline_to_bookmarks(outline);
         }
+        annotations_ = load_annotations_from_pdf(ctx, doc);
     }
     fz_catch(ctx)
     {
         logger::error("MuPDF exception while loading bookmarks{}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
         close_fitz(ctx, doc);
         return;
+    }
+
+    // Cache page dimensions in points
+    page_info_.resize(total_pages);
+    for (int i = 0; i < total_pages; ++i) {
+        fz_page *page = nullptr;
+        fz_try(ctx)
+        {
+            page = fz_load_page(ctx, doc, i);
+            fz_rect bounds = fz_bound_page(ctx, page);
+            page_info_[i] = { i + 1, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0 };
+            fz_drop_page(ctx, page);
+        }
+        fz_catch(ctx)
+        {
+            if (page) fz_drop_page(ctx, page);
+            page_info_[i] = { i + 1, 612.0f, 792.0f }; // Default letter size
+        }
     }
     close_fitz(ctx, doc);
     emit bookmarks_loaded();
@@ -450,6 +472,132 @@ void Document::load_document()
     load_cv_.notify_all();
 }
 
+std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
+{
+    if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
+        return { 0.0f, 0.0f };
+
+    const auto &info = page_info_[page_num - 1];
+    return { info.width_points, info.height_points };
+}
+
+
+bool Document::save_annotations_to_pdf()
+{
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc) {
+        logger::error("Failed to open document for annotation saving: {}", filename_.string());
+        return false;
+    }
+
+    pdf_document *pdf = pdf_specifics(ctx, doc);
+    if (!pdf) {
+        logger::error("Not a PDF document: {}", filename_.string());
+        close_fitz(ctx, doc);
+        return false;
+    }
+
+    bool success = false;
+    fz_try(ctx)
+    {
+        int page_count = fz_count_pages(ctx, doc);
+
+
+        // Remove all existing FreeText annotations
+        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
+            pdf_obj *page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
+            if (!page_obj) continue;
+
+            pdf_obj *annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+            if (!annots) continue;
+
+            // Work directly with the existing annotations array
+            int annot_count = pdf_array_len(ctx, annots);
+
+            // Remove FreeText annotations by iterating backwards
+            for (int i = annot_count - 1; i >= 0; --i) {
+                pdf_obj *annot_ref = pdf_array_get(ctx, annots, i);
+                pdf_obj *annot = pdf_resolve_indirect(ctx, annot_ref);
+
+                if (annot) {
+                    pdf_obj *subtype = pdf_dict_get(ctx, annot, PDF_NAME(Subtype));
+                    if (pdf_name_eq(ctx, subtype, PDF_NAME(FreeText))) {
+                        pdf_array_delete(ctx, annots, i);
+                    }
+                }
+            }
+        }
+
+        // Add all our annotations
+        for (const auto &annotation : annotations_) {
+            pdf_obj *page_obj = pdf_lookup_page_obj(ctx, pdf, annotation.page_num_ - 1);
+            if (!page_obj) continue;
+
+            // Create annotation
+            pdf_obj *annot_dict = pdf_new_dict(ctx, pdf, 10);
+            pdf_obj *annot = pdf_add_object(ctx, pdf, annot_dict);
+            pdf_drop_obj(ctx, annot_dict);
+
+            pdf_dict_put(ctx, annot, PDF_NAME(Type), PDF_NAME(Annot));
+            pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
+
+            // Set rectangle
+            pdf_obj *rect = pdf_new_array(ctx, pdf, 4);
+            pdf_array_push_real(ctx, rect, annotation.x_);                     // left
+            pdf_array_push_real(ctx, rect, annotation.y_ - annotation.height_); // bottom = y - height  
+            pdf_array_push_real(ctx, rect, annotation.x_ + annotation.width_);  // right
+            pdf_array_push_real(ctx, rect, annotation.y_);                     // top = y
+            pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
+
+            logger::info("SAVE: page={}, x={}, y={}, w={}, h={}, text='{}', font='{}' {:.1f}pt, color=({},{},{})",
+    annotation.page_num_, annotation.x_, annotation.y_, annotation.width_, annotation.height_,
+    annotation.text_, annotation.font_info_.family.toStdString(), annotation.font_info_.size,
+    annotation.font_info_.color.red(), annotation.font_info_.color.green(), annotation.font_info_.color.blue());
+
+
+            pdf_dict_put_text_string(ctx, annot, PDF_NAME(Contents), annotation.text_.c_str());
+            pdf_dict_put(ctx, annot, PDF_NAME(P), page_obj);
+            pdf_dict_put_int(ctx, annot, PDF_NAME(F), 4);
+
+            // Set default appearance
+            char da_buf[256];
+            auto& font = annotation.font_info_;
+
+            snprintf(da_buf, sizeof(da_buf), "/%s %.1f Tf %.3f %.3f %.3f rg",
+                    font.family.toUtf8().constData(), font.size,
+                    font.color.red() / 255.0f, font.color.green() / 255.0f, font.color.blue() / 255.0f);
+            pdf_dict_put_text_string(ctx, annot, PDF_NAME(DA), da_buf);
+
+            pdf_dict_put_int(ctx, annot, PDF_NAME(Q), 0);
+
+            pdf_obj *bs_dict = pdf_new_dict(ctx, pdf, 2);
+            pdf_dict_put_int(ctx, bs_dict, PDF_NAME(W), 0);
+            pdf_dict_put(ctx, annot, PDF_NAME(BS), bs_dict);
+
+            // Add to page
+            pdf_obj *annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+            if (!annots) {
+                annots = pdf_new_array(ctx, pdf, 1);
+                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), annots);
+            }
+            pdf_array_push(ctx, annots, annot);
+        }
+
+        // Save incrementally
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, filename_.string().c_str(), &opts);
+        success = true;
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception while saving annotations for {}: {}",
+                     filename_.string(), fz_caught_message(ctx));
+    }
+
+    close_fitz(ctx, doc);
+    return success;
+}
 
 
 Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
@@ -673,18 +821,28 @@ bool Document::save()
     }
 
     std::vector<Bookmark> bookmarks_copy;
+    std::vector<Annotation> annotations_copy;
     {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-        bookmarks_copy = bookmarks_;  // Make a copy to avoid holding the lock during save
+        bookmarks_copy = bookmarks_;
+        annotations_copy = annotations_;
         modified_ = false;
     }
 
-    BookmarkResult result = add_bookmarks_to_pdf(filename_.string(), bookmarks_copy);
-    bool success = (result == BookmarkResult::Success);
+    BookmarkResult bookmark_result = add_bookmarks_to_pdf(filename_.string(), bookmarks_copy);
+    bool success = (bookmark_result == BookmarkResult::Success);
+
+    if (success) {
+        success = save_annotations_to_pdf();
+        if (!success) {
+            logger::error("Failed to save annotations to {}", filename_.string());
+        }
+    } else {
+        logger::error("Failed to save bookmarks to {}: error code {}",
+                     filename_.string(), static_cast<int>(bookmark_result));
+    }
 
     if (!success) {
-        logger::error("Failed to save bookmarks to {}: error code {}",
-                     filename_.string(), static_cast<int>(result));
         // Restore modified state if save failed
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
         modified_ = true;
@@ -698,11 +856,6 @@ bool Document::save()
 
     return success;
 }
-void save_annotations(fz_context *, fz_document *)
-{
-    //TODO
-}
-
 
 void Document::clear_completed_features()
 {
@@ -757,5 +910,101 @@ void Document::redo()
 }
 
 
+Annotation *Document::find_annotation(const AnnotationHandle &handle)
+{
+    for (auto &annotation : annotations_) {
+        if (annotation.handle_ == handle) return &annotation;
+    }
+    return nullptr;
+}
+
+bool Document::add_annotation(const Annotation &annotation)
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    annotations_.push_back(annotation);
+    modified_ = true;
+
+    bool save_success = save();
+    reload_page(annotation.page_num_);
+    return save_success;
+}
+
+bool Document::remove_annotation(const AnnotationHandle &handle)
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    auto it = std::remove_if(annotations_.begin(), annotations_.end(),
+                            [&](const Annotation &a) { return a.handle_ == handle; });
+    if (it != annotations_.end()) {
+        int page_num = it->page_num_;
+        annotations_.erase(it, annotations_.end());
+        modified_ = true;
+        bool save_success = save();
+        reload_page(page_num);
+        return save_success;
+    }
+    return false;
+}
+
+bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::string &new_text)
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    auto *annotation = find_annotation(handle);
+    if (annotation) {
+        annotation->text_ = new_text;
+        modified_ = true;
+        bool save_success = save();
+        reload_page(annotation->page_num_);
+        return save_success;
+    }
+    return false;
+}
 
 
+bool Document::move_annotation(const AnnotationHandle &handle, float new_x, float new_y)
+{
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    auto *annotation = find_annotation(handle);
+    if (annotation) {
+        annotation->x_ = new_x;
+        annotation->y_ = new_y;
+        modified_ = true;
+        bool save_success = save();
+        reload_page(annotation->page_num_);
+        return save_success;
+    }
+    return false;
+}
+
+
+
+void Document::reload_page(int page_num)
+{
+    if (page_num < 1 || page_num > page_count()) return;
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc) return;
+
+    QImage img;
+    fz_try(ctx)
+    {
+        img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception reloading page {}: {}", page_num, fz_caught_message(ctx));
+        close_fitz(ctx, doc);
+        return;
+    }
+
+    close_fitz(ctx, doc);
+
+    {
+        std::lock_guard lock(read_mutex_);
+        pages_[page_num - 1] = Page(img, page_num, false);
+    }
+    emit page_loaded(page_num);
+}

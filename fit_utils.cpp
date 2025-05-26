@@ -279,3 +279,263 @@ BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
     fz_drop_context(ctx);
     return BookmarkResult::Success;
 }
+
+/*
+TextResult add_text_to_pdf(const std::string &pdf_filename,
+                          const std::string &text,
+                          int page_num,
+                          float x, float y,
+                          float font_size,
+                          const std::string &font_name,
+                          int r, int g, int b)
+{
+    fz_context *ctx = nullptr;
+    fz_document *fz_doc = nullptr;
+    pdf_document *pdf = nullptr;
+
+    ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx) {
+        return TextResult::ContextCreationFailed;
+    }
+
+    fz_register_document_handlers(ctx);
+
+    fz_try(ctx)
+    {
+        fz_doc = fz_open_document(ctx, pdf_filename.c_str());
+        if (!fz_doc) {
+            fz_drop_context(ctx);
+            return TextResult::DocumentOpenFailed;
+        }
+
+        pdf = pdf_specifics(ctx, fz_doc);
+        if (!pdf) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::NotPdfDocument;
+        }
+
+        // Check if page exists
+        int page_count = fz_count_pages(ctx, fz_doc);
+        if (page_num < 1 || page_num > page_count) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::PageNotFound;
+        }
+
+        // Get the page object
+        pdf_obj *page_obj = pdf_lookup_page_obj(ctx, pdf, page_num - 1);
+        if (!page_obj) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::PageNotFound;
+        }
+
+        // Create annotation dictionary
+        pdf_obj *annot_dict = pdf_new_dict(ctx, pdf, 10);
+        pdf_obj *annot = pdf_add_object(ctx, pdf, annot_dict);
+        pdf_drop_obj(ctx, annot_dict);
+
+        // Set required annotation properties
+        pdf_dict_put(ctx, annot, PDF_NAME(Type), PDF_NAME(Annot));
+        pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
+
+        // Set rectangle
+        float width = font_size * text.length() * 0.6f;
+        float height = font_size * 1.2f;
+        pdf_obj *rect = pdf_new_array(ctx, pdf, 4);
+        pdf_array_push_real(ctx, rect, x);
+        pdf_array_push_real(ctx, rect, y);
+        pdf_array_push_real(ctx, rect, x + width);
+        pdf_array_push_real(ctx, rect, y + height);
+        pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
+
+        // Set content
+        pdf_dict_put_text_string(ctx, annot, PDF_NAME(Contents), text.c_str());
+
+        // Set page reference
+        pdf_dict_put(ctx, annot, PDF_NAME(P), page_obj);
+
+        // Set flags (print flag)
+        pdf_dict_put_int(ctx, annot, PDF_NAME(F), 4);
+
+        // Set color array
+        pdf_obj *color_array = pdf_new_array(ctx, pdf, 3);
+        pdf_array_push_real(ctx, color_array, r / 255.0f);
+        pdf_array_push_real(ctx, color_array, g / 255.0f);
+        pdf_array_push_real(ctx, color_array, b / 255.0f);
+        pdf_dict_put(ctx, annot, PDF_NAME(C), color_array);
+
+        // Create simpler default appearance string
+        char da_buf[256];
+        snprintf(da_buf, sizeof(da_buf), "/%s %.1f Tf %.3f %.3f %.3f rg",
+                font_name.c_str(), font_size, r / 255.0f, g / 255.0f, b / 255.0f);
+        pdf_dict_put_text_string(ctx, annot, PDF_NAME(DA), da_buf);
+
+        // Set quadding (text alignment) - 0 = left, 1 = center, 2 = right
+        pdf_dict_put_int(ctx, annot, PDF_NAME(Q), 0);
+
+        // Add annotation to page annotations array
+        pdf_obj *annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+        if (!annots) {
+            annots = pdf_new_array(ctx, pdf, 1);
+            pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), annots);
+        }
+        pdf_array_push(ctx, annots, annot);
+
+        // Save document incrementally
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, pdf_filename.c_str(), &opts);
+    }
+    fz_catch(ctx)
+    {
+        if (fz_doc) fz_drop_document(ctx, fz_doc);
+        fz_drop_context(ctx);
+        return TextResult::MuPdfException;
+    }
+
+    if (fz_doc) fz_drop_document(ctx, fz_doc);
+    fz_drop_context(ctx);
+   
+   
+   return TextResult::Success;
+}
+
+
+*/
+
+
+
+
+TextResult add_text_to_pdf(const std::string &pdf_filename,
+                          const std::string &text,
+                          int page_num,
+                          float x, float y,
+                          float font_size,
+                          const std::string &font_name,
+                          int r, int g, int b)
+{
+    fz_context *ctx = nullptr;
+    fz_document *fz_doc = nullptr;
+    pdf_document *pdf = nullptr;
+
+    ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx) {
+        return TextResult::ContextCreationFailed;
+    }
+
+    fz_register_document_handlers(ctx);
+
+    fz_try(ctx)
+    {
+        fz_doc = fz_open_document(ctx, pdf_filename.c_str());
+        if (!fz_doc) {
+            fz_drop_context(ctx);
+            return TextResult::DocumentOpenFailed;
+        }
+
+        pdf = pdf_specifics(ctx, fz_doc);
+        if (!pdf) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::NotPdfDocument;
+        }
+
+        // Check if page exists
+        int page_count = fz_count_pages(ctx, fz_doc);
+        if (page_num < 1 || page_num > page_count) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::PageNotFound;
+        }
+
+        // Get the page object
+        pdf_obj *page_obj = pdf_lookup_page_obj(ctx, pdf, page_num - 1);
+        if (!page_obj) {
+            fz_drop_document(ctx, fz_doc);
+            fz_drop_context(ctx);
+            return TextResult::PageNotFound;
+        }
+
+        // Create annotation dictionary
+        pdf_obj *annot_dict = pdf_new_dict(ctx, pdf, 10);
+        pdf_obj *annot = pdf_add_object(ctx, pdf, annot_dict);
+        pdf_drop_obj(ctx, annot_dict);
+
+        // Set required annotation properties
+        pdf_dict_put(ctx, annot, PDF_NAME(Type), PDF_NAME(Annot));
+        pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
+
+        // Set rectangle
+        float width = font_size * text.length() * 0.6f;
+        float height = font_size * 1.2f;
+        pdf_obj *rect = pdf_new_array(ctx, pdf, 4);
+        pdf_array_push_real(ctx, rect, x);
+        pdf_array_push_real(ctx, rect, y);
+        pdf_array_push_real(ctx, rect, x + width);
+        pdf_array_push_real(ctx, rect, y + height);
+        pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
+
+        // Set content
+        pdf_dict_put_text_string(ctx, annot, PDF_NAME(Contents), text.c_str());
+
+        // Set page reference
+        pdf_dict_put(ctx, annot, PDF_NAME(P), page_obj);
+
+        // Set flags (print flag)
+        pdf_dict_put_int(ctx, annot, PDF_NAME(F), 4);
+
+        // Remove the C (color) property to avoid background color
+        // The text color will be set in the DA string instead
+
+        // Create default appearance string with text color only
+        char da_buf[256];
+        snprintf(da_buf, sizeof(da_buf), "/%s %.1f Tf %.3f %.3f %.3f rg",
+                font_name.c_str(), font_size, r / 255.0f, g / 255.0f, b / 255.0f);
+        pdf_dict_put_text_string(ctx, annot, PDF_NAME(DA), da_buf);
+
+        // Set quadding (text alignment) - 0 = left, 1 = center, 2 = right
+        pdf_dict_put_int(ctx, annot, PDF_NAME(Q), 0);
+
+        // Add border style to make background transparent
+        pdf_obj *bs_dict = pdf_new_dict(ctx, pdf, 2);
+        pdf_dict_put_int(ctx, bs_dict, PDF_NAME(W), 0); // Border width 0
+        pdf_dict_put(ctx, annot, PDF_NAME(BS), bs_dict);
+
+        // Add annotation to page annotations array
+        pdf_obj *annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+        if (!annots) {
+            annots = pdf_new_array(ctx, pdf, 1);
+            pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), annots);
+        }
+        pdf_array_push(ctx, annots, annot);
+
+        // Save document incrementally
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, pdf_filename.c_str(), &opts);
+    }
+    fz_catch(ctx)
+    {
+        if (fz_doc) fz_drop_document(ctx, fz_doc);
+        fz_drop_context(ctx);
+        return TextResult::MuPdfException;
+    }
+
+    if (fz_doc) fz_drop_document(ctx, fz_doc);
+    fz_drop_context(ctx);
+    return TextResult::Success;
+}
+
+// Utility function for PDFViewer to convert pixel coordinates to PDF points
+std::pair<float, float> pixels_to_pdf_points(int pixel_x, int pixel_y,
+                                            int page_width_pixels, int page_height_pixels,
+                                            int page_width_points, int page_height_points)
+{
+    // Convert from top-left pixel coordinates to bottom-left PDF points
+    float pdf_x = (float(pixel_x) / page_width_pixels) * page_width_points;
+    float pdf_y = page_height_points - (float(pixel_y) / page_height_pixels) * page_height_points;
+
+    return { pdf_x, pdf_y };
+}

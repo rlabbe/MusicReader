@@ -107,7 +107,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>4505</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4611;4611</DisableSpecificWarnings>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(MSBuildProjectDirectory)\bin\MusicReaderd.exe</Command>
@@ -130,7 +130,7 @@
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <Optimization>MaxSpeed</Optimization>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>4505</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>
@@ -157,7 +157,7 @@
       <Optimization>Disabled</Optimization>
       <TreatSpecificWarningsAsErrors>4715</TreatSpecificWarningsAsErrors>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>4505</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
@@ -205,10 +205,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="annotation.cpp" />
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fit_utils.cpp" />
+    <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
@@ -237,6 +239,7 @@
     <QtMoc Include="bookmark_panel.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="annotation.h" />
     <ClInclude Include="bookmark.h" />
     <ClInclude Include="border.h" />
     <QtMoc Include="config_dialog.h" />
@@ -248,6 +251,8 @@
     <QtMoc Include="fullscreen_exit_button.h" />
     <QtMoc Include="file_viewer.h" />
     <ClInclude Include="fitz_utils.h" />
+    <QtMoc Include="in_place_annotation_editor.h" />
+    <ClInclude Include="font_info.h" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="qt_utils.h" />

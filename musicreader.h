@@ -30,13 +30,14 @@ public:
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
 
-private slots:
+public slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
     void browse_folder();
     void on_tab_changed();
     void copy_log_to_clipboard();
     void goto_page_dialog();
+    void on_annotation_mode_changed(bool enabled);
 
 
 private:
@@ -113,6 +114,7 @@ private:
     void toggle_page_zoom();
     void toggle_page_step();
 
+    void toggle_text_annotation_mode();
 
     void on_close_tab(int index);
     void update_title(int index = 0);
@@ -160,6 +162,10 @@ private:
     QAction *statusbar_menu_action_ = nullptr;
     QAction *toolbar_menu_action_ = nullptr;
     QAction *menubar_menu_action_ = nullptr;
+
+    QAction *text_annotation_action_ = nullptr;
+    bool text_annotation_mode_ = false;
+
     QIcon single_icon_;
     QIcon double_icon_;
     QIcon zoomin_icon_;

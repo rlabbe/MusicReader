@@ -5,10 +5,12 @@
 
 #include "document.h"
 #include "page.h"
-
+#include "font_info.h"
 
 class StatusBar;
 class ConfigFile;
+class InPlaceAnnotationEditor;
+class MusicReader;
 
 class PDFViewer : public QWidget {
     Q_OBJECT
@@ -22,7 +24,8 @@ public:
               ConfigFile *config,
               int page,
               StatusBar *sbar,
-              QWidget *parent = nullptr);
+              QWidget* parent,
+              MusicReader *reader);
 
     ~PDFViewer();
 
@@ -43,17 +46,34 @@ public:
     std::shared_ptr<Document> document() const { return document_; }
     void replace_document(std::shared_ptr<Document> document, int page);
 
+    void set_text_annotation_mode(bool enabled);
+
+signals:
+    void annotation_mode_changed(bool enabled);
+
 protected:
 
     void keyPressEvent(QKeyEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 
 private slots:
     void on_page_loaded(int page_index);
+    void on_annotation_text_finished(const QString &text);
+    void on_annotation_text_cancelled();
 
 private:
+
+    struct ClickTarget {
+        int page_num = -1;
+        float points_x;
+        float points_y;
+    };
+
+    ClickTarget get_click_target(QMouseEvent *event) const;
+
 
     struct PrefetchEntry {
 
@@ -114,6 +134,10 @@ private:
     bool drawing_margin_ = false;
     double aspect_ratio_ = 1.0;
     QRect margin_rect_;
+    bool text_annotation_mode_ = false;
+    InPlaceAnnotationEditor *annotation_editor_;
+    ClickTarget last_click_target_;
+    FontInfo annotation_font_;
 
     // set to true if calling code to set the scrollbar
     // programatically so we don't request a page (the
