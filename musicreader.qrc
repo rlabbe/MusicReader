@@ -7,10 +7,10 @@
     <file>images/left.ico</file>
     <file>images/annotation.ico</file>
     <file>images/right.ico</file>
-    <file>images/zoomin.svg</file>
-    <file>images/zoomout.svg</file>
-    <file>images/page_by_1.png</file>
-    <file>images/page_by_2.png</file>
+    <file>images/zoomin.ico</file>
+    <file>images/zoomout.ico</file>
+    <file>images/page_by_1.ico</file>
+    <file>images/page_by_2.ico</file>
     <file>help/fast_search_help.html</file>
   </qresource>
 </RCC>

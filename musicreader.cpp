@@ -731,11 +731,10 @@ void MusicReader::create_toolbar()
     single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
     double_icon_ = create_double_icon();
 
-    if (in_single_page_mode()) {
+    if (in_single_page_mode()) 
         action = new QAction(single_icon_, "", this);
-    } else {
+    else 
         action = new QAction(double_icon_, "", this);
-    }
 
     action->setToolTip("View one/two pages (V)");
     connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
@@ -746,8 +745,8 @@ void MusicReader::create_toolbar()
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_toggle_view_mode);
 
-    page_by_1_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_1.png"));
-    page_by_2_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_2.png"));
+    page_by_1_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_1.ico"));
+    page_by_2_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_2.ico"));
 
     action = new QAction(config_.page_step_size() == 1? page_by_1_icon_ : page_by_2_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
@@ -771,8 +770,8 @@ void MusicReader::create_toolbar()
         page_step_action_->setToolTip("Page Step (2)");
     });
 
-    zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.svg"));
-    zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.svg"));
+    zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.ico"));
+    zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.ico"));
 
 
     action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
@@ -812,6 +811,9 @@ void MusicReader::create_toolbar()
     margin_action_ = action;
     */
 
+    /* I don't like page buttons, and they conflict with design used to 
+    * indent bookmarks
+    * 
     action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
     action->setToolTip("Previous page");
     connect(action, &QAction::triggered, this, &MusicReader::on_page_up);
@@ -820,7 +822,7 @@ void MusicReader::create_toolbar()
     action = new QAction(QIcon(":/MusicReader/images/right.ico"), "PgDn", this);
     action->setToolTip("Next page");
     connect(action, &QAction::triggered, this, &MusicReader::on_page_down);
-    toolbar_->addAction(action);
+    toolbar_->addAction(action);*/
 }
 
 
