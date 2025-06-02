@@ -20,6 +20,9 @@ signals:
     void editing_finished(const QString &text);
     void editing_cancelled();
 
+private slots:
+    void resize_to_content();
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;

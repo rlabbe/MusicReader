@@ -26,7 +26,7 @@ ConfigDialog::ConfigDialog(ConfigFile &config, QWidget *parent)
 void ConfigDialog::setup_ui()
 {
     spin_dpi_ = new QSpinBox(this);
-    spin_dpi_->setRange(96, 360);
+    spin_dpi_->setRange(72, 360);
 
     spin_border_margin_ = new QSpinBox(this);
     spin_border_margin_->setRange(0, 100);

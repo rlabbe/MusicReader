@@ -123,6 +123,10 @@ void BookmarkPanel::setup_shortcuts()
     new QShortcut(QKeySequence("Ctrl+Y"), this, SLOT(redo()));
     new QShortcut(QKeySequence("Ctrl+Left"), this, SLOT(unindent_selected_bookmarks()));
     new QShortcut(QKeySequence("Ctrl+Right"), this, SLOT(indent_selected_bookmarks()));
+
+    //QShortcut *bookmark_delete = new QShortcut(QKeySequence::Delete, this);
+   // bookmark_delete->setContext(Qt::WidgetShortcut);
+    //connect(bookmark_delete, &QShortcut::activated, this, &BookmarkPanel::delete_selected_bookmark);
 }
 
 

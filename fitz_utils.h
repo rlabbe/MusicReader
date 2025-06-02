@@ -64,7 +64,7 @@ extern TextResult add_text_to_pdf(
     int page_num,        // 1-based
     float x, float y,    // in PDF points, (0,0) = bottom-left
     float font_size,
-    const std::string &font_name = "Helvetica",
+    const std::string &font_name = "Consolas",
     int r = 0, int g = 0, int b = 0);
 
 // Utility function for PDFViewer to convert pixel coordinates to PDF points

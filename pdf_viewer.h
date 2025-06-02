@@ -66,6 +66,12 @@ private slots:
 
 private:
 
+    QRect calculate_annotation_bounding_box(const Annotation &annotation) const;
+    AnnotationHandle find_annotation_at_point(QMouseEvent *event) const;
+    void select_annotation(const AnnotationHandle &handle);
+    void clear_selection();
+
+
     struct ClickTarget {
         int page_num = -1;
         float points_x;
@@ -138,6 +144,8 @@ private:
     InPlaceAnnotationEditor *annotation_editor_;
     ClickTarget last_click_target_;
     FontInfo annotation_font_;
+    AnnotationHandle selected_annotation_;
+    bool has_selection_ = false;
 
     // set to true if calling code to set the scrollbar
     // programatically so we don't request a page (the

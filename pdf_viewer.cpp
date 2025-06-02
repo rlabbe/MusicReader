@@ -140,6 +140,25 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
 {
     SAFE_METHOD;
 
+    // Handle selection-related keys first
+    if (event->key() == Qt::Key_Delete && has_selection_) {
+        // Delete selected annotation
+        if (document_->remove_annotation(selected_annotation_)) {
+            std::cout << "Deleted annotation: " << static_cast<int>(selected_annotation_) << std::endl;
+            clear_selection();
+        }
+        event->accept();
+        return;
+    }
+
+    if (event->key() == Qt::Key_Escape && has_selection_) {
+        // Clear selection on Escape
+        clear_selection();
+        std::cout << "Cleared selection with Escape" << std::endl;
+        event->accept();
+        return;
+    }
+
     switch (event->key()) {
     case Qt::Key_PageUp:
     case Qt::Key_Up:
@@ -242,6 +261,19 @@ void PDFViewer::init_ui(int page)
 
     setLayout(layout_);
     update_scrollbar_visibility();
+
+    QShortcut *delete_shortcut = new QShortcut(QKeySequence::Delete, this);
+    delete_shortcut->setContext(Qt::WidgetShortcut); // Only when this widget has focus
+    connect(delete_shortcut, &QShortcut::activated, this, [this]() {
+        std::cout << "here\n";
+        if (has_selection_ && document_) {
+            
+            if (document_->remove_annotation(selected_annotation_)) {
+                std::cout << "Deleted annotation: " << static_cast<int>(selected_annotation_) << std::endl;
+                clear_selection();
+            }
+        }
+    });
 }
 
 
@@ -507,11 +539,9 @@ void PDFViewer::on_page_loaded(int page_index)
 }
 
 
-
 void PDFViewer::update_image(const QString &message)
 {
     SAFE_METHOD;
-
     REQUIRES(label_);
     REQUIRES(config_);
 
@@ -522,8 +552,11 @@ void PDFViewer::update_image(const QString &message)
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
-    } else
+    } else {
         label_->setStyleSheet("");
+    }
+
+    REQUIRES(document_);
 
     QSize max_size;
     if (config_->allow_oversize())
@@ -533,15 +566,30 @@ void PDFViewer::update_image(const QString &message)
 
     label_->setAlignment(Qt::AlignTop | page_alignment());
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    // Draw selection box around selected annotation only
+    if (has_selection_) {
+        QPainter painter(&scaled_pixmap);
+
+        // Find the selected annotation and draw dotted red box
+        for (const auto &annotation : document_->annotations()) {
+            if (annotation.handle_ == selected_annotation_) {
+                QRect bounding_box = calculate_annotation_bounding_box(annotation);
+                if (!bounding_box.isEmpty()) {
+                    painter.setPen(QPen(Qt::red, 1, Qt::DotLine));
+                    painter.drawRect(bounding_box);
+                }
+                break;
+            }
+        }
+        painter.end();
+    }
+
+
     label_->setPixmap(scaled_pixmap);
-
-    adjust_initial_subwindow_size(); // safe to call multiple times
-
-    // make sure everything is rendered asap
+    adjust_initial_subwindow_size();
     QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-
 }
-
 
 void PDFViewer::adjust_initial_subwindow_size()
 {
@@ -602,16 +650,39 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
     if (!document_) return;
     if (page_.is_empty()) return;
 
+    setFocus();
+
     if (event->button() == Qt::LeftButton && text_annotation_mode_) {
         QPixmap displayed = label_->pixmap();
         last_click_target_ = get_click_target(event);
+
+        auto [pdf_width, pdf_height] = document_->get_page_dimensions_points(last_click_target_.page_num);
 
         // Position editor directly at click point (screen coordinates)
         annotation_editor_->start_editing(event->pos());
 
         event->accept();
         return;
-    }   
+    }
+    else if (event->button() == Qt::LeftButton) {
+        // Handle annotation selection
+        std::cout << "Mouse click at screen pos: (" << event->pos().x() << ", " << event->pos().y() << ")" << std::endl;
+
+        AnnotationHandle clicked_annotation = find_annotation_at_point(event);
+        if (clicked_annotation) {
+            // Clicked on an annotation - select it
+            select_annotation(clicked_annotation);
+            std::cout << "Selected annotation: " << static_cast<int>(clicked_annotation) << std::endl;
+            event->accept();
+            return;
+        } else {
+            // Clicked elsewhere - clear selection
+            if (has_selection_) {
+                clear_selection();
+                std::cout << "Cleared selection" << std::endl;
+            }
+        }
+    }
     
     QWidget::mousePressEvent(event);
 }
@@ -620,13 +691,39 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
 void PDFViewer::on_annotation_text_finished(const QString &text)
 {
     if (!text.trimmed().isEmpty() && last_click_target_.page_num > 0) {
+
         QSize size = calculate_text_size(text, annotation_font_);
+
         Annotation annotation(text.toStdString(), last_click_target_.page_num,
                             last_click_target_.points_x, last_click_target_.points_y,
-                            static_cast<float>(size.width()), static_cast<float>(size.height()),
+                            static_cast<float>(size.width()), static_cast<float>(size.height()),  // Back to pixels
                             annotation_font_);
+
+        // ROUND TRIP LOGGING - ANNOTATION CREATION
+        std::cout << "\n=== ANNOTATION CREATION ===" << std::endl;
+        std::cout << "Text: '" << text.toStdString() << "'" << std::endl;
+        std::cout << "Calculated size: " << size.width() << " x " << size.height() << " pixels" << std::endl;
+        std::cout << "Font: " << annotation_font_.family.toStdString() << " " << annotation_font_.size << "pt" << std::endl;
+        std::cout << "Creating annotation at: page=" << last_click_target_.page_num << " x=" << last_click_target_.points_x << " y=" << last_click_target_.points_y << std::endl;
+        std::cout << "Annotation dimensions: w=" << size.width() << " h=" << size.height() << std::endl;
+
+
+        // In on_annotation_text_finished(), replace the existing debug with:
+        QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
+        QFontMetrics fm(font);
+        int fm_width = fm.horizontalAdvance(text);
+        int fm_height = fm.height();
+        int calculated_width = fm_width + 4;
+        int calculated_height = fm_height + 4;
+
+        std::cout << "Text: '" << text.toStdString() << "' (length=" << text.length() << ")" << std::endl;
+        std::cout << "QFontMetrics: width=" << fm_width << " height=" << fm_height << std::endl;
+        std::cout << "Calculated size: " << calculated_width << " x " << calculated_height << std::endl;
+        std::cout << "QTextDocument size: " << size.width() << " x " << size.height() << std::endl;        // end debugging code
         document_->add_annotation(annotation);
     }
+
+
 
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
@@ -639,6 +736,7 @@ void PDFViewer::on_annotation_text_cancelled()
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
     emit annotation_mode_changed(false);
+    std::cout << "Annotation cancelled" << std::endl;
 }
 
 
@@ -679,4 +777,76 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
                                                      pdf_width_points, pdf_height_points);
 
     return { target_page, points_x, points_y };
+}
+
+
+
+QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation) const
+{
+    int current_page_num = current_page();
+    if (annotation.page_num_ != current_page_num) {
+        return QRect(); // Empty rect for annotations not on current page
+    }
+
+    auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(current_page_num);
+
+    // Calculate position from PDF coordinates
+    float pdf_y_from_top = pdf_height_points - annotation.y_;
+    float pixel_x = (annotation.x_ / pdf_width_points) * page_.pixmap.width();
+    float pixel_y = (pdf_y_from_top / pdf_height_points) * page_.pixmap.height();
+    pixel_x -= 5;
+    pixel_y -= 6;
+
+    // Calculate bounding box size from font and text
+    QSize box_size = calculate_text_size(QString::fromStdString(annotation.text_), annotation.font_info_);
+
+    // Apply DPI scaling to match MuPDF rendering
+    float dpi_scale_factor = document_->dpi() / 96.0f; // 96 is typical Windows screen DPI
+    int scaled_width = int(box_size.width() * dpi_scale_factor);
+    int scaled_height = int(box_size.height() * dpi_scale_factor);
+
+    // Calculate display scaling
+    QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    float display_scale_x = float(scaled_pixmap.width()) / float(page_.pixmap.width());
+    float display_scale_y = float(scaled_pixmap.height()) / float(page_.pixmap.height());
+
+    // Apply display scaling to both position and size
+    int screen_x = int(pixel_x * display_scale_x);
+    int screen_y = int(pixel_y * display_scale_y);
+    int screen_w = int(scaled_width * display_scale_x);
+    int screen_h = int(scaled_height * display_scale_y);
+
+    return QRect(screen_x, screen_y, screen_w, screen_h);
+}
+
+AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
+{
+    if (!document_) return AnnotationHandle();
+
+    QPoint click_point = event->pos();
+
+    // Check all annotations on current page
+    for (const auto &annotation : document_->annotations()) {
+        QRect bounding_box = calculate_annotation_bounding_box(annotation);
+        if (!bounding_box.isEmpty() && bounding_box.contains(click_point)) {
+            return annotation.handle_;
+        }
+    }
+
+    return AnnotationHandle(); // No annotation found
+}
+
+
+void PDFViewer::select_annotation(const AnnotationHandle &handle)
+{
+    selected_annotation_ = handle;
+    has_selection_ = true;
+    update_image(); // Refresh to show selection
+}
+
+void PDFViewer::clear_selection()
+{
+    selected_annotation_.clear();
+    has_selection_ = false;
+    update_image(); // Refresh to hide selection
 }

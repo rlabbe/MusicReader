@@ -71,7 +71,7 @@ std::vector<Annotation> load_annotations_from_pdf(fz_context *ctx, fz_document *
                         const char *text = pdf_to_text_string(ctx, contents);
 
                         // Extract font, size, and color from default appearance
-                        std::string font_name = "Helvetica";  // default
+                        std::string font_name = "Consolas";  // default
                         float font_size = 12.0f;  // default
                         int r = 0, g = 0, b = 0;  // default black
 

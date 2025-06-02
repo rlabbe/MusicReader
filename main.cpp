@@ -16,9 +16,6 @@
 #include "fitz_utils.h"
 
 
-
-
-
 BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 {
     return FALSE; // Allow default behavior (process exits)
@@ -27,6 +24,7 @@ BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 
 int main(int argc, char *argv[])
 {
+
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     int result = 0;

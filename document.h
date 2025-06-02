@@ -38,6 +38,7 @@ public:
 
     std::string filename() const { return filename_.string(); }
     int page_count() const { return static_cast<int>(pages_.size()); }
+    int dpi() const { return dpi_; }
 
     Page get_page(int page_num) const;
     bool save();

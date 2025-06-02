@@ -51,7 +51,6 @@ bool delete_all_freetext_annotations(fz_context *ctx, pdf_document *pdf)
 
                 // Check if this is a FreeText annotation
                 if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
-                    logger::debug("Deleting FreeText annotation on page {}", page_idx + 1);
                     pdf_delete_annot(ctx, page, annot);
                     any_deleted = true;
                 }
@@ -100,8 +99,6 @@ bool delete_annotation_by_content_and_position(fz_context *ctx, pdf_document *pd
                     fz_rect rect = pdf_annot_rect(ctx, annot);
                     if (fabs(rect.x0 - target_x) <= tolerance &&
                         fabs(rect.y1 - target_y) <= tolerance) {
-                        logger::debug("Deleting matching annotation: '{}' at ({:.1f}, {:.1f})",
-                                    target_text, target_x, target_y);
                         pdf_delete_annot(ctx, page, annot);
                         deleted = true;
                         break; // Assuming we only want to delete the first match
@@ -264,7 +261,7 @@ inline QImage qimage_from_pixmapdata(const PixmapData &data)
     // rendering for no reason. Also, we need to return a copy of the image because
     // it currently refers to 
     const int max_screen_height = get_max_screen_height();
-    if (source_img.height() > max_screen_height) 
+    if (source_img.height() > max_screen_height)
         return source_img.scaledToHeight(max_screen_height, Qt::SmoothTransformation);
     else
         return source_img.copy();
@@ -404,7 +401,7 @@ Page Document::get_page(int page_num) const
 
     if (page_num < 1 || page_num > count) {
         logger::error(std::format("Invalid page number: {} for {}",
-                                      page_num, filename_.string()));
+                                  page_num, filename_.string()));
         if (count == 0)
             return Page(page_num);
         else
@@ -412,8 +409,8 @@ Page Document::get_page(int page_num) const
     }
     /*
     * TODO - not working because we prefetch the next 2 pages, and that causes the initial
-    * page to not be loaded immediately because this gets called before the first pages are complete, 
-    
+    * page to not be loaded immediately because this gets called before the first pages are complete,
+
     std::lock_guard lock(read_mutex_);
     if (pages_[page_num - 1].is_empty()) {
         // start a new read as soon as we can, sure, it'll be a duplicate, who cares?
@@ -1037,7 +1034,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
                         const char *text = pdf_to_text_string(ctx, contents);
 
                         // Extract font, size, and color from default appearance
-                        std::string font_name = "Helvetica";  // default
+                        std::string font_name = "Consolas";  // default
                         float font_size = 12.0f;  // default
                         int r = 0, g = 0, b = 0;  // default black
 
@@ -1124,6 +1121,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
 
     return annotations;
 }
+
 
 
 bool Document::save_annotations_to_pdf()
@@ -1227,3 +1225,4 @@ bool Document::save_annotations_to_pdf()
 
     close_fitz(ctx, doc);
     return success;
+}

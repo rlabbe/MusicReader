@@ -1,12 +1,12 @@
 #include "in_place_annotation_editor.h"
-
+#include <iostream>
 InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo &font_info, QWidget *parent)
     : QTextEdit(parent), font_family_(font_info.family), font_size_(font_info.size), font_color_(font_info.color)
 {
     setFrameStyle(QFrame::NoFrame);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setLineWrapMode(QTextEdit::WidgetWidth);
+    setLineWrapMode(QTextEdit::NoWrap);
     setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     QFont font(font_family_, static_cast<int>(font_size_));
@@ -22,10 +22,19 @@ InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo &font_info, QWid
 
 void InPlaceAnnotationEditor::start_editing(const QPoint &position, const QString &initial_text)
 {
+    // Reset the flag when starting new editing session
+    editing_finished_ = false;
+
     setPlainText(initial_text);
 
     FontInfo current_font{ font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text) };
-    QSize size = calculate_text_size(initial_text, current_font);
+    QSize size;
+    if (initial_text.isEmpty()) 
+        // For empty text, use single character width as starting point
+        size = calculate_text_size("A", current_font);
+     else 
+        size = calculate_text_size(initial_text, current_font);
+   
     resize(size);
 
     // Position editor so text appears exactly at click point
@@ -53,6 +62,9 @@ void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent *event)
         return;
     }
     QTextEdit::keyPressEvent(event);
+
+    // Then resize to fit the new content
+    resize_to_content();
 }
 
 void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent *event)
@@ -85,4 +97,19 @@ void InPlaceAnnotationEditor::cancel_editing()
     if (!editing_finished_) emit editing_cancelled();
     editing_finished_ = true;
     hide();
+}
+
+void InPlaceAnnotationEditor::resize_to_content()
+{
+    FontInfo current_font{ font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text) };
+    QSize new_size = calculate_text_size(toPlainText(), current_font);
+
+    // Store the current position to maintain left edge
+    QPoint current_pos = pos();
+
+    // Resize to new content size
+    resize(new_size);
+
+    // Keep the left edge in the same position (only grow to the right)
+    move(current_pos);
 }
