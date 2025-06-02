@@ -11,6 +11,7 @@
     <file>images/zoomout.ico</file>
     <file>images/page_by_1.ico</file>
     <file>images/page_by_2.ico</file>
+    <file>images/delete.ico</file>
     <file>help/fast_search_help.html</file>
   </qresource>
 </RCC>

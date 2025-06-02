@@ -66,7 +66,7 @@ void BookmarkPanel::init_ui()
     button_layout->addWidget(add_button_);
 
     delete_button_ = new QPushButton();
-    delete_button_->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
+    delete_button_->setIcon(QIcon(":/MusicReader/images/delete.ico"));
     delete_button_->setToolTip("Delete Bookmark (Del)");
     delete_button_->setFocusPolicy(Qt::NoFocus);
     connect(delete_button_, &QPushButton::clicked, this, &BookmarkPanel::delete_selected_bookmark);

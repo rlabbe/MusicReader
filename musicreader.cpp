@@ -745,8 +745,8 @@ void MusicReader::create_toolbar()
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_toggle_view_mode);
 
-    page_by_1_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_1.ico"));
-    page_by_2_icon_ = QIcon(QPixmap(":/MusicReader/images/page_by_2.ico"));
+    page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
+    page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
 
     action = new QAction(config_.page_step_size() == 1? page_by_1_icon_ : page_by_2_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
@@ -770,8 +770,8 @@ void MusicReader::create_toolbar()
         page_step_action_->setToolTip("Page Step (2)");
     });
 
-    zoomin_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomin.ico"));
-    zoomout_icon_ = QIcon(QPixmap(":/MusicReader/images/zoomout.ico"));
+    zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
+    zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
 
 
     action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
