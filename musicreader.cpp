@@ -791,13 +791,13 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);
 
     // Add this after the settings button and before the margin action:
-    action = new QAction(QIcon(), "T", this);
+    action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
     action->setToolTip("Text annotation mode (T)");
     action->setCheckable(true);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
     toolbar_->addAction(action);
     text_annotation_action_ = action;
-
+    
     // Add T shortcut
     shortcut = new QShortcut(Qt::Key_T, this);
     shortcut->setContext(Qt::WindowShortcut);
