@@ -559,9 +559,11 @@ void MusicReader::update_recent_files_list()
     open_recent_menu_->clear();
 
     for (const auto &path : std::views::reverse(config_.recent_documents())) {
-        QString display_text = QString::fromStdString(path.string());
+        QString display_text = QString::fromStdWString(path.wstring());
+        QString tooltip_text = QString::fromStdWString(path.wstring());
+
         QAction *action = new QAction(display_text, this);
-        action->setToolTip(QString::fromStdString(path.string()));
+        action->setToolTip(tooltip_text);
 
         connect(action, &QAction::triggered, this, [this, path]() {
             open_pdf_in_tab(path.string(), 1);
@@ -1249,30 +1251,30 @@ void MusicReader::restore_window_state()
     }
 }
 
-void MusicReader::open_file_dialog(const std::string &pathname)
+void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
 {
     SAFE_METHOD;
 
-    std::string default_directory;
+    std::filesystem::path  default_directory;
 
     if (!pathname.empty()) {
         default_directory = pathname;
     } else {
         auto doc = current_document();
         if (doc)
-            default_directory = std::filesystem::path(doc->filename()).parent_path().string();
+            default_directory = std::filesystem::path(doc->filename()).parent_path();
     }
 
     QStringList filenames = QFileDialog::getOpenFileNames(
-        this, "Open PDF", QString::fromStdString(default_directory), "PDF Files (*.pdf)");
+        this, "Open PDF", QString::fromStdU16String(default_directory.u16string()), "PDF Files (*.pdf)");
 
     if (!filenames.isEmpty()) {
         for (const QString &name : filenames)
-            open_pdf_in_tab(name.toStdString());
+            open_pdf_in_tab(name.toStdU16String());
     }
 }
 
-PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, PDFViewer *viewer)
+PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, int page, PDFViewer *viewer)
 {
     SAFE_METHOD;
 
@@ -1301,8 +1303,8 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::string &filename, int page, P
         layout->addWidget(viewer);
         tab->setLayout(layout);
 
-        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(filename).stem().string()));
-        tab_widget_->setTabToolTip(index, QString::fromStdString(filename));
+        int index = tab_widget_->addTab(tab, QString::fromStdU16String(filename.stem().u16string()));
+        tab_widget_->setTabToolTip(index, QString::fromStdU16String(filename.u16string()));       
         tab_widget_->setCurrentWidget(tab);
 
         focus_on_tab(tab_widget_->currentIndex());
@@ -1362,12 +1364,12 @@ void MusicReader::goto_page_dialog()
 }
 
 
-std::shared_ptr<Document> MusicReader::open_pdf_document(const std::string &filename, int page_num)
+std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::path &filename, int page_num)
 {
     LOG_EXCEPTION;
 
     if (!std::filesystem::exists(filename)) {
-        logger::debug(filename + " doesn't exist");
+        logger::debug(filename.u8string() + u8" doesn't exist");
         return {};
     }
 
@@ -1554,7 +1556,7 @@ void MusicReader::open_fast_search_dialog()
 
     // Handle selected files
     auto [selected_files, filepath] = fast_search_dialog_->selected_files();
-    if (selected_files == std::vector<std::string>{"open"}) {
+    if (selected_files.size() == 1 && selected_files[0] == "open") {
         open_file_dialog(filepath);
     } else {
         for (const auto &file : selected_files) {
@@ -1613,23 +1615,22 @@ void MusicReader::restore_open_documents()
 
     int current_tab = config_.open_tab();
 
-    // First create all tabs but don't start loading yet
     std::vector<PDFViewer *> viewers;
     std::vector<std::shared_ptr<Document>> documents;
 
-    for (int i = 0; i < num_docs; ++i) {
-        QWidget *tab = new QWidget();
+    for (auto doc_info: docs_info) {
 
         // Only create document objects, don't load them yet
-        auto doc = open_pdf_document(docs_info[i].u8filename(), docs_info[i].page);
+        auto doc = open_pdf_document(doc_info.filename, doc_info.page);
         // nullptr if failed to open document
         if (!doc) {
-            logger::debug("Failed to re-open document: " + docs_info[i].u8filename());
+            logger::debug(u8"Failed to re-open document: " + doc_info.filename.u8string());
             continue;
         }
         documents.push_back(doc);
 
-        PDFViewer *viewer = new PDFViewer(doc, &config_, docs_info[i].page, status_bar_, tab, this);
+        QWidget *tab = new QWidget();
+        PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this);
         viewers.push_back(viewer);
 
         QVBoxLayout *layout = new QVBoxLayout();
@@ -1637,9 +1638,10 @@ void MusicReader::restore_open_documents()
         layout->addWidget(viewer);
         tab->setLayout(layout);
 
-        int index = tab_widget_->addTab(tab, QString::fromStdString(std::filesystem::path(docs_info[i].u8filename()).stem().string()));
-        tab_widget_->setTabToolTip(index, QString::fromStdString(docs_info[i].u8filename()));
+        int index = tab_widget_->addTab(tab, QString::fromStdWString(doc_info.filename.stem().wstring()));
+        tab_widget_->setTabToolTip(index, QString::fromStdWString(doc_info.filename.wstring()));
     }
+
     num_docs = (int)documents.size(); // Update num_docs as not all may have been opened
     if (num_docs == 0) {
         update_background();

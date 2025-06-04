@@ -24,8 +24,8 @@ public:
     std::pair<int, bool> current_page(const std::string &log_msg = "") const;
 
 
-    PDFViewer *open_pdf_in_tab(const std::string &filename, int page = 1, PDFViewer *tab_to_use = nullptr);
-    std::shared_ptr<Document> open_pdf_document(const std::string &filename, int page_num);
+    PDFViewer *open_pdf_in_tab(const std::filesystem::path &filename, int page = 1, PDFViewer *tab_to_use = nullptr);
+    std::shared_ptr<Document> open_pdf_document(const std::filesystem::path &filename, int page_num);
 
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
@@ -81,7 +81,7 @@ private:
 
     void show_log_content();
 
-    void open_file_dialog(const std::string &pathname = "");
+    void open_file_dialog(const std::filesystem::path &pathname = "");
     void open_fast_search_dialog();
     void open_config_dialog();
     void update_recent_files_list();

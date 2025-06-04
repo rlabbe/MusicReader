@@ -41,14 +41,14 @@ struct OpenDocument {
 
     // get filename as a string, cant use filename.string() because it's not 
     // UTF-8 in Windows.
-    inline std::string u8filename() const
+    /*inline std::string u8filename() const
     {
 #ifdef _WIN32
         return wide_to_utf8(filename.wstring());
 #else
         return doc.filename.string(); // Linux/macOS paths are already UTF-8
 #endif    
-    }
+    }*/
 };
 
 

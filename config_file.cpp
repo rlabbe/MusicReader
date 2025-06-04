@@ -253,7 +253,8 @@ void ConfigFile::read(bool reset_on_error)
                 doc.contains("page_count") && doc["page_count"].is_number_integer()) {
 
                 OpenDocument od;
-                od.filename = std::filesystem::path(doc["filename"].get<std::string>());
+                std::string filename_str = doc["filename"].get<std::string>();
+                od.filename = std::filesystem::path(std::u8string(filename_str.begin(), filename_str.end()));
                 od.page = doc["page"].get<int>();
                 od.page_count = doc["page_count"].get<int>();
                 open_documents_.push_back(od);
@@ -271,7 +272,8 @@ void ConfigFile::read(bool reset_on_error)
         recent_documents_.clear();
         for (const auto &path : j["recent_documents"]) {
             if (path.is_string()) {
-                recent_documents_.emplace_back(std::filesystem::path(path.get<std::string>()));
+                std::string path_str = path.get<std::string>();
+                recent_documents_.emplace_back(std::filesystem::path(std::u8string(path_str.begin(), path_str.end())));
             } else {
                 logger::error("Invalid entry in 'recent_documents'");
                 goto CLEANUP;
@@ -279,6 +281,7 @@ void ConfigFile::read(bool reset_on_error)
         }
     } else
         logger::error("Invalid or missing 'recent_documents'");
+
 
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
         bool app_size_valid = true;
@@ -439,17 +442,16 @@ json ConfigFile::to_json() const
     j["open_documents"] = json::array();
     for (const auto &doc : open_documents_) {
         json doc_json;
-        doc_json["filename"] = doc.filename.string();
+        doc_json["filename"] = std::string(reinterpret_cast<const char *>(doc.filename.u8string().c_str()));
         doc_json["page"] = doc.page;
         doc_json["page_count"] = doc.page_count;
         j["open_documents"].push_back(doc_json);
     }
 
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents_) {
-        j["recent_documents"].push_back(path.string());
-    }
-
+    for (const auto &path : recent_documents_) 
+        j["recent_documents"].push_back(std::string(reinterpret_cast<const char *>(path.u8string().c_str())));
+    
     j["app_size"] = app_size_;
     j["toolbar_location"] = static_cast<int>(toolbar_location_);
     j["page_location"] = static_cast<int>(page_location_);
@@ -463,7 +465,7 @@ json ConfigFile::to_json() const
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;
     j["border_margin"] = border_margin_;
-    j["music_directory"] = music_directory_.string();
+    j["music_directory"] = std::string(reinterpret_cast<const char *>(music_directory_.u8string().c_str()));
     j["log_level"] = log_level_to_string(log_level_);
     return j;
 }
@@ -480,12 +482,14 @@ void ConfigFile::save() const
 
     json j = to_json();
 
-    std::ofstream outfile(filename_);
+    std::ofstream outfile(filename_, std::ios::out | std::ios::binary);
     if (!outfile.is_open()) {
-        logger::error("Failed to open config file for writing: " + filename_.string());
+        logger::error("Failed to open config file for writing: " + std::string(reinterpret_cast<const char *>(filename_.u8string().c_str())));
         return;
     }
 
+    // Write UTF-8 BOM (optional but helps some parsers)
+    outfile << "\xEF\xBB\xBF";
     outfile << j.dump(4); // Pretty print with 4 spaces indentation
     outfile.close();
 }

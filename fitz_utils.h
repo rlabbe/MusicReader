@@ -10,7 +10,7 @@
 #include <excpt.h>
 #include <QImage>
 #include "bookmark.h"
-
+#include <filesystem>
 
 // cannot have constructor/destructor or unique_ptr, because being used inside __try
 struct PixmapData {
@@ -24,7 +24,7 @@ struct PixmapData {
     bool success;
 };
 
-extern std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename);
+extern std::pair<fz_context *, fz_document *> open_fitz(const std::filesystem::path &filename);
 extern void close_fitz(fz_context *ctx, fz_document *doc);
 
 // Render a page from a document to a QPixmap. quit_now may change value if the 

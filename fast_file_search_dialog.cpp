@@ -6,45 +6,47 @@
 #include "qt_utils.h"
 
 
-static std::string to_lower(const std::string &str)
+static std::u8string to_lower(const std::u8string &str)
 {
-    std::string result = str;
-    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
-    return result;
+    QString qstr = QString::fromUtf8(reinterpret_cast<const char *>(str.c_str()));
+    return reinterpret_cast<const char8_t *>(qstr.toLower().toUtf8().constData());
 }
 
 
-static std::string strip_accents(const std::string &text)
+static std::u8string strip_accents(const std::u8string &text)
 {
-    QString qtext = QString::fromStdString(text).normalized(QString::NormalizationForm_D);
+    QString qtext = QString::fromUtf8(reinterpret_cast<const char *>(text.c_str())).normalized(QString::NormalizationForm_D);
 
     // Remove non-spacing marks (accents)
     QRegularExpression regex("[\\p{Mn}]");
     qtext.remove(regex);
 
-    return qtext.toStdString();
+    return reinterpret_cast<const char8_t *>(qtext.toUtf8().constData());
 }
 
 
-static bool human_search(const std::string &search_term, const std::string &search_string)
+static bool human_search(const std::u8string &search_term, const std::u8string &search_string)
 {
-    std::string normalized_search_term = strip_accents(to_lower(search_term));
-    std::string normalized_search_string = strip_accents(to_lower(search_string));
+    std::u8string normalized_search_term = strip_accents(to_lower(search_term));
+    std::u8string normalized_search_string = strip_accents(to_lower(search_string));
 
-    return normalized_search_string.find(normalized_search_term) != std::string::npos;
+    return normalized_search_string.find(normalized_search_term) != std::u8string::npos;
 }
 
 
-static std::string human_size(long size)
+static std::u8string human_size(long size)
 {
-    const char *units[] = { "B", "KB", "MB", "GB" };
+    const char8_t *units[] = { u8"B", u8"KB", u8"MB", u8"GB" };
     int unit_index = 0;
 
     while (size >= 1024 && unit_index < 3) {
         size /= 1024;
         ++unit_index;
     }
-    return std::to_string(size) + " " + units[unit_index];
+    std::u8string result = reinterpret_cast<const char8_t *>(std::to_string(size).c_str());
+    result += u8" ";
+    result += units[unit_index];
+    return result;
 }
 
 SortableTableWidgetItem::SortableTableWidgetItem(int sort_value, const QString &text)
@@ -60,11 +62,11 @@ bool SortableTableWidgetItem::operator<(const QTableWidgetItem &other) const
 }
 
 
-FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::string &directory_path, const QRect &size)
+FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::filesystem::path &directory_path, const QRect &size)
     : QDialog(parent)
 {
     instance_ = this;
-    QString path = QDir::toNativeSeparators(QString::fromStdString(directory_path));
+    std::filesystem::path path = directory_path;
 
     // Wait until the file-loading thread signals completion
     std::unique_lock<std::mutex> lk(files_mutex_);
@@ -171,7 +173,7 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     set_title();
 
     try {
-        if (size.x() >= 0 && size.y() >= 0) 
+        if (size.x() >= 0 && size.y() >= 0)
             setGeometry(size);
     } catch (...) {
         logger::warning("FastSearchDialog size not set in config file, using default size");
@@ -183,7 +185,7 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 }
 
 
-void FastFileSearchDialog::initialize_data(const std::string &directory)
+void FastFileSearchDialog::initialize_data(const std::filesystem::path &directory)
 {
     // this must be called before the class is created. It sets up the directory 
     // watcher to monitor the directory for changes, and reads the files in the
@@ -193,12 +195,12 @@ void FastFileSearchDialog::initialize_data(const std::string &directory)
         return;
     }
 
-    path_ = QString::fromStdString(directory);
+    path_ = directory;
     watcher_ = new DirectoryWatcher(file_ending_);
     connect(watcher_, &DirectoryWatcher::file_changed, &FastFileSearchDialog::class_file_changed);
 
     if (!directory.empty())
-        watcher_->start(path_);
+        watcher_->start(QString::fromStdU16String(path_.u16string()));
 
     std::thread([] {
         auto files = find_files(FastFileSearchDialog::path_, FastFileSearchDialog::file_ending_);
@@ -236,10 +238,12 @@ void FastFileSearchDialog::on_search()
     QStringList filtered_files;
     for (const auto &file : files_) {
         bool match = std::all_of(search_terms.begin(), search_terms.end(), [&](const QString &term) {
-            return human_search(term.toStdString(), file.toStdString());
+            std::u8string term_u8 = reinterpret_cast<const char8_t *>(term.toUtf8().constData());
+            std::u8string file_u8 = reinterpret_cast<const char8_t *>(file.toUtf8().constData());
+            return human_search(term_u8, file_u8);
         });
 
-        if (match) 
+        if (match)
             filtered_files.append(file);
     }
 
@@ -254,9 +258,9 @@ void FastFileSearchDialog::display_files(const QStringList &file_paths, bool res
 
     for (int i = 0; i < file_paths.size(); ++i) {
         QFileInfo file_info(file_paths[i]);
-        QString relative_path = QDir(path_).relativeFilePath(file_paths[i]); // Strip directory
+        QString relative_path = QDir(QString::fromStdU16String(path_.u16string())).relativeFilePath(file_paths[i]); // Strip directory
         QString date_text = QLocale().toString(file_info.lastModified(), QLocale::ShortFormat);
-        QString size_text = QString::fromStdString(human_size(file_info.size()));
+        QString size_text = QString::fromUtf8(reinterpret_cast<const char *>(human_size(file_info.size()).c_str()));
 
         // Use string for path sorting
         auto *path_item = new QTableWidgetItem(relative_path);
@@ -318,9 +322,9 @@ void FastFileSearchDialog::update_files()
 
 void FastFileSearchDialog::on_select_directory()
 {
-    QString new_search_path = QFileDialog::getExistingDirectory(this, "Select Search Path", path_);
+    QString new_search_path = QFileDialog::getExistingDirectory(this, "Select Search Path", QString::fromStdU16String(path_.u16string()));
     if (!new_search_path.isEmpty()) {
-        directory_changed(new_search_path.toStdString(), this);
+        directory_changed(std::filesystem::path(new_search_path.toStdU16String()), this);
     }
 }
 
@@ -328,7 +332,7 @@ void FastFileSearchDialog::on_select_directory()
 void FastFileSearchDialog::on_open_file_dialog()
 {
     selected_items_.clear();
-    selected_items_ = QFileDialog::getOpenFileNames(this, "Open Files", path_, "PDF Files (*.pdf)");
+    selected_items_ = QFileDialog::getOpenFileNames(this, "Open Files", QString::fromStdU16String(path_.u16string()), "PDF Files (*.pdf)");
     accept();
 }
 
@@ -358,7 +362,7 @@ void FastFileSearchDialog::browse_to_directory()
 {
     QList<QTableWidgetItem *> selected_items = file_table_->selectedItems();
     if (!selected_items.isEmpty()) {
-        QString file_path = path_ + "/" + selected_items[0]->text();
+        QString file_path = QString::fromStdU16String(path_.u16string()) + "/" + selected_items[0]->text();
         QString directory_path = QFileInfo(file_path).absolutePath();
         on_open_file_dialog();
     }
@@ -368,7 +372,7 @@ void FastFileSearchDialog::browse_to_directory()
 void FastFileSearchDialog::on_item_double_click(QTableWidgetItem *item)
 {
     selected_items_.clear();
-    selected_items_.append(path_ + "/" + item->text());
+    selected_items_.append(QString::fromStdU16String(path_.u16string()) + "/" + item->text());
     accept();
 }
 
@@ -379,20 +383,20 @@ void FastFileSearchDialog::show_help()
 }
 
 
-std::pair<std::vector<std::string>, std::string> FastFileSearchDialog::selected_files() const
+std::pair<std::vector<std::filesystem::path>, std::filesystem::path> FastFileSearchDialog::selected_files() const
 {
-    std::vector<std::string> selected_paths;
-    std::filesystem::path base_path = path_.toStdString();
+    std::vector<std::filesystem::path> selected_paths;
+    std::filesystem::path base_path = path_;
 
     for (const QModelIndex &index : file_table_->selectionModel()->selectedRows()) {
         auto *item = file_table_->item(index.row(), 0); // Get file name from first column
         if (item) {
-            std::filesystem::path full_path = base_path / item->text().toStdString();
-            selected_paths.push_back(full_path.lexically_normal().string()); // Normalize the path
+            std::filesystem::path full_path = base_path / std::filesystem::path(item->text().toStdU16String());
+            selected_paths.push_back(full_path.lexically_normal()); // Normalize the path
         }
     }
 
-    return { selected_paths, base_path.string() };
+    return { selected_paths, base_path };
 }
 
 
@@ -417,7 +421,7 @@ void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_F1) {
         show_help();
         event->accept();
-    } else 
+    } else
         QDialog::keyPressEvent(event);
 }
 
@@ -433,27 +437,27 @@ bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
 
 #include <iostream>
 
-QStringList FastFileSearchDialog::find_files(const QString &path, QString &file_ending)
+QStringList FastFileSearchDialog::find_files(const std::filesystem::path &path, QString &file_ending)
 {
     QStringList file_paths;
-    QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
+    QDirIterator it(QString::fromStdU16String(path.u16string()), QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString file_path = it.next();
-        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive)) 
+        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive))
             file_paths.append(file_path);
     }
     return file_paths;
 }
 
 
-void FastFileSearchDialog::directory_changed(const std::string &new_search_path, FastFileSearchDialog *self)
+void FastFileSearchDialog::directory_changed(const std::filesystem::path &new_search_path, FastFileSearchDialog *self)
 {
     if (new_search_path.empty()) return;
 
-    path_ = QDir::toNativeSeparators(QString::fromStdString(new_search_path));
+    path_ = new_search_path;
 
-    if (watcher_) 
-        watcher_->start(path_);
+    if (watcher_)
+        watcher_->start(QString::fromStdU16String(path_.u16string()));
 
     if (self)
         self->update_files();
@@ -462,8 +466,8 @@ void FastFileSearchDialog::directory_changed(const std::string &new_search_path,
 
 void FastFileSearchDialog::set_title()
 {
-    if (!path_.isEmpty())
-        setWindowTitle(QString("Fast File Search: %1").arg(path_));
+    if (!path_.empty())
+        setWindowTitle(QString("Fast File Search: %1").arg(QString::fromStdU16String(path_.u16string())));
     else
         setWindowTitle("Fast File Search");
 }

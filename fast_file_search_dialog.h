@@ -20,6 +20,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <QFileSystemWatcher>
+#include <filesystem>
 #include "directory_watcher.h"
 
 
@@ -54,17 +55,17 @@ class FastFileSearchDialog : public QDialog {
 public:
 
     // DO NOT constrcut until initialize_data has been called
-    FastFileSearchDialog(QWidget *parent, const std::string &directory_path, const QRect &size);
+    FastFileSearchDialog(QWidget *parent, const std::filesystem::path &directory_path, const QRect &size);
 
-    static void initialize_data(const std::string &directory);
+    static void initialize_data(const std::filesystem::path &directory);
 
-    static void directory_changed(const std::string &new_search_path, FastFileSearchDialog *self = nullptr);
+    static void directory_changed(const std::filesystem::path &new_search_path, FastFileSearchDialog *self = nullptr);
     static void class_file_changed();
 
     void show_dialog();
 
-    std::string path() const { return path_.toStdString(); }
-    std::pair<std::vector<std::string>, std::string> selected_files() const;
+    std::filesystem::path path() const { return path_; }
+    std::pair<std::vector<std::filesystem::path>, std::filesystem::path> selected_files() const;
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -87,13 +88,13 @@ private slots:
 private:
     void set_title();
     void init_ui(const QRect &size);
-    void display_files(const QStringList &file_paths, bool resize=false);
+    void display_files(const QStringList &file_paths, bool resize = false);
     void size_button(QPushButton *button);
-    static QStringList find_files(const QString& path, QString& extension);
+    static QStringList find_files(const std::filesystem::path &path, QString &extension);
 
     void _open_help();
 
-    static inline QString path_;
+    static inline std::filesystem::path path_;
     static inline QStringList files_;
     static inline std::mutex files_mutex_;
     static inline std::condition_variable files_cv_;

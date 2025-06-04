@@ -1,6 +1,7 @@
 #include "fitz_utils.h"
 #include <format>
 
+
 #pragma warning(push,1)
 #include <mupdf/pdf.h>
 #pragma warning(pop)
@@ -50,35 +51,36 @@ inline void close_fitz(fz_context *ctx, fz_document *doc)
 
 
 
-inline std::pair<fz_context *, fz_document *> open_fitz(const std::string &filename)
+inline std::pair<fz_context *, fz_document *> open_fitz(const std::filesystem::path &filename)
 {
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx)
         return { nullptr, nullptr };
-
     fz_try(ctx)
     {
-        fz_register_document_handlers(ctx); // ensure we can open pdfs
+        fz_register_document_handlers(ctx);
     } fz_catch(ctx)
     {
         close_fitz(ctx, nullptr);
         return { nullptr, nullptr };
     }
-
     fz_document *doc = nullptr;
     fz_try(ctx)
     {
+#ifdef _WIN32
+        std::string utf8_filename = wide_to_utf8(filename.wstring());
+        doc = fz_open_document(ctx, utf8_filename.c_str());
+#else
         doc = fz_open_document(ctx, filename.c_str());
+#endif
     }
     fz_catch(ctx)
     {
         close_fitz(ctx, doc);
         return { nullptr, nullptr };
     }
-
     return { ctx, doc };
 }
-
 
 QImage::Format image_format(const PixmapData &data)
 {

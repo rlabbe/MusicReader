@@ -30,15 +30,20 @@ struct logger {
 
     // Logs an INFO level message.
     static void info(const std::string &message);
+    static void info(const std::u8string &message);
 
     // Logs a WARNING level message.
     static void warning(const std::string &message);
+    static void warning(const std::u8string &message);
 
     // Logs an ERROR level message.
     static void error(const std::string &message);
+    static void error(const std::u8string &message);
 
     // Logs a DEBUG level message.
     static void debug(const std::string &message);
+    static void debug(const std::u8string &message);
+
 
 
     // format versions

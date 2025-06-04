@@ -62,7 +62,7 @@ void logger::configure_logger(const std::string &filename, size_t max_size, bool
 
 
 
-void logger::initialize(bool log_to_console, ConfigFile* cf, size_t max_size_kb)
+void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
 {
     log_file_path_ = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file_path_ << std::endl;
@@ -92,15 +92,37 @@ void logger::info(const std::string &message)
     if (logger_) logger_->info(message);
 }
 
+void logger::info(const std::u8string &message)
+{
+    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+    info(s);
+}
+
+
 void logger::warning(const std::string &message)
 {
     if (logger_) logger_->warn(message);
 }
 
+
+void logger::warning(const std::u8string &message)
+{
+    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+    warning(s);
+}
+
 void logger::error(const std::string &message)
 {
-    logged_error_ = true;
-    if (logger_) logger_->error(message);
+    if (logger_) {
+        logged_error_ = true;
+        logger_->error(message);
+    }
+}
+
+void logger::error(const std::u8string &message)
+{
+    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+    error(s);
 }
 
 void logger::debug(const std::string &message)
@@ -108,15 +130,18 @@ void logger::debug(const std::string &message)
     if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Diagnostic)) logger_->debug(message);
 }
 
+void logger::debug(const std::u8string &message)
+{
+    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+    debug(s);
+}
 
 
 void logger::logger::enable_debug_logging(bool enable)
 {
-    if (logger_)
-    {
+    if (logger_) {
         logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
-        for (auto &sink : logger_->sinks())
-        {
+        for (auto &sink : logger_->sinks()) {
             sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
         }
     }
@@ -124,7 +149,7 @@ void logger::logger::enable_debug_logging(bool enable)
 
 std::string logger::get_log_content()
 {
-    if (!logger_) 
+    if (!logger_)
         return {};
 
     logger_->flush();
