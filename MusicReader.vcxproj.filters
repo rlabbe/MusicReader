@@ -70,13 +70,13 @@
     <ClCompile Include="fast_file_search_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fit_utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="annotation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="in_place_annotation_editor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fitz_utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
