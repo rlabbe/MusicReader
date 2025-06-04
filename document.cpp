@@ -73,19 +73,27 @@ bool delete_annotation_by_content_and_position(fz_context *ctx, pdf_document *pd
                                              int target_page, const std::string &target_text,
                                              float target_x, float target_y, float tolerance = 1.0f)
 {
-    if (!ctx || !pdf) return false;
+    if (!ctx || !pdf || target_page < 1) return false;
 
     bool deleted = false;
+    pdf_page *page = nullptr;
 
     fz_try(ctx)
     {
-        if (target_page < 1 || target_page > pdf_count_pages(ctx, pdf)) {
-            return false;
-        }
+        page = pdf_load_page(ctx, pdf, target_page - 1);
+    } fz_catch(ctx) {
+        logger::error("Couldn't get page {}: {}", target_page, fz_caught_message(ctx));
+        return false;
+    }
 
-        pdf_page *page = pdf_load_page(ctx, pdf, target_page - 1);
-        if (!page) return false;
+    if (!page) {
+        logger::error("Couldn't get page {}", target_page);
+        return false;
+    }
 
+
+    fz_try(ctx)
+    {
         pdf_annot *annot = pdf_first_annot(ctx, page);
 
         while (annot) {
