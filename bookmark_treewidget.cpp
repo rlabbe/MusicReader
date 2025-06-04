@@ -18,8 +18,9 @@ BookmarkTreeWidget::BookmarkTreeWidget(BookmarkPanel *parent, MusicReader *main_
     setItemsExpandable(false);
     setHeaderHidden(true);
     setRootIsDecorated(false);
+    setStyleSheet("QTreeView::branch { image: none; }");
     setSelectionMode(QAbstractItemView::ExtendedSelection);
-
+    setWordWrap(false);
     viewport()->setAcceptDrops(true);
 }
 

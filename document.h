@@ -106,6 +106,7 @@ private:
 
     static std::vector<Annotation> load_annotations_from_pdf(fz_context *ctx, fz_document *doc);
         
+    BookmarkHandle find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks);
 
     bool reparent_bookmark(Bookmark bookmark,
                            const BookmarkHandle &new_parent_handle,

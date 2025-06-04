@@ -134,7 +134,7 @@ QImage::Format image_format(const PixmapData &data)
 
 
 
-BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
+BookmarkResult add_bookmarks_to_pdf(const std::filesystem::path &pdf_filename,
                                    const std::vector<Bookmark> &bookmarks)
 {
     fz_context *ctx = nullptr;
@@ -150,7 +150,9 @@ BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
 
     fz_try(ctx)
     {
-        fz_doc = fz_open_document(ctx, pdf_filename.c_str());
+        std::string utf8_filename = wide_to_utf8(pdf_filename.wstring());
+
+        fz_doc = fz_open_document(ctx, utf8_filename.c_str());
         if (!fz_doc) {
             fz_drop_context(ctx);
             return BookmarkResult::DocumentOpenFailed;
@@ -268,7 +270,7 @@ BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
         // Save document incrementally
         pdf_write_options opts = pdf_default_write_options;
         opts.do_incremental = 1;
-        pdf_save_document(ctx, pdf, pdf_filename.c_str(), &opts);
+        pdf_save_document(ctx, pdf, utf8_filename.c_str(), &opts);
     }
     fz_catch(ctx)
     {
@@ -282,7 +284,7 @@ BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
     return BookmarkResult::Success;
 }
 
-TextResult add_text_to_pdf(const std::string &pdf_filename,
+TextResult add_text_to_pdf(const std::filesystem::path &pdf_filename,
                           const std::string &text,
                           int page_num,
                           float x, float y,
@@ -303,19 +305,20 @@ TextResult add_text_to_pdf(const std::string &pdf_filename,
     fz_register_document_handlers(ctx);
 
     // Open document
+    std::string utf8_filename = wide_to_utf8(pdf_filename.wstring());
     fz_try(ctx)
     {
-        fz_doc = fz_open_document(ctx, pdf_filename.c_str());
+        fz_doc = fz_open_document(ctx, utf8_filename.c_str());
     }
     fz_catch(ctx)
     {
-        logger::error("Failed to open PDF document '{}': {}", pdf_filename, fz_caught_message(ctx));
+        logger::error("Failed to open PDF document '{}': {}", utf8_filename, fz_caught_message(ctx));
         fz_drop_context(ctx);
         return TextResult::DocumentOpenFailed;
     }
 
     if (!fz_doc) {
-        logger::error("Document handle is null after opening '{}'", pdf_filename);
+        logger::error("Document handle is null after opening '{}'", utf8_filename);
         fz_drop_context(ctx);
         return TextResult::DocumentOpenFailed;
     }
@@ -327,14 +330,14 @@ TextResult add_text_to_pdf(const std::string &pdf_filename,
     }
     fz_catch(ctx)
     {
-        logger::error("Failed to get PDF specifics for '{}': {}", pdf_filename, fz_caught_message(ctx));
+        logger::error("Failed to get PDF specifics for '{}': {}", utf8_filename, fz_caught_message(ctx));
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::MuPdfException;
     }
 
     if (!pdf) {
-        logger::error("Document '{}' is not a valid PDF", pdf_filename);
+        logger::error("Document '{}' is not a valid PDF", utf8_filename);
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::NotPdfDocument;
@@ -348,14 +351,14 @@ TextResult add_text_to_pdf(const std::string &pdf_filename,
     }
     fz_catch(ctx)
     {
-        logger::error("Failed to count pages in '{}': {}", pdf_filename, fz_caught_message(ctx));
+        logger::error("Failed to count pages in '{}': {}", utf8_filename, fz_caught_message(ctx));
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::MuPdfException;
     }
 
     if (page_num < 1 || page_num > page_count) {
-        logger::error("Page {} not found in '{}' (document has {} pages)", page_num, pdf_filename, page_count);
+        logger::error("Page {} not found in '{}' (document has {} pages)", page_num, utf8_filename, page_count);
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::PageNotFound;
@@ -369,14 +372,14 @@ TextResult add_text_to_pdf(const std::string &pdf_filename,
     }
     fz_catch(ctx)
     {
-        logger::error("Failed to lookup page {} in '{}': {}", page_num, pdf_filename, fz_caught_message(ctx));
+        logger::error("Failed to lookup page {} in '{}': {}", page_num, utf8_filename, fz_caught_message(ctx));
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::MuPdfException;
     }
 
     if (!page_obj) {
-        logger::error("Page object {} is null in '{}'", page_num, pdf_filename);
+        logger::error("Page object {} is null in '{}'", page_num, utf8_filename);
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::PageNotFound;
@@ -441,17 +444,17 @@ TextResult add_text_to_pdf(const std::string &pdf_filename,
         // Save document incrementally
         pdf_write_options opts = pdf_default_write_options;
         opts.do_incremental = 1;
-        pdf_save_document(ctx, pdf, pdf_filename.c_str(), &opts);
+        pdf_save_document(ctx, pdf, utf8_filename.c_str(), &opts);
     }
     fz_catch(ctx)
     {
-        logger::error("Failed to add text annotation '{}' to page {} of '{}': {}", text, page_num, pdf_filename, fz_caught_message(ctx));
+        logger::error("Failed to add text annotation '{}' to page {} of '{}': {}", text, page_num, utf8_filename, fz_caught_message(ctx));
         fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);
         return TextResult::MuPdfException;
     }
 
-    logger::info("Successfully added text '{}' to page {} of '{}'", text, page_num, pdf_filename);
+    logger::info("Successfully added text '{}' to page {} of '{}'", text, page_num, utf8_filename);
     fz_drop_document(ctx, fz_doc);
     fz_drop_context(ctx);
     return TextResult::Success;

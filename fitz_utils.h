@@ -44,7 +44,7 @@ enum class BookmarkResult {
     MuPdfException
 };
 
-extern BookmarkResult add_bookmarks_to_pdf(const std::string &pdf_filename,
+extern BookmarkResult add_bookmarks_to_pdf(const std::filesystem::path &pdf_filename,
                                            const std::vector<Bookmark> &bookmarks);
 
 
@@ -59,7 +59,7 @@ enum class TextResult {
 };
 
 extern TextResult add_text_to_pdf(
-    const std::string &pdf_filename,
+    const std::filesystem::path &pdf_filename,
     const std::string &text,
     int page_num,        // 1-based
     float x, float y,    // in PDF points, (0,0) = bottom-left

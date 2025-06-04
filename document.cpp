@@ -768,35 +768,64 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
                                                        int page_num,
                                                        const BookmarkHandle &parent_handle)
 {
-    undo_stack_.push_back(bookmarks_);  // Save for undo
+    undo_stack_.push_back(bookmarks_);
 
-    // Treat page_num == 0 as no page number (folder)
-    std::optional<int> page_num_opt = (page_num == 0) ? std::nullopt : std::optional<int>(page_num);
+    Bookmark new_bookmark(title, page_num);
 
-    Bookmark new_bookmark(title, page_num_opt.has_value() ? page_num_opt.value() : 0);
-    if (parent_handle)
+    if (parent_handle) {
+        // If explicit parent specified, just add there
         new_bookmark.parent_handle_ = parent_handle;
-
-
-    if (!parent_handle) {
-        bookmarks_.emplace_back(new_bookmark);
-        std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
-    } else {
         auto parent = find_bookmark(parent_handle);
         if (parent) {
-            parent->add_child(new_bookmark);
-            std::sort(parent->children_.begin(), parent->children_.end(), bookmark_sort);
+            auto insert_pos = std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
+            parent->children_.insert(insert_pos, new_bookmark);
+        }
+    } else {
+        // Find deepest appropriate parent in hierarchy
+        BookmarkHandle best_parent = find_deepest_parent_for_page(page_num, bookmarks_);
+
+        if (best_parent) {
+            new_bookmark.parent_handle_ = best_parent;
+            auto parent = find_bookmark(best_parent);
+            auto insert_pos = std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
+            parent->children_.insert(insert_pos, new_bookmark);
+        } else {
+            // Add to top level
+            auto insert_pos = std::upper_bound(bookmarks_.begin(), bookmarks_.end(), new_bookmark, bookmark_sort);
+            bookmarks_.insert(insert_pos, new_bookmark);
         }
     }
+
     modified_ = true;
     return { new_bookmark.handle_, true };
 }
 
+BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
+{
+    BookmarkHandle deepest_parent;
 
+    for (const auto &bookmark : bookmarks) {
+        if (bookmark.page_num_.has_value() && bookmark.page_num_.value() < page_num) {
+            // This bookmark could be a parent
+            // First check if any of its children could be an even better (deeper) parent
+            BookmarkHandle child_parent = find_deepest_parent_for_page(page_num, bookmark.children_);
+
+            if (child_parent) {
+                // A child is a better parent
+                deepest_parent = child_parent;
+            } else {
+                // This bookmark is the best parent at this level
+                deepest_parent = bookmark.handle_;
+            }
+        }
+    }
+
+    return deepest_parent;
+}
 bool Document::save()
 {
-    // Don't allow save if we're being destroyed
-    if (being_destroyed_) return false;
+    // Don't allow save if we're being destroyed or not modified
+    if (being_destroyed_ || !modified_) return false;
 
     {
         std::lock_guard<std::mutex> lock(save_state_mutex_);
