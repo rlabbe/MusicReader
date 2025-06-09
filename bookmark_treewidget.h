@@ -16,6 +16,8 @@ public:
 protected:
     void dropEvent(QDropEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void drawBranches(QPainter *, const QRect &, const QModelIndex &) const override {};
+
 
 private:
     BookmarkPanel *parent_panel_;
