@@ -14,6 +14,7 @@ class StatusBar;
 class FastFileSearchDialog;
 class FullscreenExitButton;
 
+
 class MusicReader : public QMainWindow {
     Q_OBJECT
 

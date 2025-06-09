@@ -61,9 +61,15 @@ void MusicReader::setup_UI()
     create_bookmark_panel();
     splitter_->addWidget(bookmark_panel_);
 
-    tab_widget_ = config_.horiz_tabs() ? new VerticalTabsWidget : new QTabWidget;
+    if (config_.horiz_tabs())
+        tab_widget_ = new VerticalTabsWidget;
+    else
+        tab_widget_ = new HorizontalTabWidget;
+
     tab_widget_->setTabsClosable(true);
     tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
+    tab_widget_->tabBar()->setFocusPolicy(Qt::NoFocus);
+    tab_widget_->setUsesScrollButtons(false);
 
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
