@@ -800,28 +800,50 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
     return { new_bookmark.handle_, true };
 }
 
+
+static void flatten_bookmarks(const std::vector<Bookmark> &bookmarks,
+                                const BookmarkHandle &parent,
+                                std::vector<std::pair<int, BookmarkHandle>> &result)
+{
+    for (const auto &bookmark : bookmarks) {
+        if (bookmark.page_num_.has_value()) {
+            result.emplace_back(bookmark.page_num_.value(), parent);
+        }
+
+        if (!bookmark.children_.empty()) {
+            flatten_bookmarks(bookmark.children_, bookmark.handle_, result);
+        }
+    }
+}
+
+
 BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
 {
-    BookmarkHandle deepest_parent;
+    // Flatten all bookmarks into page order with their parents
+    std::vector<std::pair<int, BookmarkHandle>> flattened;
+    flatten_bookmarks(bookmarks, BookmarkHandle(), flattened);
 
-    for (const auto &bookmark : bookmarks) {
-        if (bookmark.page_num_.has_value() && bookmark.page_num_.value() < page_num) {
-            // This bookmark could be a parent
-            // First check if any of its children could be an even better (deeper) parent
-            BookmarkHandle child_parent = find_deepest_parent_for_page(page_num, bookmark.children_);
-
-            if (child_parent) {
-                // A child is a better parent
-                deepest_parent = child_parent;
-            } else {
-                // This bookmark is the best parent at this level
-                deepest_parent = bookmark.handle_;
-            }
+    // Find where page_num fits in the sequence
+    for (const auto &[page, parent] : flattened) {
+        if (page >= page_num) {
+            // Found first bookmark with page >= page_num
+            // New bookmark should have same parent
+            return parent;
         }
     }
 
-    return deepest_parent;
+    // Page number is higher than all existing bookmarks
+    // Use same parent as last bookmark, or top level if empty
+    if (!flattened.empty()) {
+        return flattened.back().second;
+    }
+
+    return BookmarkHandle(); // Top level
 }
+
+
+
+
 bool Document::save()
 {
     // Don't allow save if we're being destroyed or not modified
