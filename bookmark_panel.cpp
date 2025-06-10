@@ -485,7 +485,6 @@ bool BookmarkPanel::is_bookmark_selected(bool indent) const
     return true;
 }
 
-
 void BookmarkPanel::indent_selected_bookmarks()
 {
     SAFE_METHOD;
@@ -496,8 +495,14 @@ void BookmarkPanel::indent_selected_bookmarks()
         return;
 
     auto selected_items = tree_widget_->selectedItems();
-    auto *parent = selected_items.first()->parent();
 
+    // Store handles of selected bookmarks
+    std::vector<BookmarkHandle> selected_handles;
+    for (auto *item : selected_items) {
+        selected_handles.push_back(handle_of(item));
+    }
+
+    auto *parent = selected_items.first()->parent();
     QList<int> rows = selected_rows();
     int first_row = rows.first();
 
@@ -515,8 +520,16 @@ void BookmarkPanel::indent_selected_bookmarks()
     }
 
     populate();
-}
 
+    // Restore selection
+    tree_widget_->clearSelection();
+    for (const auto &handle : selected_handles) {
+        auto *item = find_item_by_handle(handle);
+        if (item) {
+            item->setSelected(true);
+        }
+    }
+}
 
 void BookmarkPanel::unindent_selected_bookmarks()
 {
@@ -527,10 +540,26 @@ void BookmarkPanel::unindent_selected_bookmarks()
         return;
 
     auto selected_items = tree_widget_->selectedItems();
+
+    // Store handles of selected bookmarks
+    std::vector<BookmarkHandle> selected_handles;
+    for (auto *item : selected_items) {
+        selected_handles.push_back(handle_of(item));
+    }
+
     for (auto *item : selected_items) {
         auto handle = handle_of(item);
         doc->unindent_bookmark(handle);
     }
 
     populate();
+
+    // Restore selection
+    tree_widget_->clearSelection();
+    for (const auto &handle : selected_handles) {
+        auto *item = find_item_by_handle(handle);
+        if (item) {
+            item->setSelected(true);
+        }
+    }
 }
