@@ -143,3 +143,18 @@ inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
     }
     return false;  // Both are folders, maintain insertion order
 }
+
+inline void flatten_bookmarks(const std::vector<Bookmark> &bookmarks,
+                                const BookmarkHandle &parent,
+                                std::vector<std::pair<int, BookmarkHandle>> &result)
+{
+    for (const auto &bookmark : bookmarks) {
+        if (bookmark.page_num_.has_value()) {
+            result.emplace_back(bookmark.page_num_.value(), parent);
+        }
+
+        if (!bookmark.children_.empty()) {
+            flatten_bookmarks(bookmark.children_, bookmark.handle_, result);
+        }
+    }
+}

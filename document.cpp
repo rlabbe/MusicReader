@@ -813,21 +813,6 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
 }
 
 
-static void flatten_bookmarks(const std::vector<Bookmark> &bookmarks,
-                                const BookmarkHandle &parent,
-                                std::vector<std::pair<int, BookmarkHandle>> &result)
-{
-    for (const auto &bookmark : bookmarks) {
-        if (bookmark.page_num_.has_value()) {
-            result.emplace_back(bookmark.page_num_.value(), parent);
-        }
-
-        if (!bookmark.children_.empty()) {
-            flatten_bookmarks(bookmark.children_, bookmark.handle_, result);
-        }
-    }
-}
-
 
 BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
 {

@@ -75,7 +75,6 @@ void MusicReader::setup_UI()
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
     connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
 
-
     connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
         auto i = doc_is_open(name);
         if (i.has_value()) {
@@ -1302,7 +1301,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
 
     if (!viewer) {
         QWidget *tab = new QWidget();
-        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this);
+        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this, bookmark_panel_);
 
         QVBoxLayout *layout = new QVBoxLayout();
         layout->setContentsMargins(0, 0, 0, 0);
@@ -1636,7 +1635,7 @@ void MusicReader::restore_open_documents()
         documents.push_back(doc);
 
         QWidget *tab = new QWidget();
-        PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this);
+        PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this, bookmark_panel_);
         viewers.push_back(viewer);
 
         QVBoxLayout *layout = new QVBoxLayout();

@@ -11,18 +11,22 @@
 #include "fitz_utils.h"
 #include "in_place_annotation_editor.h"
 #include "musicreader.h"
+#include "bookmark_panel.h"
+
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config,
                      int page,
                      StatusBar *sbar,
                      QWidget *parent,
-                     MusicReader *reader)
+                     MusicReader *reader,
+                     BookmarkPanel *panel)
     : QWidget(parent)
     , document_(document)
     , status_bar_(sbar)
     , config_(config)
     , drawing_margin_(false)
+    , bookmark_panel_(panel)
 {
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
@@ -416,6 +420,9 @@ void PDFViewer::get_page(int page_num)
 
     if (page_num - delta >= 1)
         prefetch_async(page_num - delta);
+
+    if(bookmark_panel_)
+        bookmark_panel_->select_page(page_num);
 }
 
 

@@ -25,6 +25,9 @@ public:
     // Adjusts the panel width to fit content
     void adjust_width();
 
+    // select bookmark on this page (if it exists)
+    void select_page(int page_num);
+
 signals:
     void bookmark_visibility_changed(bool visible);
     void bookmark_clicked(int page_num);
@@ -46,6 +49,8 @@ public slots:
 
 private:
 
+    BookmarkHandle find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks);
+    
     void return_focus_to_main();
 
     void add_items(const std::vector<Bookmark> &bookmarks, QTreeWidgetItem *parent);
@@ -88,4 +93,5 @@ private:
     QPushButton *delete_button_ = nullptr;
     QPushButton *indent_button_ = nullptr;
     QPushButton *unindent_button_ = nullptr;
+    QCheckBox *follow_page_checkbox_ = nullptr;
 };

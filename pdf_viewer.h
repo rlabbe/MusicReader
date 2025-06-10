@@ -11,6 +11,8 @@ class StatusBar;
 class ConfigFile;
 class InPlaceAnnotationEditor;
 class MusicReader;
+class BookmarkPanel;
+
 
 class PDFViewer : public QWidget {
     Q_OBJECT
@@ -25,7 +27,8 @@ public:
               int page,
               StatusBar *sbar,
               QWidget* parent,
-              MusicReader *reader);
+              MusicReader *reader,
+              BookmarkPanel* panel);
 
     ~PDFViewer();
 
@@ -50,6 +53,7 @@ public:
 
 signals:
     void annotation_mode_changed(bool enabled);
+    void page_changed(int page_num);
 
 protected:
 
@@ -146,6 +150,8 @@ private:
     FontInfo annotation_font_;
     AnnotationHandle selected_annotation_;
     bool has_selection_ = false;
+
+    BookmarkPanel *bookmark_panel_ = nullptr;
 
     // set to true if calling code to set the scrollbar
     // programatically so we don't request a page (the

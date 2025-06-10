@@ -40,7 +40,6 @@ public slots:
     void goto_page_dialog();
     void on_annotation_mode_changed(bool enabled);
 
-
 private:
     std::shared_ptr<Document> document_at(int index) const;
     PDFViewer *current_tab() const;

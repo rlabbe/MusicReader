@@ -95,9 +95,22 @@ void BookmarkPanel::init_ui()
     connect(indent_button_, &QPushButton::clicked, this, &BookmarkPanel::indent_selected_bookmarks);
     button_layout->addWidget(indent_button_);
 
-
     button_layout->addStretch();
     layout->insertWidget(1, button_bar_);
+
+    QWidget *second_button_bar = new QWidget();
+    auto *second_button_layout = new QHBoxLayout(second_button_bar);
+    second_button_layout->setContentsMargins(2, 2, 2, 2);
+    second_button_layout->setSpacing(5);
+
+    follow_page_checkbox_ = new QCheckBox("Track pages");
+    follow_page_checkbox_->setFocusPolicy(Qt::NoFocus);
+    follow_page_checkbox_->setChecked(true); // Default to enabled
+    second_button_layout->addWidget(follow_page_checkbox_);
+
+    second_button_layout->addStretch();
+    layout->insertWidget(2, second_button_bar);
+
 
     setup_context_menu();
     setup_shortcuts();
@@ -562,4 +575,61 @@ void BookmarkPanel::unindent_selected_bookmarks()
             item->setSelected(true);
         }
     }
+}
+
+void BookmarkPanel::select_page(int page_num)
+{
+    SAFE_METHOD;
+
+    if (!follow_page_checkbox_->isChecked()) return; // Only select if tracking is enabled
+
+    auto doc = document();
+    if (!doc) return;
+
+    // Find first bookmark with matching page number
+    BookmarkHandle target_handle = find_bookmark_by_page(page_num, doc->bookmarks());
+    if (!target_handle) return;
+
+    // Find the tree widget item for this bookmark
+    auto *item = find_item_by_handle(target_handle);
+    if (!item) return;
+
+    // Clear current selection and select the found item
+    tree_widget_->clearSelection();
+    tree_widget_->setCurrentItem(item);
+    tree_widget_->scrollToItem(item);
+    tree_widget_->setFocus();
+}
+
+
+BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks)
+{
+    // Create a custom flattened list with bookmark handles (not parent handles)
+    std::vector<std::pair<int, BookmarkHandle>> flattened;
+
+    std::function<void(const std::vector<Bookmark> &)> flatten = [&](const std::vector<Bookmark> &bmarks) {
+        for (const auto &bookmark : bmarks) {
+            if (bookmark.page_num_.has_value()) {
+                flattened.emplace_back(bookmark.page_num_.value(), bookmark.handle_);
+            }
+            if (!bookmark.children_.empty()) {
+                flatten(bookmark.children_);
+            }
+        }
+    };
+
+    flatten(bookmarks);
+
+    // Binary search for the rightmost bookmark with page <= page_num
+    auto it = std::upper_bound(flattened.begin(), flattened.end(), page_num,
+                              [](int page, const auto &bookmark) {
+        return page < bookmark.first;
+    });
+
+    if (it != flattened.begin()) {
+        --it;
+        return it->second;
+    }
+
+    return BookmarkHandle();
 }
