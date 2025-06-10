@@ -703,21 +703,33 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
     // Remove the bookmark from its current parent
     if (!parent->remove_child(handle)) return false;
 
-    // Move to grandparent or top level
-    if (parent->parent_handle_) {
-        auto grandparent = find_bookmark(parent->parent_handle_);
-        if (!grandparent) return false;
-        grandparent->add_child(bookmark);
-        bookmark.parent_handle_ = parent->parent_handle_;
-    } else {
-        bookmark.parent_handle_.clear();
-        bookmarks_.push_back(bookmark);
-        std::sort(bookmarks_.begin(), bookmarks_.end(), bookmark_sort);
+    // Find where this bookmark should go based on its page number and existing structure
+    BookmarkHandle new_parent;
+    if (bookmark.page_num_.has_value()) {
+        new_parent = find_deepest_parent_for_page(bookmark.page_num_.value(), bookmarks_);
     }
-    modified_ = true;
 
+    // Insert at the correct location
+    bookmark.parent_handle_ = new_parent;
+
+    if (new_parent) {
+        auto *new_parent_bookmark = find_bookmark(new_parent);
+        if (!new_parent_bookmark) return false;
+
+        auto insert_pos = std::upper_bound(new_parent_bookmark->children_.begin(),
+                                         new_parent_bookmark->children_.end(),
+                                         bookmark, bookmark_sort);
+        new_parent_bookmark->children_.insert(insert_pos, bookmark);
+    } else {
+        // Top level
+        auto insert_pos = std::upper_bound(bookmarks_.begin(), bookmarks_.end(), bookmark, bookmark_sort);
+        bookmarks_.insert(insert_pos, bookmark);
+    }
+
+    modified_ = true;
     return true;
 }
+
 
 
 bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
