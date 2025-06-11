@@ -203,6 +203,10 @@ void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidge
     for (const auto &bookmark : bookmarks) {
         QString title = QString::fromStdString(bookmark.title_);
         title.replace('\n', ' ').replace('\r', ' '); // don't allow newlines in titles
+
+        if (bookmark.page_num_.has_value())
+            title += std::format(" {}", bookmark.page_num_.value());
+
         auto *item = new QTreeWidgetItem(QStringList() << title);
         set_item_info(item, bookmark);
 
@@ -620,16 +624,16 @@ BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vec
 
     flatten(bookmarks);
 
-    // Binary search for the rightmost bookmark with page <= page_num
-    auto it = std::upper_bound(flattened.begin(), flattened.end(), page_num,
-                              [](int page, const auto &bookmark) {
-        return page < bookmark.first;
+    // Binary search for the first bookmark with page == page_num
+    auto it = std::lower_bound(flattened.begin(), flattened.end(), page_num,
+                              [](const auto &bookmark, int page) {
+        return bookmark.first < page;
     });
 
-    if (it != flattened.begin()) {
-        --it;
-        return it->second;
+    if (it != flattened.end() && it->first == page_num) {
+        return it->second;  // Exact match - returns first bookmark on this page
     }
+
 
     return BookmarkHandle();
 }

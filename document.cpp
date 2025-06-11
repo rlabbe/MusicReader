@@ -703,34 +703,39 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
     // Remove the bookmark from its current parent
     if (!parent->remove_child(handle)) return false;
 
-    // Find where this bookmark should go based on its page number and existing structure
-    BookmarkHandle new_parent;
-    if (bookmark.page_num_.has_value()) {
-        new_parent = find_deepest_parent_for_page(bookmark.page_num_.value(), bookmarks_);
-    }
+    // Unindent means: become a sibling of your current parent
+    // So new parent is your current parent's parent
+    BookmarkHandle new_parent_handle = parent->parent_handle_;
+    bookmark.parent_handle_ = new_parent_handle;
 
-    // Insert at the correct location
-    bookmark.parent_handle_ = new_parent;
+    if (new_parent_handle) {
+        // Insert as child of grandparent, right after current parent
+        auto *grandparent = find_bookmark(new_parent_handle);
+        if (!grandparent) return false;
 
-    if (new_parent) {
-        auto *new_parent_bookmark = find_bookmark(new_parent);
-        if (!new_parent_bookmark) return false;
+        auto parent_it = std::find_if(grandparent->children_.begin(),
+                                     grandparent->children_.end(),
+                                     [&](const Bookmark &b) { return b.handle_ == parent->handle_; });
 
-        auto insert_pos = std::upper_bound(new_parent_bookmark->children_.begin(),
-                                         new_parent_bookmark->children_.end(),
-                                         bookmark, bookmark_sort);
-        new_parent_bookmark->children_.insert(insert_pos, bookmark);
+        if (parent_it != grandparent->children_.end()) 
+            grandparent->children_.insert(parent_it + 1, bookmark);
+        else 
+            grandparent->children_.push_back(bookmark);
     } else {
-        // Top level
-        auto insert_pos = std::upper_bound(bookmarks_.begin(), bookmarks_.end(), bookmark, bookmark_sort);
-        bookmarks_.insert(insert_pos, bookmark);
+        // Parent was top-level, so insert at top level right after parent
+        auto parent_it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
+                                     [&](const Bookmark &b) { return b.handle_ == parent->handle_; });
+
+        if (parent_it != bookmarks_.end()) 
+            bookmarks_.insert(parent_it + 1, bookmark);
+         else 
+            bookmarks_.push_back(bookmark);
+        
     }
 
     modified_ = true;
     return true;
 }
-
-
 
 bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
 {
