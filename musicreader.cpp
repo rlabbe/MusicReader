@@ -29,7 +29,7 @@
 #include "vertical_tabs_widget.h"
 #include "file_viewer.h"
 #include "requires.h"
-
+#include "imslp_search_dialog.h"
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -498,6 +498,17 @@ void MusicReader::create_view_menu(auto *menu_bar)
 
 }
 
+void MusicReader::create_imslp_menu(auto *menu_bar)
+{
+    SAFE_METHOD;
+
+    QMenu *imslp_menu = menu_bar->addMenu("&IMSLP");
+
+    QAction *action = new QAction("&Search...", this);
+    action->setShortcut(QKeySequence("Ctrl+Shift+I"));
+    connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
+    imslp_menu->addAction(action);
+}
 void MusicReader::create_menus()
 {
     SAFE_METHOD;
@@ -506,6 +517,7 @@ void MusicReader::create_menus()
 
     create_file_menu(menu_bar);
     create_edit_menu(menu_bar);
+    create_imslp_menu(menu_bar);
     create_view_menu(menu_bar);
 
     menuBar()->setStyleSheet(R"(
@@ -1253,6 +1265,19 @@ void MusicReader::restore_window_state()
         } catch (...) {
             logger::error("Failed to restore app position and size");
         }
+    }
+}
+
+void MusicReader::open_imslp_search_dialog()
+{
+    SAFE_METHOD;
+
+    try {
+        IMSLPSearchDialog dialog(this);
+        dialog.exec();
+    } catch (const std::exception &e) {
+        logger::error("Failed to open IMSLP search dialog: " + std::string(e.what()));
+        display_error_message("Failed to open IMSLP search dialog: " + std::string(e.what()));
     }
 }
 

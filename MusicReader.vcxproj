@@ -49,7 +49,7 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
     <QtInstall>6.8.2_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets</QtModules>
+    <QtModules>core;gui;widgets;network;concurrent</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
@@ -104,7 +104,7 @@
       <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -123,7 +123,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -149,7 +149,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -213,6 +213,8 @@
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fitz_utils.cpp" />
+    <ClCompile Include="imslp_client.cpp" />
+    <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
     <QtRcc Include="musicreader.qrc" />
@@ -256,6 +258,8 @@
     <ClInclude Include="fitz_utils.h" />
     <QtMoc Include="in_place_annotation_editor.h" />
     <ClInclude Include="font_info.h" />
+    <ClInclude Include="imslp_client.h" />
+    <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="qt_utils.h" />

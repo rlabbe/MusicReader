@@ -79,6 +79,12 @@
     <ClCompile Include="fitz_utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="imslp_client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imslp_search_dialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -115,6 +121,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="in_place_annotation_editor.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="imslp_search_dialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -168,6 +177,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="font_info.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="imslp_client.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

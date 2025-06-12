@@ -72,6 +72,7 @@ private:
     void create_file_menu(auto *);
     void create_edit_menu(auto *);
     void create_view_menu(auto *);
+    void create_imslp_menu(auto *menu_bar);
 
     void create_toolbar();
     void create_status_bar();
@@ -82,6 +83,7 @@ private:
     void show_log_content();
 
     void open_file_dialog(const std::filesystem::path &pathname = "");
+    void open_imslp_search_dialog();
     void open_fast_search_dialog();
     void open_config_dialog();
     void update_recent_files_list();

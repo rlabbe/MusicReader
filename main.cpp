@@ -14,7 +14,7 @@
 #include <tuple>
 
 #include "fitz_utils.h"
-
+#include "imslp_client.h"
 
 BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 {
@@ -22,8 +22,37 @@ BOOL WINAPI ctrl_handler(DWORD /*ctrl_type*/)
 }
 
 
+
+void test_imslp_client()
+{
+    try {
+        IMSLPClient client;
+
+        auto pdfs = client.get_work_pdfs("BWV 934");
+
+        std::cout << "\nFound " << pdfs.size() << " PDFs with thumbnails:" << std::endl;
+        for (const auto &pdf : pdfs) {
+            std::cout << "File: " << pdf.filename << std::endl;
+            std::cout << "PDF URL: " << pdf.url << std::endl;
+            std::cout << "Thumbnail URL: " << pdf.thumb_url << std::endl;
+            std::cout << "Thumbnail MIME: " << pdf.thumb_mime << std::endl;
+            std::cout << "Size: " << pdf.size << " bytes" << std::endl;
+            std::cout << "---" << std::endl;
+        }
+
+        // Set breakpoint here to inspect pdfs vector in debugger
+        // Each pdf.thumb_url should contain a direct link to the first page image
+
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+
+
+}
+
 int main(int argc, char *argv[])
 {
+    //test_imslp_client();
 
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
@@ -44,5 +73,3 @@ int main(int argc, char *argv[])
 
     return result;
 }
-
-
