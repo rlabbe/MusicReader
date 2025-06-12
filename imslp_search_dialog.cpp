@@ -18,6 +18,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QListView>
 
 IMSLPSearchDialog::IMSLPSearchDialog(QWidget *parent)
     : QDialog(parent)
@@ -49,6 +50,36 @@ void IMSLPSearchDialog::setupUI()
 
     mainLayout->addLayout(searchLayout);
 
+    // View control buttons
+    QHBoxLayout *viewControlLayout = new QHBoxLayout();
+
+    m_listViewButton = new QPushButton("List");
+    m_listViewButton->setCheckable(true);
+    m_listViewButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    m_gridViewButton = new QPushButton("Grid");
+    m_gridViewButton->setCheckable(true);
+    m_gridViewButton->setChecked(true); // Default to grid view
+    m_gridViewButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+
+    m_smallIconButton = new QPushButton("Small");
+    m_smallIconButton->setCheckable(true);
+    m_smallIconButton->setChecked(true); // Default to small icons
+    m_smallIconButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    m_largeIconButton = new QPushButton("Large");
+    m_largeIconButton->setCheckable(true);
+    m_largeIconButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+
+    viewControlLayout->addWidget(new QLabel("View:"));
+    viewControlLayout->addWidget(m_listViewButton);
+    viewControlLayout->addWidget(m_gridViewButton);
+    viewControlLayout->addSpacing(20);
+    viewControlLayout->addWidget(new QLabel("Size:"));
+    viewControlLayout->addWidget(m_smallIconButton);
+    viewControlLayout->addWidget(m_largeIconButton);
+    viewControlLayout->addStretch();
+
+    mainLayout->addLayout(viewControlLayout);
+
     // Status section
     m_statusLabel = new QLabel("Enter search terms and click Search");
     mainLayout->addWidget(m_statusLabel);
@@ -67,6 +98,12 @@ void IMSLPSearchDialog::setupUI()
     // Connect signals
     connect(m_searchButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onSearchClicked);
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &IMSLPSearchDialog::onSearchClicked);
+    connect(m_listViewButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onListViewClicked);
+    connect(m_gridViewButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onGridViewClicked);
+    connect(m_smallIconButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onSmallIconClicked);
+    connect(m_largeIconButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onLargeIconClicked);
+
+    updateViewMode();
 }
 
 void IMSLPSearchDialog::onSearchClicked()
@@ -139,7 +176,8 @@ void IMSLPSearchDialog::addResultToList(const FileInfo &pdf)
     item->setData(Qt::UserRole + 1, QString::fromStdString(pdf.thumb_url)); // Store thumbnail URL
 
     // Set a default icon while thumbnail loads
-    QPixmap defaultPixmap(100, 100);
+    int iconSize = getIconSize();
+    QPixmap defaultPixmap(iconSize, iconSize);
     defaultPixmap.fill(Qt::lightGray);
     item->setIcon(QIcon(defaultPixmap));
 
@@ -187,10 +225,78 @@ void IMSLPSearchDialog::onThumbnailDownloaded()
         QPixmap pixmap;
 
         if (pixmap.loadFromData(imageData)) {
-            // Scale to fit within 100px height while maintaining aspect ratio
-            QPixmap scaledPixmap = pixmap.scaled(100, 100, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            // Store the full-size pixmap in the item data for later rescaling
+            item->setData(Qt::UserRole + 2, pixmap);
+
+            // Scale to current icon size
+            int iconSize = getIconSize();
+            QPixmap scaledPixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             item->setIcon(QIcon(scaledPixmap));
         }
     }
     // If download failed, keep the default gray icon
+}
+
+void IMSLPSearchDialog::onListViewClicked()
+{
+    m_viewMode = ViewMode::List;
+    m_listViewButton->setChecked(true);
+    m_gridViewButton->setChecked(false);
+    updateViewMode();
+}
+
+void IMSLPSearchDialog::onGridViewClicked()
+{
+    m_viewMode = ViewMode::Grid;
+    m_listViewButton->setChecked(false);
+    m_gridViewButton->setChecked(true);
+    updateViewMode();
+}
+
+void IMSLPSearchDialog::onSmallIconClicked()
+{
+    m_iconSize = IconSize::Small;
+    m_smallIconButton->setChecked(true);
+    m_largeIconButton->setChecked(false);
+    updateViewMode();
+}
+
+void IMSLPSearchDialog::onLargeIconClicked()
+{
+    m_iconSize = IconSize::Large;
+    m_smallIconButton->setChecked(false);
+    m_largeIconButton->setChecked(true);
+    updateViewMode();
+}
+
+void IMSLPSearchDialog::updateViewMode()
+{
+    int iconSize = getIconSize();
+
+    if (m_viewMode == ViewMode::List) {
+        m_resultsList->setViewMode(QListView::ListMode);
+        m_resultsList->setIconSize(QSize(iconSize, iconSize));
+    } else {
+        m_resultsList->setViewMode(QListView::IconMode);
+        m_resultsList->setIconSize(QSize(iconSize, iconSize));
+        m_resultsList->setResizeMode(QListView::Adjust);
+        m_resultsList->setMovement(QListView::Static);
+    }
+
+    // Re-scale existing thumbnails using stored full-size pixmaps
+    for (int i = 0; i < m_resultsList->count(); ++i) {
+        QListWidgetItem *item = m_resultsList->item(i);
+        if (item) {
+            QPixmap fullSizePixmap = item->data(Qt::UserRole + 2).value<QPixmap>();
+            if (!fullSizePixmap.isNull()) {
+                QPixmap scaledPixmap = fullSizePixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                item->setIcon(QIcon(scaledPixmap));
+            }
+        }
+    }
+}
+
+int IMSLPSearchDialog::getIconSize() const
+{
+    return (m_iconSize == IconSize::Small) ? 100 : 200;
 }
