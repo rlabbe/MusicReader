@@ -1,6 +1,6 @@
 #include "fitz_utils.h"
 #include <format>
-
+#include "utils.h"
 
 #pragma warning(push,1)
 #include <mupdf/pdf.h>

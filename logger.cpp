@@ -6,7 +6,14 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include "config_file.h"
 
+
+
+static std::shared_ptr<spdlog::logger> logger_;
+bool logger::logged_error_ = false;
+ConfigFile *logger::config_file_ = nullptr;
+std::string logger::log_file_path_;
 
 static std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
 {
@@ -60,8 +67,6 @@ void logger::configure_logger(const std::string &filename, size_t max_size, bool
     }
 }
 
-
-
 void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
 {
     log_file_path_ = get_persistent_config_path("MusicReader.log");
@@ -81,11 +86,20 @@ void logger::shutdown()
     }
 }
 
+std::string logger::log_file_path()
+{
+    return log_file_path_;
+}
+
+bool logger::logged_error()
+{
+    return logged_error_;
+}
+
 void logger::flush()
 {
     if (logger_) logger_->flush();
 }
-
 
 void logger::info(const std::string &message)
 {
@@ -98,12 +112,10 @@ void logger::info(const std::u8string &message)
     info(s);
 }
 
-
 void logger::warning(const std::string &message)
 {
     if (logger_) logger_->warn(message);
 }
-
 
 void logger::warning(const std::u8string &message)
 {
@@ -136,8 +148,7 @@ void logger::debug(const std::u8string &message)
     debug(s);
 }
 
-
-void logger::logger::enable_debug_logging(bool enable)
+void logger::enable_debug_logging(bool enable)
 {
     if (logger_) {
         logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
@@ -172,4 +183,3 @@ std::string logger::get_log_content()
 
     return "";
 }
-
