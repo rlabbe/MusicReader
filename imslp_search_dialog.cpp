@@ -18,6 +18,7 @@ IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
 {
     setup_ui();
     setWindowTitle("IMSLP Search");
+    setWindowFlags(windowFlags() | Qt::WindowContextHelpButtonHint);
     setMinimumSize(600, 400);
 
     // Size dialog to 75% of parent height with 4/3 ratio
@@ -106,9 +107,11 @@ void IMSLPSearchDialog::setup_ui()
 
     search_edit_ = new QLineEdit();
     search_edit_->setPlaceholderText("Enter composer, work title, or BWV number...");
+    search_edit_->setWhatsThis("Enter search terms to find sheet music on IMSLP. You can search by composer name (e.g., 'Bach'), work title (e.g., 'Brandenburg Concerto'), or catalog number (e.g., 'BWV 1007').");
     search_layout->addWidget(search_edit_);
 
     search_button_ = new QPushButton("Search");
+    search_button_->setWhatsThis("Click to search IMSLP for sheet music matching your search terms. Results will be displayed below with thumbnail previews.");
     search_layout->addWidget(search_button_);
 
     main_layout->addLayout(search_layout);
@@ -120,17 +123,23 @@ void IMSLPSearchDialog::setup_ui()
     list_view_button_->setCheckable(true);
     list_view_button_->setChecked(true); // Default to list view
     list_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    list_view_button_->setWhatsThis("Display search results in a vertical list format with thumbnails on the left and filenames on the right.");
+
     grid_view_button_ = new QPushButton("Grid");
     grid_view_button_->setCheckable(true);
     grid_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    grid_view_button_->setWhatsThis("Display search results in a grid format with thumbnails arranged in rows and columns.");
 
     small_icon_button_ = new QPushButton("Small");
     small_icon_button_->setCheckable(true);
     small_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    small_icon_button_->setWhatsThis("Show thumbnails at a smaller size.");
+
     large_icon_button_ = new QPushButton("Large");
     large_icon_button_->setCheckable(true);
     large_icon_button_->setChecked(true); // Default to large icons
     large_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    large_icon_button_->setWhatsThis("Show thumbnails at a larger size.");
 
     view_control_layout->addWidget(new QLabel("View:"));
     view_control_layout->addWidget(list_view_button_);
@@ -152,8 +161,6 @@ void IMSLPSearchDialog::setup_ui()
     main_layout->addWidget(progress_bar_);
 
     // Results section
-    main_layout->addWidget(new QLabel("Results:"));
-
     results_list_ = new QListWidget();
     results_list_->setIconSize(QSize(large_icon_size_, large_icon_size_));
     results_list_->setViewMode(QListView::ListMode);
@@ -162,6 +169,7 @@ void IMSLPSearchDialog::setup_ui()
     results_list_->setMouseTracking(true);
     results_list_->viewport()->setMouseTracking(true);
     results_list_->viewport()->installEventFilter(this);
+    results_list_->setWhatsThis("Search results from IMSLP. Double-click any item to download and open. Right-click on a thumbnail to view a larger preview image.");
     main_layout->addWidget(results_list_);
 
     // Connect signals
@@ -203,7 +211,7 @@ void IMSLPSearchDialog::on_search_clicked()
             if (current_results_.empty()) {
                 status_label_->setText("No results found");
             } else {
-                status_label_->setText(QString("Found %1 PDF(s)").arg(current_results_.size()));
+                status_label_->setText(QString("Found %1 PDF(s) - double click to open, right click on image to zoom in").arg(current_results_.size()));
 
                 // Add results to list
                 for (const auto &pdf : current_results_) {
