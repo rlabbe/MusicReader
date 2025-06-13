@@ -385,6 +385,9 @@ void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
     }
 
     download_and_open_pdf(item);
+
+    // Unselect the item after starting download
+    results_list_->clearSelection();
 }
 
 void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
