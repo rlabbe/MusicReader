@@ -262,9 +262,8 @@ void IMSLPSearchDialog::add_result_to_list(const FileInfo &pdf)
 void IMSLPSearchDialog::download_thumbnail(QListWidgetItem *item, const QString &thumb_url)
 {
     QString url = thumb_url;
-    if (url.startsWith("//")) {
+    if (url.startsWith("//"))
         url = "https:" + url; // Add protocol for protocol-relative URLs
-    }
 
     QNetworkRequest request;
     request.setUrl(QUrl(url));
@@ -309,7 +308,6 @@ void IMSLPSearchDialog::on_thumbnail_downloaded()
 
 void IMSLPSearchDialog::on_list_view_clicked()
 {
-    view_mode_ = ViewMode::List;
     list_view_button_->setChecked(true);
     grid_view_button_->setChecked(false);
     update_view_mode();
@@ -317,7 +315,6 @@ void IMSLPSearchDialog::on_list_view_clicked()
 
 void IMSLPSearchDialog::on_grid_view_clicked()
 {
-    view_mode_ = ViewMode::Grid;
     list_view_button_->setChecked(false);
     grid_view_button_->setChecked(true);
     update_view_mode();
@@ -325,7 +322,6 @@ void IMSLPSearchDialog::on_grid_view_clicked()
 
 void IMSLPSearchDialog::on_small_icon_clicked()
 {
-    icon_size_ = IconSize::Small;
     small_icon_button_->setChecked(true);
     large_icon_button_->setChecked(false);
     update_view_mode();
@@ -333,7 +329,6 @@ void IMSLPSearchDialog::on_small_icon_clicked()
 
 void IMSLPSearchDialog::on_large_icon_clicked()
 {
-    icon_size_ = IconSize::Large;
     small_icon_button_->setChecked(false);
     large_icon_button_->setChecked(true);
     update_view_mode();
@@ -343,7 +338,7 @@ void IMSLPSearchDialog::update_view_mode()
 {
     int icon_size = get_icon_size();
 
-    if (view_mode_ == ViewMode::List) {
+    if (list_view_button_->isChecked()) {
         results_list_->setViewMode(QListView::ListMode);
         results_list_->setIconSize(QSize(icon_size, icon_size));
         results_list_->setFlow(QListView::TopToBottom);
@@ -376,7 +371,7 @@ void IMSLPSearchDialog::update_view_mode()
 
 int IMSLPSearchDialog::get_icon_size() const
 {
-    return (icon_size_ == IconSize::Large) ? large_icon_size_ : small_icon_size_;
+    return large_icon_button_->isChecked() ? large_icon_size_ : small_icon_size_;
 }
 
 void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
@@ -400,20 +395,17 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
     QString pdf_url = item->data(Qt::UserRole).toString();
 
     // Create and setup WebEngine if not already done
-    if (!web_view_) {
+    if (!web_view_)
         setup_web_engine();
-    }
 
     // Clean the PDF URL - add https if it starts with //
-    if (pdf_url.startsWith("//")) {
+    if (pdf_url.startsWith("//"))
         pdf_url = "https:" + pdf_url;
-    }
 
     // Clean filename for saving
     QString clean_filename = filename;
-    if (!clean_filename.endsWith(".pdf", Qt::CaseInsensitive)) {
+    if (!clean_filename.endsWith(".pdf", Qt::CaseInsensitive))
         clean_filename += ".pdf";
-    }
     clean_filename = clean_filename.replace(QRegularExpression("[<>:\"/\\|?*]"), "_");
 
     current_download_path_ = get_temp_file_path(clean_filename);
@@ -531,17 +523,16 @@ bool IMSLPSearchDialog::eventFilter(QObject *watched, QEvent *event)
                 if (item) {
                     hide_hover_popup();
                     show_hover_popup(item);
+                    return true; // Consume the event to prevent selection
                 }
             }
         } else if (event->type() == QEvent::MouseMove) {
-            if (hover_popup_ && hover_popup_->isVisible()) {
+            if (hover_popup_ && hover_popup_->isVisible())
                 hide_hover_popup();
-            }
         }
     } else if (event->type() == QEvent::MouseMove) {
-        if (hover_popup_ && hover_popup_->isVisible()) {
+        if (hover_popup_ && hover_popup_->isVisible())
             hide_hover_popup();
-        }
     }
     return QDialog::eventFilter(watched, event);
 }
@@ -585,9 +576,8 @@ void IMSLPSearchDialog::show_hover_popup(QListWidgetItem *item)
 
     // Only scale if the image is larger than the available space
     QPixmap scaled_pixmap = full_size_pixmap;
-    if (full_size_pixmap.width() > max_width || full_size_pixmap.height() > max_height) {
+    if (full_size_pixmap.width() > max_width || full_size_pixmap.height() > max_height)
         scaled_pixmap = full_size_pixmap.scaled(max_width, max_height, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    }
 
     hover_popup_->setPixmap(scaled_pixmap);
     hover_popup_->resize(scaled_pixmap.size());
@@ -597,7 +587,10 @@ void IMSLPSearchDialog::show_hover_popup(QListWidgetItem *item)
     hover_popup_->move(center_pos);
     hover_popup_->show();
     hover_popup_->raise();
-    hover_popup_->activateWindow();
+
+    // Don't give focus to the popup, keep it with the dialog so ESC works
+    this->activateWindow();
+    this->setFocus();
 }
 
 void IMSLPSearchDialog::hide_hover_popup()
