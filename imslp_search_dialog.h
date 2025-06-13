@@ -49,7 +49,7 @@ private slots:
     void on_item_double_clicked(QListWidgetItem *item);
     void on_web_engine_download_requested(QWebEngineDownloadRequest *download);
     void on_web_engine_load_finished(bool success);
-    void show_hover_popup();
+    void show_hover_popup(QListWidgetItem *item);
     void hide_hover_popup();
 
 private:
@@ -89,7 +89,8 @@ private:
     };
 
     // Hover functionality
-    QTimer *hover_timer_;
     QLabel *hover_popup_;
-    QListWidgetItem *hover_item_ = nullptr;
+
+   int large_icon_size_ = 300;
+   int small_icon_size_ = 150;
 };

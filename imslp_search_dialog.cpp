@@ -14,13 +14,25 @@ IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
     , network_manager_(new QNetworkAccessManager(this))
     , web_view_(nullptr)
     , file_prefixes_({ "PMLP", "IMSLP" })
-    , hover_timer_(new QTimer(this))
     , hover_popup_(nullptr)
 {
     setup_ui();
     setWindowTitle("IMSLP Search");
     setMinimumSize(600, 400);
-    resize(800, 600);
+
+    // Size dialog to 75% of parent height with 4/3 ratio
+    if (parent) {
+        int dialog_height = parent->height() * 0.75;
+        int dialog_width = dialog_height * 4 / 3;
+        resize(dialog_width, dialog_height);
+
+        // Position with right edge aligned to parent's right edge
+        QPoint right_aligned_pos = QPoint(parent->geometry().right() - dialog_width, parent->geometry().y() + (parent->geometry().height() - dialog_height) / 2);
+        move(right_aligned_pos);
+    } else {
+        resize(800, 600);
+    }
+
     setModal(false);
 }
 
@@ -143,7 +155,7 @@ void IMSLPSearchDialog::setup_ui()
     main_layout->addWidget(new QLabel("Results:"));
 
     results_list_ = new QListWidget();
-    results_list_->setIconSize(QSize(200, 200));
+    results_list_->setIconSize(QSize(large_icon_size_, large_icon_size_));
     results_list_->setViewMode(QListView::ListMode);
     results_list_->setFlow(QListView::TopToBottom);
     results_list_->setWrapping(false);
@@ -160,10 +172,6 @@ void IMSLPSearchDialog::setup_ui()
     connect(small_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_small_icon_clicked);
     connect(large_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_large_icon_clicked);
     connect(results_list_, &QListWidget::itemDoubleClicked, this, &IMSLPSearchDialog::on_item_double_clicked);
-
-    // Set initial view mode
-    view_mode_ = ViewMode::List;
-    icon_size_ = IconSize::Large;
 
     update_view_mode();
 }
@@ -368,7 +376,7 @@ void IMSLPSearchDialog::update_view_mode()
 
 int IMSLPSearchDialog::get_icon_size() const
 {
-    return (icon_size_ == IconSize::Large) ? 200 : 100;
+    return (icon_size_ == IconSize::Large) ? large_icon_size_ : small_icon_size_;
 }
 
 void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
@@ -522,20 +530,17 @@ bool IMSLPSearchDialog::eventFilter(QObject *watched, QEvent *event)
                 QListWidgetItem *item = results_list_->itemAt(mouse_event->pos());
                 if (item) {
                     hide_hover_popup();
-                    hover_item_ = item;
-                    show_hover_popup();
+                    show_hover_popup(item);
                 }
             }
         } else if (event->type() == QEvent::MouseMove) {
             if (hover_popup_ && hover_popup_->isVisible()) {
                 hide_hover_popup();
-                hover_item_ = nullptr;
             }
         }
     } else if (event->type() == QEvent::MouseMove) {
         if (hover_popup_ && hover_popup_->isVisible()) {
             hide_hover_popup();
-            hover_item_ = nullptr;
         }
     }
     return QDialog::eventFilter(watched, event);
@@ -545,20 +550,19 @@ void IMSLPSearchDialog::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Escape && hover_popup_ && hover_popup_->isVisible()) {
         hide_hover_popup();
-        hover_item_ = nullptr;
         event->accept();
         return;
     }
     QDialog::keyPressEvent(event);
 }
 
-void IMSLPSearchDialog::show_hover_popup()
+void IMSLPSearchDialog::show_hover_popup(QListWidgetItem *item)
 {
-    if (!hover_item_)
+    if (!item)
         return;
 
     // Use the full-size pixmap stored in UserRole + 2, not the scaled icon
-    QPixmap full_size_pixmap = hover_item_->data(Qt::UserRole + 2).value<QPixmap>();
+    QPixmap full_size_pixmap = item->data(Qt::UserRole + 2).value<QPixmap>();
 
     if (full_size_pixmap.isNull())
         return;
