@@ -509,6 +509,8 @@ void MusicReader::create_imslp_menu(auto *menu_bar)
     connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
     imslp_menu->addAction(action);
 }
+
+
 void MusicReader::create_menus()
 {
     SAFE_METHOD;
@@ -519,6 +521,7 @@ void MusicReader::create_menus()
     create_edit_menu(menu_bar);
     create_imslp_menu(menu_bar);
     create_view_menu(menu_bar);
+    create_help_menu(menu_bar);
 
     menuBar()->setStyleSheet(R"(
         QMenu::item {
@@ -567,6 +570,73 @@ void MusicReader::create_menus()
 
     if (!config_.show_menu())
         menu_bar->hide();
+}
+
+void MusicReader::create_help_menu(auto *menu_bar)
+{
+    SAFE_METHOD;
+
+    QMenu *help_menu = menu_bar->addMenu("&Help");
+
+    QAction *action = new QAction("&About MusicReader...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::show_about_dialog);
+    help_menu->addAction(action);
+}
+
+void MusicReader::show_about_dialog()
+{
+    SAFE_METHOD;
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("About MusicReader");
+    dialog.setModal(true);
+
+    QVBoxLayout layout(&dialog);
+
+    QLabel *title = new QLabel("MusicReader", &dialog);
+    title->setAlignment(Qt::AlignCenter);
+    QFont title_font = title->font();
+    title_font.setPointSize(16);
+    title_font.setBold(true);
+    title->setFont(title_font);
+    layout.addWidget(title);
+
+    QLabel *version = new QLabel("Version 1.0", &dialog);
+    version->setAlignment(Qt::AlignCenter);
+    layout.addWidget(version);
+
+    QLabel *copyright_info = new QLabel("&copy; 2025 Roger Labbe. All rights reserved.<br>"
+                                       "github.com/rlabbe/MusicReader", &dialog);
+    copyright_info->setAlignment(Qt::AlignCenter);
+    copyright_info->setTextFormat(Qt::RichText);
+    layout.addWidget(copyright_info);
+
+    layout.addSpacing(20);
+
+    QLabel *info = new QLabel(&dialog);
+    info->setWordWrap(true);
+    info->setTextFormat(Qt::RichText);
+    info->setText("PDF music reader application with IMSLP integration.<br><br>"
+               "This application is free and open source software.<br><br>"
+               "<b>License:</b> MIT License<br><br>"
+               "<b>Third-party libraries and data:</b>"
+               "<ul>"
+               "<li>Qt Framework - &copy; The Qt Company Ltd. Licensed under LGPL v3<br>https://www.qt.io/<br></li>"
+               "<li>MuPDF - &copy; Artifex Software, Inc. Licensed under AGPL v3<br>https://mupdf.com/<br></li>"
+               "<li>IMSLP (International Music Score Library Project).<br>Optional search integration for public domain scores. Users must respect IMSLP's terms of service, copyright laws in the user's country, and download limits.<br>https://imslp.org</li>"
+               "</ul>"
+               "Built with Qt " QT_VERSION_STR "<br><br>"
+               "Source code and license information available at github.com/rlabbe/MusicReader.");
+    layout.addWidget(info);
+
+    QHBoxLayout button_layout;
+    QPushButton *ok_button = new QPushButton("OK", &dialog);
+    connect(ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
+    button_layout.addStretch();
+    button_layout.addWidget(ok_button);
+    layout.addLayout(&button_layout);
+
+    dialog.exec();
 }
 
 void MusicReader::update_recent_files_list()

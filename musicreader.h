@@ -50,6 +50,9 @@ private:
     PDFViewer *viewer_tab(int index) const;
     PDFViewer *current_viewer(const std::string &log_err = "") const;
 
+    void create_help_menu(auto *menu_bar);
+    void show_about_dialog();
+
     void on_page_down();
     void on_page_up();
 
