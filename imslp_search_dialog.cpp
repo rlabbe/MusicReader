@@ -9,11 +9,11 @@
 
 IMSLPSearchDialog::IMSLPSearchDialog(QWidget *parent)
     : QDialog(parent)
-    , m_client(std::make_unique<IMSLPClient>())
-    , m_networkManager(new QNetworkAccessManager(this))
-    , m_webView(nullptr)
+    , client_(std::make_unique<IMSLPClient>())
+    , network_manager_(new QNetworkAccessManager(this))
+    , web_view_(nullptr)
 {
-    setupUI();
+    setup_ui();
     setWindowTitle("IMSLP Search");
     setMinimumSize(600, 400);
     resize(800, 600);
@@ -22,26 +22,26 @@ IMSLPSearchDialog::IMSLPSearchDialog(QWidget *parent)
 
 IMSLPSearchDialog::~IMSLPSearchDialog()
 {
-    if (m_webView) {
-        m_webView->deleteLater();
-        m_webView = nullptr;
+    if (web_view_) {
+        web_view_->deleteLater();
+        web_view_ = nullptr;
     }
 }
 
-void IMSLPSearchDialog::setupWebEngine()
+void IMSLPSearchDialog::setup_web_engine()
 {
     qDebug() << "Setting up WebEngine...";
 
     // Create WebEngine view
-    m_webView = new QWebEngineView();
-    m_webView->setWindowTitle("IMSLP Download");
-    m_webView->resize(800, 600);
+    web_view_ = new QWebEngineView();
+    web_view_->setWindowTitle("IMSLP Download");
+    web_view_->resize(800, 600);
 
     // Connect to detect when user closes the browser window
-    connect(m_webView, &QObject::destroyed, this, [this]() {
+    connect(web_view_, &QObject::destroyed, this, [this]() {
         qDebug() << "WebEngine browser window was closed by user";
-        m_statusLabel->setText("Download cancelled");
-        m_webView = nullptr; // Reset pointer since object is being destroyed
+        status_label_->setText("Download cancelled");
+        web_view_ = nullptr; // Reset pointer since object is being destroyed
     });
 
     qDebug() << "WebView configured successfully";
@@ -53,39 +53,39 @@ void IMSLPSearchDialog::setupWebEngine()
 
     connect(timeoutTimer, &QTimer::timeout, [this]() {
         qDebug() << "WebEngine load timeout";
-        m_statusLabel->setText("Download timeout - please try again");
-        if (m_webView) {
-            m_webView->stop();
-            m_webView->deleteLater();
-            m_webView = nullptr;
+        status_label_->setText("Download timeout - please try again");
+        if (web_view_) {
+            web_view_->stop();
+            web_view_->deleteLater();
+            web_view_ = nullptr;
         }
     });
 
     qDebug() << "About to connect WebEngine signals...";
 
     // Connect download requests
-    connect(m_webView->page()->profile(), &QWebEngineProfile::downloadRequested,
-            this, &IMSLPSearchDialog::onWebEngineDownloadRequested);
+    connect(web_view_->page()->profile(), &QWebEngineProfile::downloadRequested,
+            this, &IMSLPSearchDialog::on_web_engine_download_requested);
 
     // Connect load finished to detect when JavaScript has executed
-    connect(m_webView, &QWebEngineView::loadFinished,
-            this, &IMSLPSearchDialog::onWebEngineLoadFinished);
+    connect(web_view_, &QWebEngineView::loadFinished,
+            this, &IMSLPSearchDialog::on_web_engine_load_finished);
 
     // Connect load started to start timeout
-    connect(m_webView, &QWebEngineView::loadStarted, [this, timeoutTimer]() {
+    connect(web_view_, &QWebEngineView::loadStarted, [this, timeoutTimer]() {
         qDebug() << "WebEngine load started";
         timeoutTimer->start();
     });
 
     // Stop timeout when finished
-    connect(m_webView, &QWebEngineView::loadFinished, [timeoutTimer](bool) {
+    connect(web_view_, &QWebEngineView::loadFinished, [timeoutTimer](bool) {
         timeoutTimer->stop();
     });
 
     qDebug() << "WebEngine setup completed successfully";
 }
 
-void IMSLPSearchDialog::setupUI()
+void IMSLPSearchDialog::setup_ui()
 {
     auto *mainLayout = new QVBoxLayout(this);
 
@@ -93,129 +93,129 @@ void IMSLPSearchDialog::setupUI()
     auto *searchLayout = new QHBoxLayout();
     searchLayout->addWidget(new QLabel("Search:"));
 
-    m_searchEdit = new QLineEdit();
-    m_searchEdit->setPlaceholderText("Enter composer, work title, or BWV number...");
-    searchLayout->addWidget(m_searchEdit);
+    search_edit_ = new QLineEdit();
+    search_edit_->setPlaceholderText("Enter composer, work title, or BWV number...");
+    searchLayout->addWidget(search_edit_);
 
-    m_searchButton = new QPushButton("Search");
-    searchLayout->addWidget(m_searchButton);
+    search_button_ = new QPushButton("Search");
+    searchLayout->addWidget(search_button_);
 
     mainLayout->addLayout(searchLayout);
 
     // View control buttons
     QHBoxLayout *viewControlLayout = new QHBoxLayout();
 
-    m_listViewButton = new QPushButton("List");
-    m_listViewButton->setCheckable(true);
-    m_listViewButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
-    m_gridViewButton = new QPushButton("Grid");
-    m_gridViewButton->setCheckable(true);
-    m_gridViewButton->setChecked(true); // Default to grid view
-    m_gridViewButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    list_view_button_ = new QPushButton("List");
+    list_view_button_->setCheckable(true);
+    list_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    grid_view_button_ = new QPushButton("Grid");
+    grid_view_button_->setCheckable(true);
+    grid_view_button_->setChecked(true); // Default to grid view
+    grid_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
 
-    m_smallIconButton = new QPushButton("Small");
-    m_smallIconButton->setCheckable(true);
-    m_smallIconButton->setChecked(true); // Default to small icons
-    m_smallIconButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
-    m_largeIconButton = new QPushButton("Large");
-    m_largeIconButton->setCheckable(true);
-    m_largeIconButton->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    small_icon_button_ = new QPushButton("Small");
+    small_icon_button_->setCheckable(true);
+    small_icon_button_->setChecked(true); // Default to small icons
+    small_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
+    large_icon_button_ = new QPushButton("Large");
+    large_icon_button_->setCheckable(true);
+    large_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
 
     viewControlLayout->addWidget(new QLabel("View:"));
-    viewControlLayout->addWidget(m_listViewButton);
-    viewControlLayout->addWidget(m_gridViewButton);
+    viewControlLayout->addWidget(list_view_button_);
+    viewControlLayout->addWidget(grid_view_button_);
     viewControlLayout->addSpacing(20);
     viewControlLayout->addWidget(new QLabel("Size:"));
-    viewControlLayout->addWidget(m_smallIconButton);
-    viewControlLayout->addWidget(m_largeIconButton);
+    viewControlLayout->addWidget(small_icon_button_);
+    viewControlLayout->addWidget(large_icon_button_);
     viewControlLayout->addStretch();
 
     mainLayout->addLayout(viewControlLayout);
 
     // Status section
-    m_statusLabel = new QLabel("Enter search terms and click Search");
-    mainLayout->addWidget(m_statusLabel);
+    status_label_ = new QLabel("Enter search terms and click Search");
+    mainLayout->addWidget(status_label_);
 
-    m_progressBar = new QProgressBar();
-    m_progressBar->setVisible(false);
-    mainLayout->addWidget(m_progressBar);
+    progress_bar_ = new QProgressBar();
+    progress_bar_->setVisible(false);
+    mainLayout->addWidget(progress_bar_);
 
     // Results section
     mainLayout->addWidget(new QLabel("Results:"));
 
-    m_resultsList = new QListWidget();
-    m_resultsList->setIconSize(QSize(100, 100));
-    mainLayout->addWidget(m_resultsList);
+    results_list_ = new QListWidget();
+    results_list_->setIconSize(QSize(100, 100));
+    mainLayout->addWidget(results_list_);
 
     // Connect signals
-    connect(m_searchButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onSearchClicked);
-    connect(m_searchEdit, &QLineEdit::returnPressed, this, &IMSLPSearchDialog::onSearchClicked);
-    connect(m_listViewButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onListViewClicked);
-    connect(m_gridViewButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onGridViewClicked);
-    connect(m_smallIconButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onSmallIconClicked);
-    connect(m_largeIconButton, &QPushButton::clicked, this, &IMSLPSearchDialog::onLargeIconClicked);
-    connect(m_resultsList, &QListWidget::itemDoubleClicked, this, &IMSLPSearchDialog::onItemDoubleClicked);
+    connect(search_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_search_clicked);
+    connect(search_edit_, &QLineEdit::returnPressed, this, &IMSLPSearchDialog::on_search_clicked);
+    connect(list_view_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_list_view_clicked);
+    connect(grid_view_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_grid_view_clicked);
+    connect(small_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_small_icon_clicked);
+    connect(large_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_large_icon_clicked);
+    connect(results_list_, &QListWidget::itemDoubleClicked, this, &IMSLPSearchDialog::on_item_double_clicked);
 
-    updateViewMode();
+    update_view_mode();
 }
 
-void IMSLPSearchDialog::onSearchClicked()
+void IMSLPSearchDialog::on_search_clicked()
 {
-    QString searchText = m_searchEdit->text().trimmed();
+    QString searchText = search_edit_->text().trimmed();
     if (searchText.isEmpty()) {
         QMessageBox::warning(this, "Search", "Please enter search terms");
         return;
     }
 
-    clearResults();
-    m_searchButton->setEnabled(false);
-    m_progressBar->setVisible(true);
-    m_progressBar->setRange(0, 0); // Indeterminate progress
-    m_statusLabel->setText("Searching...");
+    clear_results();
+    search_button_->setEnabled(false);
+    progress_bar_->setVisible(true);
+    progress_bar_->setRange(0, 0); // Indeterminate progress
+    status_label_->setText("Searching...");
 
     // Run search in background thread
     auto *watcher = new QFutureWatcher<std::vector<FileInfo>>(this);
     connect(watcher, &QFutureWatcher<std::vector<FileInfo>>::finished, [this, watcher]() {
         try {
             auto results = watcher->result();
-            m_currentResults = std::move(results);
+            current_results_ = std::move(results);
 
-            m_progressBar->setVisible(false);
-            m_searchButton->setEnabled(true);
+            progress_bar_->setVisible(false);
+            search_button_->setEnabled(true);
 
-            if (m_currentResults.empty()) {
-                m_statusLabel->setText("No results found");
+            if (current_results_.empty()) {
+                status_label_->setText("No results found");
             } else {
-                m_statusLabel->setText(QString("Found %1 PDF(s)").arg(m_currentResults.size()));
+                status_label_->setText(QString("Found %1 PDF(s)").arg(current_results_.size()));
 
                 // Add results to list
-                for (const auto &pdf : m_currentResults) {
-                    addResultToList(pdf);
+                for (const auto &pdf : current_results_) {
+                    add_result_to_list(pdf);
                 }
             }
         } catch (const std::exception &e) {
-            m_progressBar->setVisible(false);
-            m_searchButton->setEnabled(true);
-            m_statusLabel->setText("Search failed");
+            progress_bar_->setVisible(false);
+            search_button_->setEnabled(true);
+            status_label_->setText("Search failed");
             QMessageBox::critical(this, "Search Error", QString("Search failed: %1").arg(e.what()));
         }
         watcher->deleteLater();
     });
 
     QFuture<std::vector<FileInfo>> future = QtConcurrent::run([this, searchText]() {
-        return m_client->get_work_pdfs(searchText.toStdString());
+        return client_->get_work_pdfs(searchText.toStdString());
     });
 
     watcher->setFuture(future);
 }
 
-void IMSLPSearchDialog::clearResults()
+void IMSLPSearchDialog::clear_results()
 {
-    m_resultsList->clear();
-    m_currentResults.clear();
+    results_list_->clear();
+    current_results_.clear();
 }
 
-void IMSLPSearchDialog::addResultToList(const FileInfo &pdf)
+void IMSLPSearchDialog::add_result_to_list(const FileInfo &pdf)
 {
     // Extract just the filename without "File:" prefix for display
     QString displayName = QString::fromStdString(pdf.filename);
@@ -229,22 +229,22 @@ void IMSLPSearchDialog::addResultToList(const FileInfo &pdf)
     item->setData(Qt::UserRole + 1, QString::fromStdString(pdf.thumb_url)); // Store thumbnail URL
 
     // Set a default icon while thumbnail loads
-    int iconSize = getIconSize();
+    int iconSize = get_icon_size();
     QPixmap defaultPixmap(iconSize, iconSize);
     defaultPixmap.fill(Qt::lightGray);
     item->setIcon(QIcon(defaultPixmap));
 
-    m_resultsList->addItem(item);
+    results_list_->addItem(item);
 
     // Download thumbnail if available
     if (!pdf.thumb_url.empty()) {
-        downloadThumbnail(item, QString::fromStdString(pdf.thumb_url));
+        download_thumbnail(item, QString::fromStdString(pdf.thumb_url));
     }
 }
 
-void IMSLPSearchDialog::downloadThumbnail(QListWidgetItem *item, const QString &thumbUrl)
+void IMSLPSearchDialog::download_thumbnail(QListWidgetItem *item, const QString &thumb_url)
 {
-    QString url = thumbUrl;
+    QString url = thumb_url;
     if (url.startsWith("//")) {
         url = "https:" + url; // Add protocol for protocol-relative URLs
     }
@@ -253,14 +253,14 @@ void IMSLPSearchDialog::downloadThumbnail(QListWidgetItem *item, const QString &
     request.setUrl(QUrl(url));
     request.setRawHeader("User-Agent", "IMSLP Search Dialog/1.0");
 
-    QNetworkReply *reply = m_networkManager->get(request);
+    QNetworkReply *reply = network_manager_->get(request);
     reply->setProperty("listItem", QVariant::fromValue(static_cast<void *>(item)));
 
     // Connect this specific reply to the slot
-    connect(reply, &QNetworkReply::finished, this, &IMSLPSearchDialog::onThumbnailDownloaded);
+    connect(reply, &QNetworkReply::finished, this, &IMSLPSearchDialog::on_thumbnail_downloaded);
 }
 
-void IMSLPSearchDialog::onThumbnailDownloaded()
+void IMSLPSearchDialog::on_thumbnail_downloaded()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (!reply) return;
@@ -282,7 +282,7 @@ void IMSLPSearchDialog::onThumbnailDownloaded()
             item->setData(Qt::UserRole + 2, pixmap);
 
             // Scale to current icon size
-            int iconSize = getIconSize();
+            int iconSize = get_icon_size();
             QPixmap scaledPixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             item->setIcon(QIcon(scaledPixmap));
         }
@@ -290,55 +290,55 @@ void IMSLPSearchDialog::onThumbnailDownloaded()
     // If download failed, keep the default gray icon
 }
 
-void IMSLPSearchDialog::onListViewClicked()
+void IMSLPSearchDialog::on_list_view_clicked()
 {
-    m_viewMode = ViewMode::List;
-    m_listViewButton->setChecked(true);
-    m_gridViewButton->setChecked(false);
-    updateViewMode();
+    view_mode_ = ViewMode::List;
+    list_view_button_->setChecked(true);
+    grid_view_button_->setChecked(false);
+    update_view_mode();
 }
 
-void IMSLPSearchDialog::onGridViewClicked()
+void IMSLPSearchDialog::on_grid_view_clicked()
 {
-    m_viewMode = ViewMode::Grid;
-    m_listViewButton->setChecked(false);
-    m_gridViewButton->setChecked(true);
-    updateViewMode();
+    view_mode_ = ViewMode::Grid;
+    list_view_button_->setChecked(false);
+    grid_view_button_->setChecked(true);
+    update_view_mode();
 }
 
-void IMSLPSearchDialog::onSmallIconClicked()
+void IMSLPSearchDialog::on_small_icon_clicked()
 {
-    m_iconSize = IconSize::Small;
-    m_smallIconButton->setChecked(true);
-    m_largeIconButton->setChecked(false);
-    updateViewMode();
+    icon_size_ = IconSize::Small;
+    small_icon_button_->setChecked(true);
+    large_icon_button_->setChecked(false);
+    update_view_mode();
 }
 
-void IMSLPSearchDialog::onLargeIconClicked()
+void IMSLPSearchDialog::on_large_icon_clicked()
 {
-    m_iconSize = IconSize::Large;
-    m_smallIconButton->setChecked(false);
-    m_largeIconButton->setChecked(true);
-    updateViewMode();
+    icon_size_ = IconSize::Large;
+    small_icon_button_->setChecked(false);
+    large_icon_button_->setChecked(true);
+    update_view_mode();
 }
 
-void IMSLPSearchDialog::updateViewMode()
+void IMSLPSearchDialog::update_view_mode()
 {
-    int iconSize = getIconSize();
+    int iconSize = get_icon_size();
 
-    if (m_viewMode == ViewMode::List) {
-        m_resultsList->setViewMode(QListView::ListMode);
-        m_resultsList->setIconSize(QSize(iconSize, iconSize));
+    if (view_mode_ == ViewMode::List) {
+        results_list_->setViewMode(QListView::ListMode);
+        results_list_->setIconSize(QSize(iconSize, iconSize));
     } else {
-        m_resultsList->setViewMode(QListView::IconMode);
-        m_resultsList->setIconSize(QSize(iconSize, iconSize));
-        m_resultsList->setResizeMode(QListView::Adjust);
-        m_resultsList->setMovement(QListView::Static);
+        results_list_->setViewMode(QListView::IconMode);
+        results_list_->setIconSize(QSize(iconSize, iconSize));
+        results_list_->setResizeMode(QListView::Adjust);
+        results_list_->setMovement(QListView::Static);
     }
 
     // Re-scale existing thumbnails using stored full-size pixmaps
-    for (int i = 0; i < m_resultsList->count(); ++i) {
-        QListWidgetItem *item = m_resultsList->item(i);
+    for (int i = 0; i < results_list_->count(); ++i) {
+        QListWidgetItem *item = results_list_->item(i);
         if (item) {
             QPixmap fullSizePixmap = item->data(Qt::UserRole + 2).value<QPixmap>();
             if (!fullSizePixmap.isNull()) {
@@ -349,12 +349,12 @@ void IMSLPSearchDialog::updateViewMode()
     }
 }
 
-int IMSLPSearchDialog::getIconSize() const
+int IMSLPSearchDialog::get_icon_size() const
 {
-    return (m_iconSize == IconSize::Small) ? 100 : 200;
+    return (icon_size_ == IconSize::Small) ? 100 : 200;
 }
 
-void IMSLPSearchDialog::onItemDoubleClicked(QListWidgetItem *item)
+void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
 {
     if (!item) return;
 
@@ -362,14 +362,14 @@ void IMSLPSearchDialog::onItemDoubleClicked(QListWidgetItem *item)
     qDebug() << "PDF URL from item:" << pdfUrl;
 
     if (pdfUrl.isEmpty()) {
-        m_statusLabel->setText("No PDF URL found for this item");
+        status_label_->setText("No PDF URL found for this item");
         return;
     }
 
-    downloadAndOpenPdf(item);
+    download_and_open_pdf(item);
 }
 
-void IMSLPSearchDialog::downloadAndOpenPdf(QListWidgetItem *item)
+void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
 {
     if (!item) return;
 
@@ -380,8 +380,8 @@ void IMSLPSearchDialog::downloadAndOpenPdf(QListWidgetItem *item)
     qDebug() << "PDF URL:" << pdfUrl;
 
     // Create and setup WebEngine if not already done
-    if (!m_webView) {
-        setupWebEngine();
+    if (!web_view_) {
+        setup_web_engine();
     }
 
     // Clean the PDF URL - add https if it starts with //
@@ -396,44 +396,44 @@ void IMSLPSearchDialog::downloadAndOpenPdf(QListWidgetItem *item)
     }
     cleanFilename = cleanFilename.replace(QRegularExpression("[<>:\"/\\|?*]"), "_");
 
-    m_currentDownloadPath = getTempFilePath(cleanFilename);
-    m_currentDownloadFilename = cleanFilename;
+    current_download_path_ = get_temp_file_path(cleanFilename);
+    current_download_filename_ = cleanFilename;
 
-    qDebug() << "Will save to:" << m_currentDownloadPath;
+    qDebug() << "Will save to:" << current_download_path_;
 
-    m_statusLabel->setText(QString("Loading %1 with JavaScript...").arg(cleanFilename));
+    status_label_->setText(QString("Loading %1 with JavaScript...").arg(cleanFilename));
 
     // Show the browser and load the URL
-    m_webView->show();
-    m_webView->load(QUrl(pdfUrl));
+    web_view_->show();
+    web_view_->load(QUrl(pdfUrl));
 }
 
-void IMSLPSearchDialog::onWebEngineLoadFinished(bool success)
+void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
 {
     qDebug() << "WebEngine load finished. Success:" << success;
-    qDebug() << "Current URL:" << m_webView->url().toString();
+    qDebug() << "Current URL:" << web_view_->url().toString();
 
     if (!success) {
         qDebug() << "WebEngine load failed";
-        m_statusLabel->setText("Failed to load page - please try again");
+        status_label_->setText("Failed to load page - please try again");
         return;
     }
 
     // Check if we're now at a PDF URL or if we need to wait for more JavaScript
-    QString currentUrl = m_webView->url().toString();
+    QString currentUrl = web_view_->url().toString();
     if (currentUrl.endsWith(".pdf", Qt::CaseInsensitive)) {
         qDebug() << "WebEngine resolved to PDF URL, should trigger download automatically";
-        m_statusLabel->setText(QString("Downloading %1...").arg(m_currentDownloadFilename));
+        status_label_->setText(QString("Downloading %1...").arg(current_download_filename_));
     } else {
         qDebug() << "WebEngine loaded non-PDF page, checking content";
-        m_statusLabel->setText(QString("Processing JavaScript for %1...").arg(m_currentDownloadFilename));
+        status_label_->setText(QString("Processing JavaScript for %1...").arg(current_download_filename_));
 
         // Add a delay before executing JavaScript to let page fully load
         QTimer::singleShot(2000, this, [this]() {
             qDebug() << "Executing JavaScript to analyze page";
 
             // Execute JavaScript to check if we need to trigger any actions
-            m_webView->page()->runJavaScript("document.documentElement.outerHTML", [this](const QVariant &result) {
+            web_view_->page()->runJavaScript("document.documentElement.outerHTML", [this](const QVariant &result) {
                 QString html = result.toString();
                 qDebug() << "Page HTML length:" << html.length();
                 qDebug() << "HTML preview:" << html.left(500);
@@ -441,13 +441,13 @@ void IMSLPSearchDialog::onWebEngineLoadFinished(bool success)
                 // Look for PDF links or download triggers in the page
                 if (html.contains("allowAccess") || html.contains("BOT_DETECT")) {
                     qDebug() << "Found bot detection, waiting for JavaScript to execute";
-                    m_statusLabel->setText("Bot detection found, waiting for JavaScript...");
+                    status_label_->setText("Bot detection found, waiting for JavaScript...");
                     // The JavaScript should automatically execute and trigger a reload/redirect
                 } else if (html.contains(".pdf")) {
                     qDebug() << "Found PDF references in page";
-                    m_statusLabel->setText("Found PDF links, attempting to click...");
+                    status_label_->setText("Found PDF links, attempting to click...");
                     // Look for clickable download links
-                    m_webView->page()->runJavaScript(
+                    web_view_->page()->runJavaScript(
                         "var links = document.querySelectorAll('a[href$=\".pdf\"]');"
                         "console.log('Found', links.length, 'PDF links');"
                         "if (links.length > 0) { "
@@ -457,22 +457,22 @@ void IMSLPSearchDialog::onWebEngineLoadFinished(bool success)
                     );
                 } else {
                     qDebug() << "No PDF links or bot detection found";
-                    m_statusLabel->setText("No download links found - may need manual intervention");
+                    status_label_->setText("No download links found - may need manual intervention");
                 }
             });
         });
     }
 }
 
-void IMSLPSearchDialog::onWebEngineDownloadRequested(QWebEngineDownloadRequest *download)
+void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadRequest *download)
 {
     qDebug() << "WebEngine download requested:" << download->url().toString();
     qDebug() << "Suggested filename:" << download->suggestedFileName();
     qDebug() << "Download state:" << static_cast<int>(download->state());
 
     // Set the download path
-    QString downloadDir = QFileInfo(m_currentDownloadPath).absolutePath();
-    QString downloadFile = QFileInfo(m_currentDownloadPath).fileName();
+    QString downloadDir = QFileInfo(current_download_path_).absolutePath();
+    QString downloadFile = QFileInfo(current_download_path_).fileName();
 
     qDebug() << "Setting download directory to:" << downloadDir;
     qDebug() << "Setting download filename to:" << downloadFile;
@@ -493,27 +493,27 @@ void IMSLPSearchDialog::onWebEngineDownloadRequested(QWebEngineDownloadRequest *
                 // Open in MusicReader
                 MusicReader *mainWindow = qobject_cast<MusicReader *>(parent());
                 if (mainWindow) {
-                    mainWindow->open_pdf_in_tab(m_currentDownloadPath.toStdString());
-                    m_statusLabel->setText("PDF opened in MusicReader");
+                    mainWindow->open_pdf_in_tab(current_download_path_.toStdString());
+                    status_label_->setText("PDF opened in MusicReader");
                     qDebug() << "PDF opened in MusicReader";
 
                     // Delete the browser after successful download
-                    if (m_webView) {
-                        m_webView->deleteLater();
-                        m_webView = nullptr;
+                    if (web_view_) {
+                        web_view_->deleteLater();
+                        web_view_ = nullptr;
                     }
                 } else {
                     qDebug() << "Parent window not found";
-                    m_statusLabel->setText("Could not open PDF - parent window not found");
+                    status_label_->setText("Could not open PDF - parent window not found");
                 }
             } else {
                 qDebug() << "WebEngine download failed with state:" << static_cast<int>(download->state());
-                m_statusLabel->setText("Download failed - please try again");
+                status_label_->setText("Download failed - please try again");
 
                 // Delete browser on failure too
-                if (m_webView) {
-                    m_webView->deleteLater();
-                    m_webView = nullptr;
+                if (web_view_) {
+                    web_view_->deleteLater();
+                    web_view_ = nullptr;
                 }
             }
         }
@@ -522,10 +522,10 @@ void IMSLPSearchDialog::onWebEngineDownloadRequested(QWebEngineDownloadRequest *
     // Accept and start the download
     qDebug() << "Accepting download request";
     download->accept();
-    m_statusLabel->setText(QString("Downloading %1...").arg(m_currentDownloadFilename));
+    status_label_->setText(QString("Downloading %1...").arg(current_download_filename_));
 }
 
-QString IMSLPSearchDialog::getTempFilePath(const QString &filename) const
+QString IMSLPSearchDialog::get_temp_file_path(const QString &filename) const
 {
     QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     return QDir(tempDir).filePath(filename);
