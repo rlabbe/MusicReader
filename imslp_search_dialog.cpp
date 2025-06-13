@@ -37,6 +37,13 @@ void IMSLPSearchDialog::setupWebEngine()
     m_webView->setWindowTitle("IMSLP Download");
     m_webView->resize(800, 600);
 
+    // Connect to detect when user closes the browser window
+    connect(m_webView, &QObject::destroyed, this, [this]() {
+        qDebug() << "WebEngine browser window was closed by user";
+        m_statusLabel->setText("Download cancelled");
+        m_webView = nullptr; // Reset pointer since object is being destroyed
+    });
+
     qDebug() << "WebView configured successfully";
 
     // Set a timeout to prevent hanging
@@ -49,7 +56,8 @@ void IMSLPSearchDialog::setupWebEngine()
         m_statusLabel->setText("Download timeout - please try again");
         if (m_webView) {
             m_webView->stop();
-            m_webView->hide();
+            m_webView->deleteLater();
+            m_webView = nullptr;
         }
     });
 
@@ -489,9 +497,10 @@ void IMSLPSearchDialog::onWebEngineDownloadRequested(QWebEngineDownloadRequest *
                     m_statusLabel->setText("PDF opened in MusicReader");
                     qDebug() << "PDF opened in MusicReader";
 
-                    // Hide the browser after successful download
+                    // Delete the browser after successful download
                     if (m_webView) {
-                        m_webView->hide();
+                        m_webView->deleteLater();
+                        m_webView = nullptr;
                     }
                 } else {
                     qDebug() << "Parent window not found";
@@ -501,9 +510,10 @@ void IMSLPSearchDialog::onWebEngineDownloadRequested(QWebEngineDownloadRequest *
                 qDebug() << "WebEngine download failed with state:" << static_cast<int>(download->state());
                 m_statusLabel->setText("Download failed - please try again");
 
-                // Hide browser on failure too
+                // Delete browser on failure too
                 if (m_webView) {
-                    m_webView->hide();
+                    m_webView->deleteLater();
+                    m_webView = nullptr;
                 }
             }
         }
