@@ -330,6 +330,12 @@ Document::~Document()
         load_cv_.wait(lock, [this]() { return loading_done_.load(); });
     }
 
+    if (is_temporary()) {
+        // Delete temporary file and return
+        std::filesystem::remove(filename_);
+        return;
+    }
+
     if (!modified_) return;
 
     // gotta save it before destroying it. 
