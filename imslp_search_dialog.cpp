@@ -165,11 +165,6 @@ void IMSLPSearchDialog::setup_ui()
     view_mode_ = ViewMode::List;
     icon_size_ = IconSize::Large;
 
-    // Setup hover timer
-    hover_timer_->setSingleShot(true);
-    hover_timer_->setInterval(200);
-    connect(hover_timer_, &QTimer::timeout, this, &IMSLPSearchDialog::show_hover_popup);
-
     update_view_mode();
 }
 
@@ -484,7 +479,7 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
                 // Open in MusicReader
                 MusicReader *main_window = qobject_cast<MusicReader *>(parent());
                 if (main_window) {
-                    main_window->open_pdf_in_tab(current_download_path_.toStdString());
+                    main_window->open_pdf_in_tab(current_download_path_.toStdString(), 1, nullptr, true);
                     status_label_->setText("PDF opened in MusicReader");
 
                     // Delete the browser after successful download
@@ -521,38 +516,27 @@ QString IMSLPSearchDialog::get_temp_file_path(const QString &filename) const
 bool IMSLPSearchDialog::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == results_list_->viewport()) {
-        if (event->type() == QEvent::MouseMove) {
+        if (event->type() == QEvent::MouseButtonPress) {
             QMouseEvent *mouse_event = static_cast<QMouseEvent *>(event);
-            QListWidgetItem *item = results_list_->itemAt(mouse_event->pos());
-
-            bool over_icon = false;
-            if (item) {
-                // Check if mouse is specifically over the icon area
-                QRect item_rect = results_list_->visualItemRect(item);
-                QRect icon_rect = results_list_->visualItemRect(item);
-
-                if (view_mode_ == ViewMode::List) {
-                    int icon_size = get_icon_size();
-                    icon_rect.setWidth(icon_size);
-                    icon_rect.setHeight(icon_size);
-                    over_icon = icon_rect.contains(mouse_event->pos());
-                } else {
-                    over_icon = true;
+            if (mouse_event->button() == Qt::RightButton) {
+                QListWidgetItem *item = results_list_->itemAt(mouse_event->pos());
+                if (item) {
+                    hide_hover_popup();
+                    hover_item_ = item;
+                    show_hover_popup();
                 }
             }
-
-            if (over_icon && item != hover_item_) {
-                hide_hover_popup();
-                hover_item_ = item;
-                hover_timer_->start();
-            } else if (!over_icon && hover_item_) {
+        } else if (event->type() == QEvent::MouseMove) {
+            if (hover_popup_ && hover_popup_->isVisible()) {
                 hide_hover_popup();
                 hover_item_ = nullptr;
             }
         }
-    } else if (watched == hover_popup_ && event->type() == QEvent::Leave) {
-        hide_hover_popup();
-        hover_item_ = nullptr;
+    } else if (event->type() == QEvent::MouseMove) {
+        if (hover_popup_ && hover_popup_->isVisible()) {
+            hide_hover_popup();
+            hover_item_ = nullptr;
+        }
     }
     return QDialog::eventFilter(watched, event);
 }
@@ -588,7 +572,6 @@ void IMSLPSearchDialog::show_hover_popup()
     hover_popup_->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     hover_popup_->setStyleSheet("border: 2px solid black; background-color: white;");
     hover_popup_->setAttribute(Qt::WA_DeleteOnClose);
-    hover_popup_->setMouseTracking(true);
     hover_popup_->installEventFilter(this);
 
     // Scale image to fit screen while preserving aspect ratio
@@ -615,7 +598,6 @@ void IMSLPSearchDialog::show_hover_popup()
 
 void IMSLPSearchDialog::hide_hover_popup()
 {
-    hover_timer_->stop();
     if (hover_popup_) {
         hover_popup_->hide();
         hover_popup_->deleteLater();
