@@ -51,11 +51,11 @@ void IMSLPSearchDialog::setup_web_engine()
     });
 
     // Set a timeout to prevent hanging
-    QTimer *timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
-    timeoutTimer->setInterval(30000); // 30 second timeout
+    QTimer *timeout_timer = new QTimer(this);
+    timeout_timer->setSingleShot(true);
+    timeout_timer->setInterval(30000); // 30 second timeout
 
-    connect(timeoutTimer, &QTimer::timeout, [this]() {
+    connect(timeout_timer, &QTimer::timeout, [this]() {
         status_label_->setText("Download timeout - please try again");
         if (web_view_) {
             web_view_->stop();
@@ -73,36 +73,36 @@ void IMSLPSearchDialog::setup_web_engine()
             this, &IMSLPSearchDialog::on_web_engine_load_finished);
 
     // Connect load started to start timeout
-    connect(web_view_, &QWebEngineView::loadStarted, [this, timeoutTimer]() {
-        timeoutTimer->start();
+    connect(web_view_, &QWebEngineView::loadStarted, [this, timeout_timer]() {
+        timeout_timer->start();
     });
 
     // Stop timeout when finished
-    connect(web_view_, &QWebEngineView::loadFinished, [timeoutTimer](bool) {
-        timeoutTimer->stop();
+    connect(web_view_, &QWebEngineView::loadFinished, [timeout_timer](bool) {
+        timeout_timer->stop();
     });
 }
 
 
 void IMSLPSearchDialog::setup_ui()
 {
-    auto *mainLayout = new QVBoxLayout(this);
+    auto *main_layout = new QVBoxLayout(this);
 
     // Search section
-    auto *searchLayout = new QHBoxLayout();
-    searchLayout->addWidget(new QLabel("Search:"));
+    auto *search_layout = new QHBoxLayout();
+    search_layout->addWidget(new QLabel("Search:"));
 
     search_edit_ = new QLineEdit();
     search_edit_->setPlaceholderText("Enter composer, work title, or BWV number...");
-    searchLayout->addWidget(search_edit_);
+    search_layout->addWidget(search_edit_);
 
     search_button_ = new QPushButton("Search");
-    searchLayout->addWidget(search_button_);
+    search_layout->addWidget(search_button_);
 
-    mainLayout->addLayout(searchLayout);
+    main_layout->addLayout(search_layout);
 
     // View control buttons
-    QHBoxLayout *viewControlLayout = new QHBoxLayout();
+    QHBoxLayout *view_control_layout = new QHBoxLayout();
 
     list_view_button_ = new QPushButton("List");
     list_view_button_->setCheckable(true);
@@ -120,27 +120,27 @@ void IMSLPSearchDialog::setup_ui()
     large_icon_button_->setChecked(true); // Default to large icons
     large_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
 
-    viewControlLayout->addWidget(new QLabel("View:"));
-    viewControlLayout->addWidget(list_view_button_);
-    viewControlLayout->addWidget(grid_view_button_);
-    viewControlLayout->addSpacing(20);
-    viewControlLayout->addWidget(new QLabel("Size:"));
-    viewControlLayout->addWidget(small_icon_button_);
-    viewControlLayout->addWidget(large_icon_button_);
-    viewControlLayout->addStretch();
+    view_control_layout->addWidget(new QLabel("View:"));
+    view_control_layout->addWidget(list_view_button_);
+    view_control_layout->addWidget(grid_view_button_);
+    view_control_layout->addSpacing(20);
+    view_control_layout->addWidget(new QLabel("Size:"));
+    view_control_layout->addWidget(small_icon_button_);
+    view_control_layout->addWidget(large_icon_button_);
+    view_control_layout->addStretch();
 
-    mainLayout->addLayout(viewControlLayout);
+    main_layout->addLayout(view_control_layout);
 
     // Status section
     status_label_ = new QLabel("Enter search terms and click Search");
-    mainLayout->addWidget(status_label_);
+    main_layout->addWidget(status_label_);
 
     progress_bar_ = new QProgressBar();
     progress_bar_->setVisible(false);
-    mainLayout->addWidget(progress_bar_);
+    main_layout->addWidget(progress_bar_);
 
     // Results section
-    mainLayout->addWidget(new QLabel("Results:"));
+    main_layout->addWidget(new QLabel("Results:"));
 
     results_list_ = new QListWidget();
     results_list_->setIconSize(QSize(200, 200));
@@ -150,7 +150,7 @@ void IMSLPSearchDialog::setup_ui()
     results_list_->setMouseTracking(true);
     results_list_->viewport()->setMouseTracking(true);
     results_list_->viewport()->installEventFilter(this);
-    mainLayout->addWidget(results_list_);
+    main_layout->addWidget(results_list_);
 
     // Connect signals
     connect(search_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_search_clicked);
@@ -175,8 +175,8 @@ void IMSLPSearchDialog::setup_ui()
 
 void IMSLPSearchDialog::on_search_clicked()
 {
-    QString searchText = search_edit_->text().trimmed();
-    if (searchText.isEmpty()) {
+    QString search_text = search_edit_->text().trimmed();
+    if (search_text.isEmpty()) {
         QMessageBox::warning(this, "Search", "Please enter search terms");
         return;
     }
@@ -216,8 +216,8 @@ void IMSLPSearchDialog::on_search_clicked()
         watcher->deleteLater();
     });
 
-    QFuture<std::vector<FileInfo>> future = QtConcurrent::run([this, searchText]() {
-        return client_->get_work_pdfs(searchText.toStdString());
+    QFuture<std::vector<FileInfo>> future = QtConcurrent::run([this, search_text]() {
+        return client_->get_work_pdfs(search_text.toStdString());
     });
 
     watcher->setFuture(future);
@@ -231,24 +231,24 @@ void IMSLPSearchDialog::clear_results()
 
 void IMSLPSearchDialog::add_result_to_list(const FileInfo &pdf)
 {
-    QString displayName = QString::fromStdString(pdf.filename);
-    if (displayName.startsWith("File:"))
-        displayName = displayName.mid(5);
+    QString display_name = QString::fromStdString(pdf.filename);
+    if (display_name.startsWith("File:"))
+        display_name = display_name.mid(5);
 
     // Strip prefixes if present
     for (const auto &prefix : file_prefixes_) {
         QRegularExpression regex("^" + QString::fromStdString(prefix) + "\\d+-\\s*");
-        displayName = displayName.replace(regex, "");
+        display_name = display_name.replace(regex, "");
     }
 
-    auto *item = new QListWidgetItem(displayName);
+    auto *item = new QListWidgetItem(display_name);
     item->setData(Qt::UserRole, QString::fromStdString(pdf.url));
     item->setData(Qt::UserRole + 1, QString::fromStdString(pdf.thumb_url));
 
-    int iconSize = get_icon_size();
-    QPixmap defaultPixmap(iconSize, iconSize);
-    defaultPixmap.fill(Qt::lightGray);
-    item->setIcon(QIcon(defaultPixmap));
+    int icon_size = get_icon_size();
+    QPixmap default_pixmap(icon_size, icon_size);
+    default_pixmap.fill(Qt::lightGray);
+    item->setIcon(QIcon(default_pixmap));
 
     results_list_->addItem(item);
 
@@ -282,23 +282,23 @@ void IMSLPSearchDialog::on_thumbnail_downloaded()
     reply->deleteLater();
 
     // Get the associated list item
-    void *itemPtr = reply->property("listItem").value<void *>();
-    auto *item = static_cast<QListWidgetItem *>(itemPtr);
+    void *item_ptr = reply->property("listItem").value<void *>();
+    auto *item = static_cast<QListWidgetItem *>(item_ptr);
 
     if (!item) return;
 
     if (reply->error() == QNetworkReply::NoError) {
-        QByteArray imageData = reply->readAll();
+        QByteArray image_data = reply->readAll();
         QPixmap pixmap;
 
-        if (pixmap.loadFromData(imageData)) {
+        if (pixmap.loadFromData(image_data)) {
             // Store the full-size pixmap in the item data for later rescaling
             item->setData(Qt::UserRole + 2, pixmap);
 
             // Scale to current icon size
-            int iconSize = get_icon_size();
-            QPixmap scaledPixmap = pixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            item->setIcon(QIcon(scaledPixmap));
+            int icon_size = get_icon_size();
+            QPixmap scaled_pixmap = pixmap.scaled(icon_size, icon_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            item->setIcon(QIcon(scaled_pixmap));
         }
     }
     // If download failed, keep the default gray icon
@@ -338,23 +338,23 @@ void IMSLPSearchDialog::on_large_icon_clicked()
 
 void IMSLPSearchDialog::update_view_mode()
 {
-    int iconSize = get_icon_size();
+    int icon_size = get_icon_size();
 
     if (view_mode_ == ViewMode::List) {
         results_list_->setViewMode(QListView::ListMode);
-        results_list_->setIconSize(QSize(iconSize, iconSize));
+        results_list_->setIconSize(QSize(icon_size, icon_size));
         results_list_->setFlow(QListView::TopToBottom);
         results_list_->setWrapping(false);
         results_list_->setResizeMode(QListView::Adjust);
         results_list_->setMovement(QListView::Static);
     } else {
         results_list_->setViewMode(QListView::IconMode);
-        results_list_->setIconSize(QSize(iconSize, iconSize));
+        results_list_->setIconSize(QSize(icon_size, icon_size));
         results_list_->setResizeMode(QListView::Adjust);
         results_list_->setMovement(QListView::Static);
         results_list_->setFlow(QListView::LeftToRight);
         results_list_->setWrapping(true);
-        results_list_->setGridSize(QSize(iconSize + 50, iconSize + 80));
+        results_list_->setGridSize(QSize(icon_size + 50, icon_size + 80));
         results_list_->setUniformItemSizes(true);
     }
 
@@ -362,10 +362,10 @@ void IMSLPSearchDialog::update_view_mode()
     for (int i = 0; i < results_list_->count(); ++i) {
         QListWidgetItem *item = results_list_->item(i);
         if (item) {
-            QPixmap fullSizePixmap = item->data(Qt::UserRole + 2).value<QPixmap>();
-            if (!fullSizePixmap.isNull()) {
-                QPixmap scaledPixmap = fullSizePixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                item->setIcon(QIcon(scaledPixmap));
+            QPixmap full_size_pixmap = item->data(Qt::UserRole + 2).value<QPixmap>();
+            if (!full_size_pixmap.isNull()) {
+                QPixmap scaled_pixmap = full_size_pixmap.scaled(icon_size, icon_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                item->setIcon(QIcon(scaled_pixmap));
             }
         }
     }
@@ -380,8 +380,8 @@ void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
 {
     if (!item) return;
 
-    QString pdfUrl = item->data(Qt::UserRole).toString();
-    if (pdfUrl.isEmpty()) {
+    QString pdf_url = item->data(Qt::UserRole).toString();
+    if (pdf_url.isEmpty()) {
         status_label_->setText("No PDF URL found for this item");
         return;
     }
@@ -394,7 +394,7 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
     if (!item) return;
 
     QString filename = item->text();
-    QString pdfUrl = item->data(Qt::UserRole).toString();
+    QString pdf_url = item->data(Qt::UserRole).toString();
 
     // Create and setup WebEngine if not already done
     if (!web_view_) {
@@ -402,25 +402,25 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
     }
 
     // Clean the PDF URL - add https if it starts with //
-    if (pdfUrl.startsWith("//")) {
-        pdfUrl = "https:" + pdfUrl;
+    if (pdf_url.startsWith("//")) {
+        pdf_url = "https:" + pdf_url;
     }
 
     // Clean filename for saving
-    QString cleanFilename = filename;
-    if (!cleanFilename.endsWith(".pdf", Qt::CaseInsensitive)) {
-        cleanFilename += ".pdf";
+    QString clean_filename = filename;
+    if (!clean_filename.endsWith(".pdf", Qt::CaseInsensitive)) {
+        clean_filename += ".pdf";
     }
-    cleanFilename = cleanFilename.replace(QRegularExpression("[<>:\"/\\|?*]"), "_");
+    clean_filename = clean_filename.replace(QRegularExpression("[<>:\"/\\|?*]"), "_");
 
-    current_download_path_ = get_temp_file_path(cleanFilename);
-    current_download_filename_ = cleanFilename;
+    current_download_path_ = get_temp_file_path(clean_filename);
+    current_download_filename_ = clean_filename;
 
-    status_label_->setText(QString("Loading %1 with JavaScript...").arg(cleanFilename));
+    status_label_->setText(QString("Loading %1 with JavaScript...").arg(clean_filename));
 
     // Show the browser and load the URL
     web_view_->show();
-    web_view_->load(QUrl(pdfUrl));
+    web_view_->load(QUrl(pdf_url));
 }
 
 void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
@@ -431,8 +431,8 @@ void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
     }
 
     // Check if we're now at a PDF URL or if we need to wait for more JavaScript
-    QString currentUrl = web_view_->url().toString();
-    if (currentUrl.endsWith(".pdf", Qt::CaseInsensitive)) {
+    QString current_url = web_view_->url().toString();
+    if (current_url.endsWith(".pdf", Qt::CaseInsensitive)) {
         status_label_->setText(QString("Downloading %1...").arg(current_download_filename_));
     } else {
         status_label_->setText(QString("Processing JavaScript for %1...").arg(current_download_filename_));
@@ -469,11 +469,11 @@ void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
 void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadRequest *download)
 {
     // Set the download path
-    QString downloadDir = QFileInfo(current_download_path_).absolutePath();
-    QString downloadFile = QFileInfo(current_download_path_).fileName();
+    QString download_dir = QFileInfo(current_download_path_).absolutePath();
+    QString download_file = QFileInfo(current_download_path_).fileName();
 
-    download->setDownloadDirectory(downloadDir);
-    download->setDownloadFileName(downloadFile);
+    download->setDownloadDirectory(download_dir);
+    download->setDownloadFileName(download_file);
 
     // Connect to download progress and completion
     connect(download, &QWebEngineDownloadRequest::isFinishedChanged, [this, download]() {
@@ -482,9 +482,9 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
             if (download->state() == QWebEngineDownloadRequest::DownloadCompleted) {
 
                 // Open in MusicReader
-                MusicReader *mainWindow = qobject_cast<MusicReader *>(parent());
-                if (mainWindow) {
-                    mainWindow->open_pdf_in_tab(current_download_path_.toStdString());
+                MusicReader *main_window = qobject_cast<MusicReader *>(parent());
+                if (main_window) {
+                    main_window->open_pdf_in_tab(current_download_path_.toStdString());
                     status_label_->setText("PDF opened in MusicReader");
 
                     // Delete the browser after successful download
@@ -514,28 +514,28 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
 
 QString IMSLPSearchDialog::get_temp_file_path(const QString &filename) const
 {
-    QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    return QDir(tempDir).filePath(filename);
+    QString temp_dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    return QDir(temp_dir).filePath(filename);
 }
 
 bool IMSLPSearchDialog::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == results_list_->viewport()) {
         if (event->type() == QEvent::MouseMove) {
-            QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-            QListWidgetItem *item = results_list_->itemAt(mouseEvent->pos());
+            QMouseEvent *mouse_event = static_cast<QMouseEvent *>(event);
+            QListWidgetItem *item = results_list_->itemAt(mouse_event->pos());
 
             bool over_icon = false;
             if (item) {
                 // Check if mouse is specifically over the icon area
-                QRect itemRect = results_list_->visualItemRect(item);
-                QRect iconRect = results_list_->visualItemRect(item);
+                QRect item_rect = results_list_->visualItemRect(item);
+                QRect icon_rect = results_list_->visualItemRect(item);
 
                 if (view_mode_ == ViewMode::List) {
-                    int iconSize = get_icon_size();
-                    iconRect.setWidth(iconSize);
-                    iconRect.setHeight(iconSize);
-                    over_icon = iconRect.contains(mouseEvent->pos());
+                    int icon_size = get_icon_size();
+                    icon_rect.setWidth(icon_size);
+                    icon_rect.setHeight(icon_size);
+                    over_icon = icon_rect.contains(mouse_event->pos());
                 } else {
                     over_icon = true;
                 }
@@ -574,9 +574,9 @@ void IMSLPSearchDialog::show_hover_popup()
         return;
 
     // Use the full-size pixmap stored in UserRole + 2, not the scaled icon
-    QPixmap fullSizePixmap = hover_item_->data(Qt::UserRole + 2).value<QPixmap>();
+    QPixmap full_size_pixmap = hover_item_->data(Qt::UserRole + 2).value<QPixmap>();
 
-    if (fullSizePixmap.isNull())
+    if (full_size_pixmap.isNull())
         return;
 
     if (hover_popup_) {
@@ -592,22 +592,22 @@ void IMSLPSearchDialog::show_hover_popup()
     hover_popup_->installEventFilter(this);
 
     // Scale image to fit screen while preserving aspect ratio
-    QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
-    int maxHeight = screenGeometry.height() * 0.75; // 75% of screen height
-    int maxWidth = screenGeometry.width() - 100;    // Leave some margin for width
+    QRect screen_geometry = QGuiApplication::primaryScreen()->geometry();
+    int max_height = screen_geometry.height() * 0.75; // 75% of screen height
+    int max_width = screen_geometry.width() - 100;    // Leave some margin for width
 
     // Only scale if the image is larger than the available space
-    QPixmap scaledPixmap = fullSizePixmap;
-    if (fullSizePixmap.width() > maxWidth || fullSizePixmap.height() > maxHeight) {
-        scaledPixmap = fullSizePixmap.scaled(maxWidth, maxHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap scaled_pixmap = full_size_pixmap;
+    if (full_size_pixmap.width() > max_width || full_size_pixmap.height() > max_height) {
+        scaled_pixmap = full_size_pixmap.scaled(max_width, max_height, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     }
 
-    hover_popup_->setPixmap(scaledPixmap);
-    hover_popup_->resize(scaledPixmap.size());
+    hover_popup_->setPixmap(scaled_pixmap);
+    hover_popup_->resize(scaled_pixmap.size());
 
-    QPoint centerPos = screenGeometry.center() - QPoint(hover_popup_->width() / 2, hover_popup_->height() / 2);
+    QPoint center_pos = screen_geometry.center() - QPoint(hover_popup_->width() / 2, hover_popup_->height() / 2);
 
-    hover_popup_->move(centerPos);
+    hover_popup_->move(center_pos);
     hover_popup_->show();
     hover_popup_->raise();
     hover_popup_->activateWindow();
