@@ -31,6 +31,9 @@ public:
     void display_error_message(const std::string &msg);
     bool display_query(const std::string &msg);
 
+    ConfigFile &config() { return config_; }
+    const ConfigFile &config() const { return config_; }
+
 public slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();

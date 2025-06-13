@@ -475,15 +475,27 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
 
     // Connect to download progress and completion
     connect(download, &QWebEngineDownloadRequest::isFinishedChanged, [this, download]() {
-
         if (download->isFinished()) {
+            // Disconnect to prevent multiple calls
+            disconnect(download, &QWebEngineDownloadRequest::isFinishedChanged, nullptr, nullptr);
+
             if (download->state() == QWebEngineDownloadRequest::DownloadCompleted) {
 
                 // Open in MusicReader
                 MusicReader *main_window = qobject_cast<MusicReader *>(parent());
                 if (main_window) {
-                    main_window->open_pdf_in_tab(current_download_path_.toStdString(), 1, nullptr, true);
-                    status_label_->setText("PDF opened in MusicReader");
+                    // Try to move file to permanent location
+                    QString final_path = save_file_to_permanent_location(current_download_path_, current_download_filename_, main_window);
+
+                    if (!final_path.isEmpty()) {
+                        // File was saved permanently
+                        main_window->open_pdf_in_tab(final_path.toStdString(), 1, nullptr, false);
+                        status_label_->setText("PDF saved and opened in MusicReader");
+                    } else {
+                        // User cancelled save or error occurred, open as temporary
+                        main_window->open_pdf_in_tab(current_download_path_.toStdString(), 1, nullptr, true);
+                        status_label_->setText("PDF opened in MusicReader (temporary)");
+                    }
 
                     // Delete the browser after successful download
                     if (web_view_) {
@@ -602,5 +614,44 @@ void IMSLPSearchDialog::hide_hover_popup()
         hover_popup_->hide();
         hover_popup_->deleteLater();
         hover_popup_ = nullptr;
+    }
+}
+
+QString IMSLPSearchDialog::save_file_to_permanent_location(const QString &temp_path, const QString &filename, MusicReader *main_window)
+{
+    // Use last save directory if available, otherwise use music directory from config
+    QString save_dir = last_save_directory_.isEmpty() ?
+        QString::fromStdString(main_window->config().music_directory().string()) :
+        last_save_directory_;
+
+    // Show file save dialog
+    QString filter = "PDF Files (*.pdf)";
+    QString suggested_path = QDir(save_dir).filePath(filename);
+
+    QString save_path = QFileDialog::getSaveFileName(
+        this,
+        "Save PDF File",
+        suggested_path,
+        filter
+    );
+
+    if (save_path.isEmpty())
+        return QString(); // User cancelled
+
+    // Update last save directory
+    last_save_directory_ = QFileInfo(save_path).absolutePath();
+
+    // Try to copy/move the file
+    if (QFile::exists(save_path))
+        QFile::remove(save_path); // Remove existing file
+
+    if (QFile::copy(temp_path, save_path)) {
+        // Successfully copied, remove temp file
+        QFile::remove(temp_path);
+        return save_path;
+    } else {
+        // Copy failed
+        status_label_->setText("Failed to save file to permanent location");
+        return QString();
     }
 }
