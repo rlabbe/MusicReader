@@ -33,4 +33,6 @@ public:
     FileInfo get_file_info(const std::string &file_title, int thumb_width = 200);
     std::vector<FileInfo> get_work_pdfs(const std::string &search_term);
     std::vector<uint8_t> get_thumbnail_data(const std::string &thumb_url);
+
+    HINTERNET getSession() const { return hSession; }
 };

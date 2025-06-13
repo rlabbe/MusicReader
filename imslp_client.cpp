@@ -266,15 +266,23 @@ FileInfo IMSLPClient::get_file_info(const std::string &file_title, int thumb_wid
 std::vector<FileInfo> IMSLPClient::get_work_pdfs(const std::string &search_term)
 {
     logger::info("Getting PDFs for search term: {}", search_term);
-
     auto works = search_works(search_term);
     std::vector<FileInfo> all_pdfs;
-
     for (const auto &work_title : works) {
+        logger::info("Getting files for work: {}", work_title);
         auto pdfs = get_page_files(work_title);
+        logger::info("Found {} PDFs for work: {}", pdfs.size(), work_title);
+        for (const auto &pdf : pdfs) {
+            std::cout << "filename: " << pdf.filename << std::endl;
+            std::cout << "url: " << pdf.url << std::endl;
+            std::cout << "thumb_url: " << pdf.thumb_url << std::endl;
+            std::cout << "size: " << pdf.size << std::endl;
+            std::cout << "mime: " << pdf.mime << std::endl;
+            std::cout << "thumb_mime: " << pdf.thumb_mime << std::endl;
+            std::cout << "---" << std::endl;
+        }
         all_pdfs.insert(all_pdfs.end(), pdfs.begin(), pdfs.end());
     }
-
     logger::info("Total PDFs found: {}", all_pdfs.size());
     return all_pdfs;
 }

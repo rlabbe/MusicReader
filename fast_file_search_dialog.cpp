@@ -167,7 +167,8 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     v_header->setSectionResizeMode(QHeaderView::ResizeToContents);
 
     // Install event filter to catch What's This mode events
-    QApplication::instance()->installEventFilter(this);
+    //installEventFilter(this);
+
 
     setWindowModality(Qt::ApplicationModal);
     set_title();

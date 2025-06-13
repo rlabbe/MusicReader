@@ -1273,8 +1273,8 @@ void MusicReader::open_imslp_search_dialog()
     SAFE_METHOD;
 
     try {
-        IMSLPSearchDialog dialog(this);
-        dialog.exec();
+        auto *dialog = new IMSLPSearchDialog(this);
+        dialog->show();
     } catch (const std::exception &e) {
         logger::error("Failed to open IMSLP search dialog: " + std::string(e.what()));
         display_error_message("Failed to open IMSLP search dialog: " + std::string(e.what()));
