@@ -13,6 +13,7 @@ class QProgressBar;
 class QNetworkAccessManager;
 class QWebEngineView;
 class QWebEngineDownloadRequest;
+class QTimer;
 class IMSLPClient;
 struct FileInfo;
 
@@ -22,6 +23,10 @@ class IMSLPSearchDialog : public QDialog {
 public:
     explicit IMSLPSearchDialog(MusicReader *parent);
     ~IMSLPSearchDialog();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void setup_ui();
@@ -44,6 +49,8 @@ private slots:
     void on_item_double_clicked(QListWidgetItem *item);
     void on_web_engine_download_requested(QWebEngineDownloadRequest *download);
     void on_web_engine_load_finished(bool success);
+    void show_hover_popup();
+    void hide_hover_popup();
 
 private:
     enum class ViewMode { List, Grid };
@@ -63,8 +70,8 @@ private:
     QPushButton *large_icon_button_;
 
     // Current state
-    ViewMode view_mode_ = ViewMode::Grid;
-    IconSize icon_size_ = IconSize::Small;
+    ViewMode view_mode_ = ViewMode::List;
+    IconSize icon_size_ = IconSize::Large;
     std::vector<FileInfo> current_results_;
 
     // Network and client
@@ -75,4 +82,14 @@ private:
     // Current download info
     QString current_download_path_;
     QString current_download_filename_;
+
+    // File prefixes to strip
+    std::vector<std::string> file_prefixes_ = {
+        "PMLP", "IMSLP"
+    };
+
+    // Hover functionality
+    QTimer *hover_timer_;
+    QLabel *hover_popup_;
+    QListWidgetItem *hover_item_ = nullptr;
 };

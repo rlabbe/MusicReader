@@ -149,7 +149,7 @@ IMSLPClient::IMSLPClient()
         throw std::runtime_error("Failed to connect to IMSLP");
     }
 
-    logger::info("IMSLP client initialized successfully");
+    logger::debug("IMSLP client initialized successfully");
 }
 
 IMSLPClient::~IMSLPClient()
@@ -160,7 +160,7 @@ IMSLPClient::~IMSLPClient()
 
 std::vector<std::string> IMSLPClient::search_works(const std::string &search_term, int namespace_id)
 {
-    logger::info("Searching for: {}", search_term);
+    logger::debug("Searching for: {}", search_term);
 
     std::map<std::string, std::string> params = {
         {"action", "query"},
@@ -179,15 +179,13 @@ std::vector<std::string> IMSLPClient::search_works(const std::string &search_ter
         }
     }
 
-    logger::info("Found {} works", results.size());
+    logger::debug("Found {} works", results.size());
     return results;
 }
 
 std::vector<FileInfo> IMSLPClient::get_page_files(const std::string &page_title,
                                     const std::vector<std::string> &extensions)
 {
-    logger::info("Getting files for page: {}", page_title);
-
     std::map<std::string, std::string> params = {
         {"action", "query"},
         {"format", "json"},
@@ -226,7 +224,6 @@ std::vector<FileInfo> IMSLPClient::get_page_files(const std::string &page_title,
         }
     }
 
-    logger::info("Found {} files with matching extensions", files.size());
     return files;
 }
 
@@ -265,25 +262,14 @@ FileInfo IMSLPClient::get_file_info(const std::string &file_title, int thumb_wid
 
 std::vector<FileInfo> IMSLPClient::get_work_pdfs(const std::string &search_term)
 {
-    logger::info("Getting PDFs for search term: {}", search_term);
+    logger::debug("Getting PDFs for search term: {}", search_term);
     auto works = search_works(search_term);
     std::vector<FileInfo> all_pdfs;
     for (const auto &work_title : works) {
-        logger::info("Getting files for work: {}", work_title);
         auto pdfs = get_page_files(work_title);
-        logger::info("Found {} PDFs for work: {}", pdfs.size(), work_title);
-        for (const auto &pdf : pdfs) {
-            std::cout << "filename: " << pdf.filename << std::endl;
-            std::cout << "url: " << pdf.url << std::endl;
-            std::cout << "thumb_url: " << pdf.thumb_url << std::endl;
-            std::cout << "size: " << pdf.size << std::endl;
-            std::cout << "mime: " << pdf.mime << std::endl;
-            std::cout << "thumb_mime: " << pdf.thumb_mime << std::endl;
-            std::cout << "---" << std::endl;
-        }
         all_pdfs.insert(all_pdfs.end(), pdfs.begin(), pdfs.end());
     }
-    logger::info("Total PDFs found: {}", all_pdfs.size());
+    logger::debug("Total PDFs found: {}", all_pdfs.size());
     return all_pdfs;
 }
 

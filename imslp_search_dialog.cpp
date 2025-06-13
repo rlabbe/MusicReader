@@ -13,6 +13,9 @@ IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
     , client_(std::make_unique<IMSLPClient>())
     , network_manager_(new QNetworkAccessManager(this))
     , web_view_(nullptr)
+    , file_prefixes_({ "PMLP", "IMSLP" })
+    , hover_timer_(new QTimer(this))
+    , hover_popup_(nullptr)
 {
     setup_ui();
     setWindowTitle("IMSLP Search");
@@ -23,6 +26,11 @@ IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
 
 IMSLPSearchDialog::~IMSLPSearchDialog()
 {
+    if (hover_popup_) {
+        hover_popup_->close();
+        hover_popup_->deleteLater();
+        hover_popup_ = nullptr;
+    }
     if (web_view_) {
         web_view_->deleteLater();
         web_view_ = nullptr;
@@ -39,7 +47,7 @@ void IMSLPSearchDialog::setup_web_engine()
     // Connect to detect when user closes the browser window
     connect(web_view_, &QObject::destroyed, this, [this]() {
         status_label_->setText("Download cancelled");
-        web_view_ = nullptr; // Reset pointer since object is being destroyed
+        web_view_ = nullptr;
     });
 
     // Set a timeout to prevent hanging
@@ -98,18 +106,18 @@ void IMSLPSearchDialog::setup_ui()
 
     list_view_button_ = new QPushButton("List");
     list_view_button_->setCheckable(true);
+    list_view_button_->setChecked(true); // Default to list view
     list_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
     grid_view_button_ = new QPushButton("Grid");
     grid_view_button_->setCheckable(true);
-    grid_view_button_->setChecked(true); // Default to grid view
     grid_view_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
 
     small_icon_button_ = new QPushButton("Small");
     small_icon_button_->setCheckable(true);
-    small_icon_button_->setChecked(true); // Default to small icons
     small_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
     large_icon_button_ = new QPushButton("Large");
     large_icon_button_->setCheckable(true);
+    large_icon_button_->setChecked(true); // Default to large icons
     large_icon_button_->setStyleSheet("QPushButton:checked { background-color: lightblue; }");
 
     viewControlLayout->addWidget(new QLabel("View:"));
@@ -135,7 +143,13 @@ void IMSLPSearchDialog::setup_ui()
     mainLayout->addWidget(new QLabel("Results:"));
 
     results_list_ = new QListWidget();
-    results_list_->setIconSize(QSize(100, 100));
+    results_list_->setIconSize(QSize(200, 200));
+    results_list_->setViewMode(QListView::ListMode);
+    results_list_->setFlow(QListView::TopToBottom);
+    results_list_->setWrapping(false);
+    results_list_->setMouseTracking(true);
+    results_list_->viewport()->setMouseTracking(true);
+    results_list_->viewport()->installEventFilter(this);
     mainLayout->addWidget(results_list_);
 
     // Connect signals
@@ -146,6 +160,15 @@ void IMSLPSearchDialog::setup_ui()
     connect(small_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_small_icon_clicked);
     connect(large_icon_button_, &QPushButton::clicked, this, &IMSLPSearchDialog::on_large_icon_clicked);
     connect(results_list_, &QListWidget::itemDoubleClicked, this, &IMSLPSearchDialog::on_item_double_clicked);
+
+    // Set initial view mode
+    view_mode_ = ViewMode::List;
+    icon_size_ = IconSize::Large;
+
+    // Setup hover timer
+    hover_timer_->setSingleShot(true);
+    hover_timer_->setInterval(200);
+    connect(hover_timer_, &QTimer::timeout, this, &IMSLPSearchDialog::show_hover_popup);
 
     update_view_mode();
 }
@@ -208,18 +231,20 @@ void IMSLPSearchDialog::clear_results()
 
 void IMSLPSearchDialog::add_result_to_list(const FileInfo &pdf)
 {
-    // Extract just the filename without "File:" prefix for display
     QString displayName = QString::fromStdString(pdf.filename);
-    if (displayName.startsWith("File:")) {
-        displayName = displayName.mid(5); // Remove "File:" prefix
+    if (displayName.startsWith("File:"))
+        displayName = displayName.mid(5);
+
+    // Strip prefixes if present
+    for (const auto &prefix : file_prefixes_) {
+        QRegularExpression regex("^" + QString::fromStdString(prefix) + "\\d+-\\s*");
+        displayName = displayName.replace(regex, "");
     }
 
-    // Create list item
     auto *item = new QListWidgetItem(displayName);
-    item->setData(Qt::UserRole, QString::fromStdString(pdf.url)); // Store full PDF URL
-    item->setData(Qt::UserRole + 1, QString::fromStdString(pdf.thumb_url)); // Store thumbnail URL
+    item->setData(Qt::UserRole, QString::fromStdString(pdf.url));
+    item->setData(Qt::UserRole + 1, QString::fromStdString(pdf.thumb_url));
 
-    // Set a default icon while thumbnail loads
     int iconSize = get_icon_size();
     QPixmap defaultPixmap(iconSize, iconSize);
     defaultPixmap.fill(Qt::lightGray);
@@ -227,10 +252,8 @@ void IMSLPSearchDialog::add_result_to_list(const FileInfo &pdf)
 
     results_list_->addItem(item);
 
-    // Download thumbnail if available
-    if (!pdf.thumb_url.empty()) {
+    if (!pdf.thumb_url.empty())
         download_thumbnail(item, QString::fromStdString(pdf.thumb_url));
-    }
 }
 
 void IMSLPSearchDialog::download_thumbnail(QListWidgetItem *item, const QString &thumb_url)
@@ -320,11 +343,19 @@ void IMSLPSearchDialog::update_view_mode()
     if (view_mode_ == ViewMode::List) {
         results_list_->setViewMode(QListView::ListMode);
         results_list_->setIconSize(QSize(iconSize, iconSize));
+        results_list_->setFlow(QListView::TopToBottom);
+        results_list_->setWrapping(false);
+        results_list_->setResizeMode(QListView::Adjust);
+        results_list_->setMovement(QListView::Static);
     } else {
         results_list_->setViewMode(QListView::IconMode);
         results_list_->setIconSize(QSize(iconSize, iconSize));
         results_list_->setResizeMode(QListView::Adjust);
         results_list_->setMovement(QListView::Static);
+        results_list_->setFlow(QListView::LeftToRight);
+        results_list_->setWrapping(true);
+        results_list_->setGridSize(QSize(iconSize + 50, iconSize + 80));
+        results_list_->setUniformItemSizes(true);
     }
 
     // Re-scale existing thumbnails using stored full-size pixmaps
@@ -342,7 +373,7 @@ void IMSLPSearchDialog::update_view_mode()
 
 int IMSLPSearchDialog::get_icon_size() const
 {
-    return (icon_size_ == IconSize::Small) ? 100 : 200;
+    return (icon_size_ == IconSize::Large) ? 200 : 100;
 }
 
 void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
@@ -485,4 +516,109 @@ QString IMSLPSearchDialog::get_temp_file_path(const QString &filename) const
 {
     QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     return QDir(tempDir).filePath(filename);
+}
+
+bool IMSLPSearchDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == results_list_->viewport()) {
+        if (event->type() == QEvent::MouseMove) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+            QListWidgetItem *item = results_list_->itemAt(mouseEvent->pos());
+
+            bool over_icon = false;
+            if (item) {
+                // Check if mouse is specifically over the icon area
+                QRect itemRect = results_list_->visualItemRect(item);
+                QRect iconRect = results_list_->visualItemRect(item);
+
+                if (view_mode_ == ViewMode::List) {
+                    int iconSize = get_icon_size();
+                    iconRect.setWidth(iconSize);
+                    iconRect.setHeight(iconSize);
+                    over_icon = iconRect.contains(mouseEvent->pos());
+                } else {
+                    over_icon = true;
+                }
+            }
+
+            if (over_icon && item != hover_item_) {
+                hide_hover_popup();
+                hover_item_ = item;
+                hover_timer_->start();
+            } else if (!over_icon && hover_item_) {
+                hide_hover_popup();
+                hover_item_ = nullptr;
+            }
+        }
+    } else if (watched == hover_popup_ && event->type() == QEvent::Leave) {
+        hide_hover_popup();
+        hover_item_ = nullptr;
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void IMSLPSearchDialog::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape && hover_popup_ && hover_popup_->isVisible()) {
+        hide_hover_popup();
+        hover_item_ = nullptr;
+        event->accept();
+        return;
+    }
+    QDialog::keyPressEvent(event);
+}
+
+void IMSLPSearchDialog::show_hover_popup()
+{
+    if (!hover_item_)
+        return;
+
+    // Use the full-size pixmap stored in UserRole + 2, not the scaled icon
+    QPixmap fullSizePixmap = hover_item_->data(Qt::UserRole + 2).value<QPixmap>();
+
+    if (fullSizePixmap.isNull())
+        return;
+
+    if (hover_popup_) {
+        hover_popup_->deleteLater();
+        hover_popup_ = nullptr;
+    }
+
+    hover_popup_ = new QLabel(nullptr);
+    hover_popup_->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    hover_popup_->setStyleSheet("border: 2px solid black; background-color: white;");
+    hover_popup_->setAttribute(Qt::WA_DeleteOnClose);
+    hover_popup_->setMouseTracking(true);
+    hover_popup_->installEventFilter(this);
+
+    // Scale image to fit screen while preserving aspect ratio
+    QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
+    int maxHeight = screenGeometry.height() * 0.75; // 75% of screen height
+    int maxWidth = screenGeometry.width() - 100;    // Leave some margin for width
+
+    // Only scale if the image is larger than the available space
+    QPixmap scaledPixmap = fullSizePixmap;
+    if (fullSizePixmap.width() > maxWidth || fullSizePixmap.height() > maxHeight) {
+        scaledPixmap = fullSizePixmap.scaled(maxWidth, maxHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+
+    hover_popup_->setPixmap(scaledPixmap);
+    hover_popup_->resize(scaledPixmap.size());
+
+    QPoint centerPos = screenGeometry.center() - QPoint(hover_popup_->width() / 2, hover_popup_->height() / 2);
+
+    hover_popup_->move(centerPos);
+    hover_popup_->show();
+    hover_popup_->raise();
+    hover_popup_->activateWindow();
+}
+
+void IMSLPSearchDialog::hide_hover_popup()
+{
+    hover_timer_->stop();
+    if (hover_popup_) {
+        hover_popup_->hide();
+        hover_popup_->deleteLater();
+        hover_popup_ = nullptr;
+    }
 }
