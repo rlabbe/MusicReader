@@ -20,7 +20,7 @@ class IMSLPSearchDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit IMSLPSearchDialog(QWidget *parent = nullptr);
+    explicit IMSLPSearchDialog(MusicReader *parent);
     ~IMSLPSearchDialog();
 
 private:

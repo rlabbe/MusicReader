@@ -6,8 +6,9 @@
 #include <QtWebEngineWidgets/QWebEngineView>
 #include <QtWebEngineCore/QWebEngineProfile>
 #include <QtWebEngineCore/QWebEngineDownloadRequest>
+#include "logger.h"
 
-IMSLPSearchDialog::IMSLPSearchDialog(QWidget *parent)
+IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
     : QDialog(parent)
     , client_(std::make_unique<IMSLPClient>())
     , network_manager_(new QNetworkAccessManager(this))
@@ -30,8 +31,6 @@ IMSLPSearchDialog::~IMSLPSearchDialog()
 
 void IMSLPSearchDialog::setup_web_engine()
 {
-    qDebug() << "Setting up WebEngine...";
-
     // Create WebEngine view
     web_view_ = new QWebEngineView();
     web_view_->setWindowTitle("IMSLP Download");
@@ -39,12 +38,9 @@ void IMSLPSearchDialog::setup_web_engine()
 
     // Connect to detect when user closes the browser window
     connect(web_view_, &QObject::destroyed, this, [this]() {
-        qDebug() << "WebEngine browser window was closed by user";
         status_label_->setText("Download cancelled");
         web_view_ = nullptr; // Reset pointer since object is being destroyed
     });
-
-    qDebug() << "WebView configured successfully";
 
     // Set a timeout to prevent hanging
     QTimer *timeoutTimer = new QTimer(this);
@@ -52,7 +48,6 @@ void IMSLPSearchDialog::setup_web_engine()
     timeoutTimer->setInterval(30000); // 30 second timeout
 
     connect(timeoutTimer, &QTimer::timeout, [this]() {
-        qDebug() << "WebEngine load timeout";
         status_label_->setText("Download timeout - please try again");
         if (web_view_) {
             web_view_->stop();
@@ -60,8 +55,6 @@ void IMSLPSearchDialog::setup_web_engine()
             web_view_ = nullptr;
         }
     });
-
-    qDebug() << "About to connect WebEngine signals...";
 
     // Connect download requests
     connect(web_view_->page()->profile(), &QWebEngineProfile::downloadRequested,
@@ -73,7 +66,6 @@ void IMSLPSearchDialog::setup_web_engine()
 
     // Connect load started to start timeout
     connect(web_view_, &QWebEngineView::loadStarted, [this, timeoutTimer]() {
-        qDebug() << "WebEngine load started";
         timeoutTimer->start();
     });
 
@@ -81,9 +73,8 @@ void IMSLPSearchDialog::setup_web_engine()
     connect(web_view_, &QWebEngineView::loadFinished, [timeoutTimer](bool) {
         timeoutTimer->stop();
     });
-
-    qDebug() << "WebEngine setup completed successfully";
 }
+
 
 void IMSLPSearchDialog::setup_ui()
 {
@@ -359,8 +350,6 @@ void IMSLPSearchDialog::on_item_double_clicked(QListWidgetItem *item)
     if (!item) return;
 
     QString pdfUrl = item->data(Qt::UserRole).toString();
-    qDebug() << "PDF URL from item:" << pdfUrl;
-
     if (pdfUrl.isEmpty()) {
         status_label_->setText("No PDF URL found for this item");
         return;
@@ -375,9 +364,6 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
 
     QString filename = item->text();
     QString pdfUrl = item->data(Qt::UserRole).toString();
-
-    qDebug() << "Starting WebEngine download for filename:" << filename;
-    qDebug() << "PDF URL:" << pdfUrl;
 
     // Create and setup WebEngine if not already done
     if (!web_view_) {
@@ -399,8 +385,6 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
     current_download_path_ = get_temp_file_path(cleanFilename);
     current_download_filename_ = cleanFilename;
 
-    qDebug() << "Will save to:" << current_download_path_;
-
     status_label_->setText(QString("Loading %1 with JavaScript...").arg(cleanFilename));
 
     // Show the browser and load the URL
@@ -410,11 +394,7 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
 
 void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
 {
-    qDebug() << "WebEngine load finished. Success:" << success;
-    qDebug() << "Current URL:" << web_view_->url().toString();
-
     if (!success) {
-        qDebug() << "WebEngine load failed";
         status_label_->setText("Failed to load page - please try again");
         return;
     }
@@ -422,29 +402,21 @@ void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
     // Check if we're now at a PDF URL or if we need to wait for more JavaScript
     QString currentUrl = web_view_->url().toString();
     if (currentUrl.endsWith(".pdf", Qt::CaseInsensitive)) {
-        qDebug() << "WebEngine resolved to PDF URL, should trigger download automatically";
         status_label_->setText(QString("Downloading %1...").arg(current_download_filename_));
     } else {
-        qDebug() << "WebEngine loaded non-PDF page, checking content";
         status_label_->setText(QString("Processing JavaScript for %1...").arg(current_download_filename_));
 
         // Add a delay before executing JavaScript to let page fully load
         QTimer::singleShot(2000, this, [this]() {
-            qDebug() << "Executing JavaScript to analyze page";
-
             // Execute JavaScript to check if we need to trigger any actions
             web_view_->page()->runJavaScript("document.documentElement.outerHTML", [this](const QVariant &result) {
                 QString html = result.toString();
-                qDebug() << "Page HTML length:" << html.length();
-                qDebug() << "HTML preview:" << html.left(500);
 
                 // Look for PDF links or download triggers in the page
                 if (html.contains("allowAccess") || html.contains("BOT_DETECT")) {
-                    qDebug() << "Found bot detection, waiting for JavaScript to execute";
                     status_label_->setText("Bot detection found, waiting for JavaScript...");
                     // The JavaScript should automatically execute and trigger a reload/redirect
                 } else if (html.contains(".pdf")) {
-                    qDebug() << "Found PDF references in page";
                     status_label_->setText("Found PDF links, attempting to click...");
                     // Look for clickable download links
                     web_view_->page()->runJavaScript(
@@ -456,7 +428,6 @@ void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
                         "}"
                     );
                 } else {
-                    qDebug() << "No PDF links or bot detection found";
                     status_label_->setText("No download links found - may need manual intervention");
                 }
             });
@@ -466,36 +437,24 @@ void IMSLPSearchDialog::on_web_engine_load_finished(bool success)
 
 void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadRequest *download)
 {
-    qDebug() << "WebEngine download requested:" << download->url().toString();
-    qDebug() << "Suggested filename:" << download->suggestedFileName();
-    qDebug() << "Download state:" << static_cast<int>(download->state());
-
     // Set the download path
     QString downloadDir = QFileInfo(current_download_path_).absolutePath();
     QString downloadFile = QFileInfo(current_download_path_).fileName();
-
-    qDebug() << "Setting download directory to:" << downloadDir;
-    qDebug() << "Setting download filename to:" << downloadFile;
 
     download->setDownloadDirectory(downloadDir);
     download->setDownloadFileName(downloadFile);
 
     // Connect to download progress and completion
     connect(download, &QWebEngineDownloadRequest::isFinishedChanged, [this, download]() {
-        qDebug() << "Download finished changed. Is finished:" << download->isFinished();
-        qDebug() << "Download state:" << static_cast<int>(download->state());
 
         if (download->isFinished()) {
             if (download->state() == QWebEngineDownloadRequest::DownloadCompleted) {
-                qDebug() << "WebEngine download completed successfully";
-                qDebug() << "Downloaded file path:" << download->downloadDirectory() + "/" + download->downloadFileName();
 
                 // Open in MusicReader
                 MusicReader *mainWindow = qobject_cast<MusicReader *>(parent());
                 if (mainWindow) {
                     mainWindow->open_pdf_in_tab(current_download_path_.toStdString());
                     status_label_->setText("PDF opened in MusicReader");
-                    qDebug() << "PDF opened in MusicReader";
 
                     // Delete the browser after successful download
                     if (web_view_) {
@@ -503,11 +462,9 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
                         web_view_ = nullptr;
                     }
                 } else {
-                    qDebug() << "Parent window not found";
                     status_label_->setText("Could not open PDF - parent window not found");
                 }
             } else {
-                qDebug() << "WebEngine download failed with state:" << static_cast<int>(download->state());
                 status_label_->setText("Download failed - please try again");
 
                 // Delete browser on failure too
@@ -520,7 +477,6 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
     });
 
     // Accept and start the download
-    qDebug() << "Accepting download request";
     download->accept();
     status_label_->setText(QString("Downloading %1...").arg(current_download_filename_));
 }

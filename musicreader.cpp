@@ -505,7 +505,7 @@ void MusicReader::create_imslp_menu(auto *menu_bar)
     QMenu *imslp_menu = menu_bar->addMenu("&IMSLP");
 
     QAction *action = new QAction("&Search...", this);
-    action->setShortcut(QKeySequence("Ctrl+Shift+I"));
+    action->setShortcut(QKeySequence("I"));
     connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
     imslp_menu->addAction(action);
 }
@@ -583,7 +583,7 @@ void MusicReader::update_recent_files_list()
         action->setToolTip(tooltip_text);
 
         connect(action, &QAction::triggered, this, [this, path]() {
-            open_pdf_in_tab(path.string(), 1);
+            open_pdf_in_tab(path.string());
         });
 
         open_recent_menu_->addAction(action);
@@ -750,9 +750,9 @@ void MusicReader::create_toolbar()
     single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
     double_icon_ = create_double_icon();
 
-    if (in_single_page_mode()) 
+    if (in_single_page_mode())
         action = new QAction(single_icon_, "", this);
-    else 
+    else
         action = new QAction(double_icon_, "", this);
 
     action->setToolTip("View one/two pages (V)");
@@ -767,7 +767,7 @@ void MusicReader::create_toolbar()
     page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
     page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
 
-    action = new QAction(config_.page_step_size() == 1? page_by_1_icon_ : page_by_2_icon_, "", this);
+    action = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
     action->setToolTip("Page Step (1)");
     toolbar_->addAction(action);
@@ -815,7 +815,7 @@ void MusicReader::create_toolbar()
     connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
     toolbar_->addAction(action);
     text_annotation_action_ = action;
-    
+
     // Add T shortcut
     shortcut = new QShortcut(Qt::Key_T, this);
     shortcut->setContext(Qt::WindowShortcut);
@@ -830,9 +830,9 @@ void MusicReader::create_toolbar()
     margin_action_ = action;
     */
 
-    /* I don't like page buttons, and they conflict with design used to 
+    /* I don't like page buttons, and they conflict with design used to
     * indent bookmarks
-    * 
+    *
     action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
     action->setToolTip("Previous page");
     connect(action, &QAction::triggered, this, &MusicReader::on_page_up);
@@ -993,6 +993,10 @@ void MusicReader::save_open_documents_to_config()
         auto pdf_viewer = tab_widget_->widget(index)->findChild<PDFViewer *>();
         if (pdf_viewer) {
             auto doc = pdf_viewer->document();
+            bool is_temporary = doc->is_temporary();
+
+            if (is_temporary) continue; // Skip temporary documents
+
             auto name = doc->filename();
             open_documents.push_back({
                 name, pdf_viewer->current_page(), doc->page_count()
@@ -1304,7 +1308,7 @@ void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
     }
 }
 
-PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, int page, PDFViewer *viewer)
+PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, int page, PDFViewer *viewer, bool is_temporary)
 {
     SAFE_METHOD;
 
@@ -1321,6 +1325,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
     if (!doc)
         return nullptr;
 
+    doc->set_is_temporary(is_temporary);
 
     logger::info("Opened " + doc->filename());
 
@@ -1334,7 +1339,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
         tab->setLayout(layout);
 
         int index = tab_widget_->addTab(tab, QString::fromStdU16String(filename.stem().u16string()));
-        tab_widget_->setTabToolTip(index, QString::fromStdU16String(filename.u16string()));       
+        tab_widget_->setTabToolTip(index, QString::fromStdU16String(filename.u16string()));
         tab_widget_->setCurrentWidget(tab);
 
         focus_on_tab(tab_widget_->currentIndex());
@@ -1648,7 +1653,7 @@ void MusicReader::restore_open_documents()
     std::vector<PDFViewer *> viewers;
     std::vector<std::shared_ptr<Document>> documents;
 
-    for (auto doc_info: docs_info) {
+    for (auto doc_info : docs_info) {
 
         // Only create document objects, don't load them yet
         auto doc = open_pdf_document(doc_info.filename, doc_info.page);
@@ -1840,6 +1845,6 @@ void MusicReader::toggle_text_annotation_mode()
     text_annotation_action_->setChecked(text_annotation_mode_);
 
     auto viewer = current_viewer();
-    if (viewer) 
+    if (viewer)
         viewer->set_text_annotation_mode(text_annotation_mode_);
 }

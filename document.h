@@ -32,6 +32,9 @@ public:
     Document(std::filesystem::path filename, int dpi, int start_page);
     ~Document();
 
+    void set_is_temporary(bool is_temporary) { is_temporary_ = is_temporary; }
+    bool is_temporary() const { return is_temporary_; }
+
     void load_document();
 
     void kill_load() { kill_loading_ = true; }
@@ -136,6 +139,7 @@ private:
     mutable std::mutex load_mutex_;
     std::condition_variable load_cv_;
     std::atomic<bool> loading_done_{ false };
+    bool is_temporary_ = false;
 
     // prevent race conditions between save and destructor
     std::mutex save_state_mutex_;
