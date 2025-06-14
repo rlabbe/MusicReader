@@ -136,10 +136,6 @@ void BookmarkPanel::setup_shortcuts()
     new QShortcut(QKeySequence("Ctrl+Y"), this, SLOT(redo()));
     new QShortcut(QKeySequence("Ctrl+Left"), this, SLOT(unindent_selected_bookmarks()));
     new QShortcut(QKeySequence("Ctrl+Right"), this, SLOT(indent_selected_bookmarks()));
-
-    //QShortcut *bookmark_delete = new QShortcut(QKeySequence::Delete, this);
-   // bookmark_delete->setContext(Qt::WidgetShortcut);
-    //connect(bookmark_delete, &QShortcut::activated, this, &BookmarkPanel::delete_selected_bookmark);
 }
 
 
@@ -453,8 +449,6 @@ void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmar
 }
 
 
-
-
 QList<int> BookmarkPanel::selected_rows() const
 {
     SAFE_METHOD;
@@ -502,6 +496,7 @@ bool BookmarkPanel::is_bookmark_selected(bool indent) const
     return true;
 }
 
+
 void BookmarkPanel::indent_selected_bookmarks()
 {
     SAFE_METHOD;
@@ -548,6 +543,7 @@ void BookmarkPanel::indent_selected_bookmarks()
     }
 }
 
+
 void BookmarkPanel::unindent_selected_bookmarks()
 {
     SAFE_METHOD;
@@ -585,13 +581,11 @@ void BookmarkPanel::select_page(int page_num)
 {
     SAFE_METHOD;
 
-    if (!follow_page_checkbox_->isChecked()) return; // Only select if tracking is enabled
-
+    if (!follow_page_checkbox_->isChecked()) return;
     auto doc = document();
     if (!doc) return;
 
-    // Find first bookmark with matching page number
-    BookmarkHandle target_handle = find_bookmark_by_page(page_num, doc->bookmarks());
+    BookmarkHandle target_handle = find_bookmark_for_page(page_num, doc->bookmarks());
     if (!target_handle) return;
 
     // Find the tree widget item for this bookmark
@@ -605,10 +599,8 @@ void BookmarkPanel::select_page(int page_num)
     tree_widget_->setFocus();
 }
 
-
-BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks)
+std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(const std::vector<Bookmark> &bookmarks)
 {
-    // Create a custom flattened list with bookmark handles (not parent handles)
     std::vector<std::pair<int, BookmarkHandle>> flattened;
 
     std::function<void(const std::vector<Bookmark> &)> flatten = [&](const std::vector<Bookmark> &bmarks) {
@@ -623,6 +615,30 @@ BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vec
     };
 
     flatten(bookmarks);
+    return flattened;
+}
+
+BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
+{
+    auto flattened = flatten_bookmarks(bookmarks);
+
+    // Find the last bookmark with page <= page_num
+    auto it = std::upper_bound(flattened.begin(), flattened.end(), page_num,
+                              [](int page, const auto &bookmark) {
+        return page < bookmark.first;
+    });
+
+    if (it != flattened.begin()) {
+        --it;
+        return it->second;
+    }
+
+    return BookmarkHandle();
+}
+
+BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks)
+{
+    auto flattened = flatten_bookmarks(bookmarks);
 
     // Binary search for the first bookmark with page == page_num
     auto it = std::lower_bound(flattened.begin(), flattened.end(), page_num,
@@ -633,7 +649,6 @@ BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vec
     if (it != flattened.end() && it->first == page_num) {
         return it->second;  // Exact match - returns first bookmark on this page
     }
-
 
     return BookmarkHandle();
 }

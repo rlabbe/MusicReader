@@ -50,6 +50,9 @@ public slots:
 private:
 
     BookmarkHandle find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks);
+
+    BookmarkHandle find_bookmark_for_page(int page_num, const std::vector<Bookmark> &bookmarks);
+    std::vector<std::pair<int, BookmarkHandle>> flatten_bookmarks(const std::vector<Bookmark> &bookmarks);
     
     void return_focus_to_main();
 
