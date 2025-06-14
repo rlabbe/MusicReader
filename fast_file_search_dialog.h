@@ -94,6 +94,8 @@ private:
 
     void _open_help();
 
+    bool search_term_entered() const;
+
     static inline std::filesystem::path path_;
     static inline QStringList files_;
     static inline std::mutex files_mutex_;

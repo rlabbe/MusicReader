@@ -5,6 +5,8 @@
 #include <QTimer>
 #include <QString>
 #include <QOperatingSystemVersion>
+#include <QDir>
+#include <QDirIterator>
 
 
 class EventHandler : public QFileSystemWatcher {
@@ -70,8 +72,8 @@ public:
         stop();
         directory_ = directory;
         if (!directory.isEmpty()) {
-            watcher_.addPath(directory);
-            connect(&watcher_, &QFileSystemWatcher::directoryChanged, event_handler_, &EventHandler::on_directory_changed);
+            add_directories_recursively(directory);
+            connect(&watcher_, &QFileSystemWatcher::directoryChanged, this, &DirectoryWatcher::on_directory_changed);
             connect(&watcher_, &QFileSystemWatcher::fileChanged, event_handler_, &EventHandler::on_file_changed);
         }
     }
@@ -88,6 +90,27 @@ signals:
     void file_changed();
 
 private:
+    void add_directories_recursively(const QString &directory)
+    {
+        QDirIterator it(directory, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        watcher_.addPath(directory);
+
+        while (it.hasNext()) {
+            watcher_.addPath(it.next());
+        }
+    }
+
+    void on_directory_changed()
+    {
+        // Rescan the entire tree to handle new/deleted directories
+        if (!directory_.isEmpty()) {
+            QStringList current_dirs = watcher_.directories();
+            watcher_.removePaths(current_dirs);
+            add_directories_recursively(directory_);
+        }
+        event_handler_->on_directory_changed();
+    }
+
     bool supported_;
     QString file_ending_;
     QString directory_;

@@ -91,7 +91,7 @@ FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::filesyste
 
     display_files(files_);
 
-    connect(&UpdateSignal::instance(), &UpdateSignal::filesUpdated, this, &FastFileSearchDialog::instance_update_files);
+    connect(&UpdateSignal::instance(), &UpdateSignal::filesUpdated, this, &FastFileSearchDialog::update_files);
 }
 
 
@@ -151,11 +151,6 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     file_table_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(file_table_, &QWidget::customContextMenuRequested, this, &FastFileSearchDialog::show_context_menu);
 
-    QPushButton *okay_button = new QPushButton("OK", this);
-    connect(okay_button, &QPushButton::clicked, this, &FastFileSearchDialog::accept);
-    okay_button->setDefault(true);
-    layout_->addWidget(okay_button);
-
     QHeaderView *h_header = file_table_->horizontalHeader();
     QHeaderView *v_header = file_table_->verticalHeader();
 
@@ -165,10 +160,6 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 
     v_header->setVisible(false);
     v_header->setSectionResizeMode(QHeaderView::ResizeToContents);
-
-    // Install event filter to catch What's This mode events
-    //installEventFilter(this);
-
 
     setWindowModality(Qt::ApplicationModal);
     set_title();
@@ -313,11 +304,20 @@ void FastFileSearchDialog::instance_update_files()
 }
 
 
+bool FastFileSearchDialog::search_term_entered() const
+{
+    return search_field_->text().trimmed().isEmpty() == false;
+}
+
+
 void FastFileSearchDialog::update_files()
 {
     files_ = find_files(path_, file_ending_);
     display_files(files_, true);
+    if (search_term_entered())
+        on_search(); // Reapply search if a term is entered
     set_title();
+
 }
 
 
@@ -419,11 +419,20 @@ void FastFileSearchDialog::closeEvent(QCloseEvent *event)
 
 void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_F1) {
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        if (file_table_->selectionModel()->hasSelection()) {
+            accept();
+        }
+        event->accept();
+    } else if (event->key() == Qt::Key_Escape) {
+        reject();
+        event->accept();
+    } else if (event->key() == Qt::Key_F1) {
         show_help();
         event->accept();
-    } else
+    } else {
         QDialog::keyPressEvent(event);
+    }
 }
 
 
