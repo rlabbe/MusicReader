@@ -857,12 +857,8 @@ void MusicReader::create_toolbar()
 
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
 
-
-
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
-
-
     action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
     action->setToolTip("Toggle zoom to content (Z)");
@@ -890,28 +886,6 @@ void MusicReader::create_toolbar()
     shortcut = new QShortcut(Qt::Key_T, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
-
-    /* TODO
-    action = new QAction(QIcon(QPixmap(":/MusicReader/images/border.svg")), "", this);
-    action->setCheckable(true);
-    action->setToolTip("Edit document margin");
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
-    toolbar_->addAction(action);
-    margin_action_ = action;
-    */
-
-    /* I don't like page buttons, and they conflict with design used to
-    * indent bookmarks
-    *
-    action = new QAction(QIcon(":/MusicReader/images/left.ico"), "PgUp", this);
-    action->setToolTip("Previous page");
-    connect(action, &QAction::triggered, this, &MusicReader::on_page_up);
-    toolbar_->addAction(action);
-
-    action = new QAction(QIcon(":/MusicReader/images/right.ico"), "PgDn", this);
-    action->setToolTip("Next page");
-    connect(action, &QAction::triggered, this, &MusicReader::on_page_down);
-    toolbar_->addAction(action);*/
 }
 
 void MusicReader::set_page_view_count(int count)

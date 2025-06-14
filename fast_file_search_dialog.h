@@ -92,8 +92,6 @@ private:
     void size_button(QPushButton *button);
     static QStringList find_files(const std::filesystem::path &path, QString &extension);
 
-    void _open_help();
-
     bool search_term_entered() const;
 
     static inline std::filesystem::path path_;

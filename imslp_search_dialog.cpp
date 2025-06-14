@@ -50,6 +50,25 @@ IMSLPSearchDialog::~IMSLPSearchDialog()
     }
 }
 
+void IMSLPSearchDialog::reject()
+{
+    hide_hover_popup();
+    QDialog::reject();
+}
+
+void IMSLPSearchDialog::closeEvent(QCloseEvent *event)
+{
+    hide_hover_popup();
+    hide();
+    event->ignore();
+}
+
+void IMSLPSearchDialog::hideEvent(QHideEvent *event)
+{
+    hide_hover_popup();
+    QDialog::hideEvent(event);
+}
+
 void IMSLPSearchDialog::setup_web_engine()
 {
     // Create WebEngine view
