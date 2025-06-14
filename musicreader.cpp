@@ -252,7 +252,7 @@ void MusicReader::setup_mouse_hiding()
 
 void MusicReader::reset_cursor_timer()
 {
-    SAFE_METHOD;
+SAFE_METHOD;
 
     if (cursor_hidden_) {
         QApplication::restoreOverrideCursor();
@@ -825,39 +825,39 @@ void MusicReader::create_toolbar()
     else
         action = new QAction(double_icon_, "", this);
 
-    action->setToolTip("View one/two pages (V)");
+    action->setToolTip("View one/two pages (1/2)");
     connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
     toolbar_->addAction(action);
     view_toggle_action_ = action;
-
-    auto shortcut = new QShortcut(Qt::Key_V, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_toggle_view_mode);
 
     page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
     page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
 
     action = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
     connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
-    action->setToolTip("Page Step (1)");
+    action->setToolTip("Page Step (S)");
     toolbar_->addAction(action);
     page_step_action_ = action;
 
-    shortcut = new QShortcut(Qt::Key_1, this);
+    auto shortcut = new QShortcut(Qt::Key_1, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, [this]() {
-        config_.set_page_step_size(1);
-        page_step_action_->setIcon(page_by_1_icon_);
-        page_step_action_->setToolTip("Page Step (1)");
+        set_page_view_count(1);
     });
 
     shortcut = new QShortcut(Qt::Key_2, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, [this]() {
-        config_.set_page_step_size(2);
-        page_step_action_->setIcon(page_by_2_icon_);
-        page_step_action_->setToolTip("Page Step (2)");
+        set_page_view_count(2);
     });
+
+    shortcut = new QShortcut(Qt::Key_S, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
+
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
+
+
 
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
@@ -914,6 +914,18 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(action);*/
 }
 
+void MusicReader::set_page_view_count(int count)
+{
+    SAFE_METHOD;
+    if (count < 1 || count > 2) {
+        logger::error("Invalid page view count: {}", count);
+        return;
+    }
+    config_.set_page_view_count(count);
+    view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
+
+    refresh_all_documents();
+}
 
 void MusicReader::on_toggle_view_mode()
 {
@@ -959,13 +971,10 @@ void MusicReader::toggle_page_step()
     config_.toggle_page_step_size();
 
     // Update the icon
-    if (config_.page_step_size() == 1) {
+    if (config_.page_step_size() == 1) 
         page_step_action_->setIcon(page_by_1_icon_);
-        page_step_action_->setToolTip("Page Step (1)");
-    } else {
+     else 
         page_step_action_->setIcon(page_by_2_icon_);
-        page_step_action_->setToolTip("Page Step (2)");
-    }
 }
 
 

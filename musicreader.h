@@ -129,7 +129,8 @@ private:
 
     QIcon create_double_icon();
     void on_toggle_view_mode();
-
+    void set_page_view_count(int count);
+        
     void go_to_bookmark(int page_num);
     void update_menu_bookmark_visibility();
     void show_context_menu(const QPoint &pos);

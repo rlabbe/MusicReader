@@ -420,9 +420,8 @@ void FastFileSearchDialog::closeEvent(QCloseEvent *event)
 void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        if (file_table_->selectionModel()->hasSelection()) {
+        if (file_table_->selectionModel()->hasSelection()) 
             accept();
-        }
         event->accept();
     } else if (event->key() == Qt::Key_Escape) {
         reject();
