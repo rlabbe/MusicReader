@@ -60,6 +60,7 @@ private:
     enum class ViewMode { List, Grid };
     enum class IconSize { Small, Large };
 
+    QWidget *web_main_widget_; // Main widget for IMSLP web content
     // UI elements
     QLineEdit *search_edit_;
     QPushButton *search_button_;

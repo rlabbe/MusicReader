@@ -6,6 +6,7 @@
 #include <QtWebEngineWidgets/QWebEngineView>
 #include <QtWebEngineCore/QWebEngineProfile>
 #include <QtWebEngineCore/QWebEngineDownloadRequest>
+#include <QtWebEngineCore/QWebEngineHistory>
 #include "logger.h"
 
 IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
@@ -13,6 +14,7 @@ IMSLPSearchDialog::IMSLPSearchDialog(MusicReader *parent)
     , client_(std::make_unique<IMSLPClient>())
     , network_manager_(new QNetworkAccessManager(this))
     , web_view_(nullptr)
+    , web_main_widget_(nullptr)
     , file_prefixes_({ "PMLP", "IMSLP" })
     , hover_popup_(nullptr)
 {
@@ -48,6 +50,10 @@ IMSLPSearchDialog::~IMSLPSearchDialog()
         web_view_->deleteLater();
         web_view_ = nullptr;
     }
+    if (web_main_widget_) {
+        web_main_widget_->deleteLater();
+        web_main_widget_ = nullptr;
+    }
 }
 
 void IMSLPSearchDialog::reject()
@@ -73,13 +79,54 @@ void IMSLPSearchDialog::setup_web_engine()
 {
     // Create WebEngine view
     web_view_ = new QWebEngineView();
-    web_view_->setWindowTitle("IMSLP Download");
-    web_view_->resize(800, 600);
+
+    // Create navigation toolbar
+    QWidget *nav_widget = new QWidget();
+    QHBoxLayout *nav_layout = new QHBoxLayout(nav_widget);
+    nav_layout->setContentsMargins(5, 5, 5, 5);
+
+    QPushButton *back_button = new QPushButton("< Back");
+    QPushButton *forward_button = new QPushButton("Forward >");
+    QPushButton *reload_button = new QPushButton("Reload");
+
+    back_button->setEnabled(false);
+    forward_button->setEnabled(false);
+    back_button->setFixedHeight(30);
+    forward_button->setFixedHeight(30);
+    reload_button->setFixedHeight(30);
+
+    nav_layout->addWidget(back_button);
+    nav_layout->addWidget(forward_button);
+    nav_layout->addWidget(reload_button);
+    nav_layout->addStretch();
+
+    // Connect navigation buttons
+    connect(back_button, &QPushButton::clicked, web_view_, &QWebEngineView::back);
+    connect(forward_button, &QPushButton::clicked, web_view_, &QWebEngineView::forward);
+    connect(reload_button, &QPushButton::clicked, web_view_, &QWebEngineView::reload);
+
+    // Enable/disable buttons based on history
+    connect(web_view_, &QWebEngineView::urlChanged, [back_button, forward_button, this]() {
+        back_button->setEnabled(web_view_->history()->canGoBack());
+        forward_button->setEnabled(web_view_->history()->canGoForward());
+    });
+
+    // Create main widget with layout
+    web_main_widget_ = new QWidget();
+    QVBoxLayout *main_layout = new QVBoxLayout(web_main_widget_);
+    main_layout->setContentsMargins(0, 0, 0, 0);
+    main_layout->setSpacing(0);
+    main_layout->addWidget(nav_widget);
+    main_layout->addWidget(web_view_, 1); // Give web view stretch factor of 1
+
+    web_main_widget_->setWindowTitle("IMSLP Download");
+    web_main_widget_->resize(800, 600);
 
     // Connect to detect when user closes the browser window
-    connect(web_view_, &QObject::destroyed, this, [this]() {
+    connect(web_main_widget_, &QObject::destroyed, this, [this]() {
         status_label_->setText("Download cancelled");
         web_view_ = nullptr;
+        web_main_widget_ = nullptr;
     });
 
     // Set a timeout to prevent hanging
@@ -91,8 +138,9 @@ void IMSLPSearchDialog::setup_web_engine()
         status_label_->setText("Download timeout - please try again");
         if (web_view_) {
             web_view_->stop();
-            web_view_->deleteLater();
+            web_main_widget_->deleteLater();
             web_view_ = nullptr;
+            web_main_widget_ = nullptr;
         }
     });
 
@@ -444,7 +492,7 @@ void IMSLPSearchDialog::download_and_open_pdf(QListWidgetItem *item)
     status_label_->setText(QString("Loading %1 with JavaScript...").arg(clean_filename));
 
     // Show the browser and load the URL
-    web_view_->show();
+    web_main_widget_->show();
     web_view_->load(QUrl(pdf_url));
 }
 
@@ -525,9 +573,10 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
                     }
 
                     // Delete the browser after successful download
-                    if (web_view_) {
-                        web_view_->deleteLater();
+                    if (web_main_widget_) {
+                        web_main_widget_->deleteLater();
                         web_view_ = nullptr;
+                        web_main_widget_ = nullptr;
                     }
                 } else {
                     status_label_->setText("Could not open PDF - parent window not found");
@@ -536,9 +585,10 @@ void IMSLPSearchDialog::on_web_engine_download_requested(QWebEngineDownloadReque
                 status_label_->setText("Download failed - please try again");
 
                 // Delete browser on failure too
-                if (web_view_) {
-                    web_view_->deleteLater();
+                if (web_main_widget_) {
+                    web_main_widget_->deleteLater();
                     web_view_ = nullptr;
+                    web_main_widget_ = nullptr;
                 }
             }
         }
@@ -655,12 +705,13 @@ QString IMSLPSearchDialog::save_file_to_permanent_location(const QString &temp_p
     QString filter = "PDF Files (*.pdf)";
     QString suggested_path = QDir(save_dir).filePath(filename);
 
-    QString save_path = QFileDialog::getSaveFileName(
-        this,
-        "Save PDF File",
-        suggested_path,
-        filter
-    );
+    QFileDialog dialog(this, "Save PDF File", suggested_path, filter);
+    dialog.setLabelText(QFileDialog::Reject, "Skip Save");
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+
+    QString save_path;
+    if (dialog.exec())
+        save_path = dialog.selectedFiles().first();
 
     if (save_path.isEmpty())
         return QString(); // User cancelled
