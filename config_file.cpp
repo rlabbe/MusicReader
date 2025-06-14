@@ -245,6 +245,11 @@ void ConfigFile::read(bool reset_on_error)
     else
         logger::error("Invalid or missing 'horiz_tabs'");
 
+    if (j.contains("allow_file_delete") && j["allow_file_delete"].is_boolean())
+        allow_file_delete_ = j["allow_file_delete"].get<bool>();
+    else
+        logger::error("Invalid or missing 'allow_file_delete'");
+
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         for (const auto &doc : j["open_documents"]) {
@@ -438,6 +443,7 @@ json ConfigFile::to_json() const
     j["show_toolbar"] = show_toolbar_;
     j["show_menu"] = show_menu_;
     j["horiz_tabs"] = horiz_tabs_;
+    j["allow_file_delete"] = allow_file_delete_;
 
     j["open_documents"] = json::array();
     for (const auto &doc : open_documents_) {
@@ -571,6 +577,7 @@ void ConfigFile::set_defaults()
     show_toolbar_ = true;
     show_menu_ = true;
     horiz_tabs_ = false;
+    allow_file_delete_ = false;
     open_documents_.clear();
     recent_documents_.clear();
     app_size_ = { 10, 10, 640, 480 };
@@ -601,6 +608,7 @@ std::string ConfigFile::repr() const
     j["show_toolbar"] = show_toolbar_;
     j["show_menu"] = show_menu_;
     j["horiz_tabs"] = horiz_tabs_;
+    j["allow_file_delete"] = allow_file_delete_;
 
     // Serialize open_documents
     j["open_documents"] = json::array();

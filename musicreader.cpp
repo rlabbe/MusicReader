@@ -1602,7 +1602,7 @@ void MusicReader::initialize_fast_search()
             std::lock_guard<std::mutex> lock(fast_search_mutex_);
 
             // Create dialog - constructor will load and prepare file display while hidden
-            fast_search_dialog_ = new FastFileSearchDialog(this, config_.music_directory().string(), size);
+            fast_search_dialog_ = new FastFileSearchDialog(this, config_, size);
             fast_search_initialized_ = true;
         }
         logger::debug("initialize_fast_search done");

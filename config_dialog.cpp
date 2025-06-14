@@ -77,6 +77,9 @@ void ConfigDialog::setup_ui()
     check_horiz_tabs_ = new QCheckBox("Document Tabs At Top (requires app restart)", this);
     check_horiz_tabs_->setWhatsThis("Position document tabs at the top of the window. When unchecked, tabs appear at the bottom or side. Requires restarting the application to take effect.");
 
+    check_allow_delete_ = new QCheckBox("Allow file deletion in Fast File Search dialog", this);
+    check_allow_delete_->setWhatsThis("If enabled, DEL key deletes files in fast file search dialog");
+
     btn_save_ = new QPushButton("Save", this);
     btn_save_->setDefault(true);
     btn_save_->setWhatsThis("Apply all settings changes and close the dialog.");
@@ -109,6 +112,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_restore_documents_);
     form_layout->addRow(check_allow_oversize_);
     form_layout->addRow(check_horiz_tabs_);
+    form_layout->addRow(check_allow_delete_);
 
 
     QHBoxLayout *layout_dpi = new QHBoxLayout;
@@ -188,6 +192,7 @@ void ConfigDialog::load_settings()
     check_show_toolbar_->setChecked(config_.show_toolbar());
     check_show_statusbar_->setChecked(config_.show_status_bar());
     check_horiz_tabs_->setChecked(!config_.horiz_tabs());
+    check_allow_delete_->setChecked(config_.allow_file_delete());
 }
 
 void ConfigDialog::setup_connections()
@@ -227,6 +232,7 @@ void ConfigDialog::save_settings()
     config_.set_show_toolbar(check_show_toolbar_->isChecked());
     config_.set_show_status_bar(check_show_statusbar_->isChecked());
     config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
+    config_.set_allow_file_delete(check_allow_delete_->isChecked());
 
     accept();
 }

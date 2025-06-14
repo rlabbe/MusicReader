@@ -25,6 +25,9 @@
 
 
 
+class ConfigFile;
+
+
 class SortableTableWidgetItem : public QTableWidgetItem {
 public:
     explicit SortableTableWidgetItem(int sort_value, const QString &text);
@@ -55,7 +58,7 @@ class FastFileSearchDialog : public QDialog {
 public:
 
     // DO NOT constrcut until initialize_data has been called
-    FastFileSearchDialog(QWidget *parent, const std::filesystem::path &directory_path, const QRect &size);
+    FastFileSearchDialog(QWidget *parent, const ConfigFile &config, const QRect &size);
 
     static void initialize_data(const std::filesystem::path &directory);
 
@@ -91,6 +94,8 @@ private:
     void display_files(const QStringList &file_paths, bool resize = false);
     void size_button(QPushButton *button);
     static QStringList find_files(const std::filesystem::path &path, QString &extension);
+    void delete_selected_files();
+    void restore_deleted_files();
 
     bool search_term_entered() const;
 
@@ -99,6 +104,7 @@ private:
     static inline std::mutex files_mutex_;
     static inline std::condition_variable files_cv_;
     static inline bool files_ready_ = false;
+    static inline std::vector<std::filesystem::path> recently_deleted_;
 
     static inline DirectoryWatcher *watcher_ = nullptr;
     static inline QString file_ending_ = "pdf";
@@ -111,5 +117,7 @@ private:
     QStringList selected_items_;
     QString open_path_;
 
+
     static inline FastFileSearchDialog *instance_ = nullptr;
+    const ConfigFile &config_;
 };

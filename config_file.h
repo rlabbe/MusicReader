@@ -63,6 +63,7 @@ private:
     bool show_toolbar_ = true;
     bool show_menu_ = true;
     bool horiz_tabs_ = false;
+    bool allow_file_delete_ = false;
 
 
     std::vector<OpenDocument> open_documents_;
@@ -113,6 +114,9 @@ public:
 
     bool horiz_tabs() const { return horiz_tabs_; }
     void set_horiz_tabs(bool value) { horiz_tabs_ = value; save(); }
+
+    bool allow_file_delete() const { return allow_file_delete_; }
+    void set_allow_file_delete(bool value) { allow_file_delete_ = value; save(); }
 
     const std::vector<OpenDocument> &open_documents() const { return open_documents_; }
     void set_open_documents(const std::vector<OpenDocument> &value) { open_documents_ = value; save(); }

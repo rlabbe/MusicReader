@@ -41,6 +41,7 @@ private:
     QCheckBox *check_show_toolbar_;
     QCheckBox *check_show_statusbar_;
     QCheckBox *check_horiz_tabs_;
+    QCheckBox *check_allow_delete_;
 
     QPushButton *btn_save_;
     QPushButton *btn_cancel_;

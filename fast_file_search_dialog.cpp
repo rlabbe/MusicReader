@@ -4,6 +4,15 @@
 #include <QDirIterator>
 #include <filesystem>
 #include "qt_utils.h"
+#include "config_file.h"
+#include <QMessageBox>
+#include <QFile>
+#include <windows.h>
+#include <shellapi.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+
+#pragma comment(lib, "shlwapi.lib")
 
 
 static std::u8string to_lower(const std::u8string &str)
@@ -62,11 +71,12 @@ bool SortableTableWidgetItem::operator<(const QTableWidgetItem &other) const
 }
 
 
-FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const std::filesystem::path &directory_path, const QRect &size)
+FastFileSearchDialog::FastFileSearchDialog(QWidget *parent, const ConfigFile &config, const QRect &size)
     : QDialog(parent)
+    , config_(config)
 {
     instance_ = this;
-    std::filesystem::path path = directory_path;
+    std::filesystem::path path = config_.music_directory();
 
     // Wait until the file-loading thread signals completion
     std::unique_lock<std::mutex> lk(files_mutex_);
@@ -401,6 +411,185 @@ std::pair<std::vector<std::filesystem::path>, std::filesystem::path> FastFileSea
 }
 
 
+void FastFileSearchDialog::delete_selected_files()
+{
+    if (!config_.allow_file_delete())
+        return;
+
+    auto [selected_paths, base_path] = selected_files();
+    if (selected_paths.empty())
+        return;
+
+    QString message = QString("Delete %1 file%2?").arg(selected_paths.size()).arg(selected_paths.size() == 1 ? "" : "s");
+    if (QMessageBox::question(this, "Confirm Delete", message, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    QStringList failed_files;
+    recently_deleted_.clear();
+
+    for (const auto &file_path : selected_paths) {
+        QString qfile_path = QString::fromStdU16String(file_path.u16string());
+        if (QFile::moveToTrash(qfile_path))
+            recently_deleted_.push_back(file_path);
+        else
+            failed_files.append(qfile_path);
+    }
+
+    if (!failed_files.isEmpty()) {
+        QString error_msg = QString("Failed to delete %1 file%2:\n%3")
+            .arg(failed_files.size())
+            .arg(failed_files.size() == 1 ? "" : "s")
+            .arg(failed_files.join("\n"));
+        QMessageBox::warning(this, "Delete Failed", error_msg);
+    }
+}
+
+
+void FastFileSearchDialog::restore_deleted_files()
+{
+    if (recently_deleted_.empty()) 
+        return;
+
+    HRESULT hr = CoInitialize(NULL);
+    if (FAILED(hr)) {
+        logger::error("Failed to initialize COM");
+        return;
+    }
+
+    IShellFolder2 *psfRecycleBin = nullptr;
+    hr = SHGetDesktopFolder((IShellFolder **)&psfRecycleBin);
+    if (FAILED(hr)) {
+        logger::error("Failed to get desktop folder");
+        return;
+    }
+
+    LPITEMIDLIST pidlRecycleBin = nullptr;
+    hr = SHGetSpecialFolderLocation(NULL, CSIDL_BITBUCKET, &pidlRecycleBin);
+    if (FAILED(hr)) {
+        logger::error("Failed to find recycle bin");
+        psfRecycleBin->Release();
+        CoUninitialize();
+        return;
+    }
+
+    IShellFolder *psfBin = nullptr;
+    hr = psfRecycleBin->BindToObject(pidlRecycleBin, NULL, IID_IShellFolder, (void **)&psfBin);
+    CoTaskMemFree(pidlRecycleBin);
+    psfRecycleBin->Release();
+
+    if (FAILED(hr)) {
+        logger::error("Failed to bind to recycle bin folder.");
+        CoUninitialize();
+        return;
+    }
+
+    IEnumIDList *peidl = nullptr;
+    hr = psfBin->EnumObjects(NULL, SHCONTF_FOLDERS | SHCONTF_NONFOLDERS, &peidl);
+    if (hr != S_OK) {
+        logger::error("Failed to enumerate recycle bin items.");
+        psfBin->Release();
+        CoUninitialize();
+        return;
+    }
+
+    std::vector<LPITEMIDLIST> itemsToRestore;
+    LPITEMIDLIST pidlItem = nullptr;
+    int itemsFound = 0;
+
+    while (peidl->Next(1, &pidlItem, NULL) == S_OK) {
+        itemsFound++;
+
+        // Get original path from recycle bin metadata
+        STRRET strret;
+        if (SUCCEEDED(psfBin->GetDisplayNameOf(pidlItem, SHGDN_FORPARSING | SHGDN_INFOLDER, &strret))) {
+            LPWSTR pszOriginalPath = nullptr;
+            if (SUCCEEDED(StrRetToStrW(&strret, pidlItem, &pszOriginalPath))) {
+                std::wstring originalPath(pszOriginalPath);
+                CoTaskMemFree(pszOriginalPath);
+
+                for (const auto &deletedPath : recently_deleted_) {
+                    std::wstring deletedPathStr = deletedPath.wstring();
+                    if (originalPath == deletedPathStr || originalPath.find(deletedPathStr) != std::wstring::npos) {
+                        itemsToRestore.push_back(pidlItem);
+                        pidlItem = nullptr;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If that didn't work, try the display name
+        if (pidlItem) {
+            if (SUCCEEDED(psfBin->GetDisplayNameOf(pidlItem, SHGDN_NORMAL, &strret))) {
+                LPWSTR pszDisplayName = nullptr;
+                if (SUCCEEDED(StrRetToStrW(&strret, pidlItem, &pszDisplayName))) {
+                    std::wstring displayName(pszDisplayName);
+                    CoTaskMemFree(pszDisplayName);
+
+                    for (const auto &deletedPath : recently_deleted_) {
+                        if (displayName.find(deletedPath.filename().wstring()) != std::wstring::npos) {
+                            itemsToRestore.push_back(pidlItem);
+                            pidlItem = nullptr;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (pidlItem) {
+            CoTaskMemFree(pidlItem);
+            pidlItem = nullptr;
+        }
+    }
+
+    QString msg = QString("Found %1 items in recycle bin, %2 to restore").arg(itemsFound).arg(itemsToRestore.size());
+
+    if (itemsToRestore.empty()) {
+        QMessageBox::information(this, "Restore", msg + ". No matching files found in recycle bin.");
+    } else {
+        IContextMenu *pcm = nullptr;
+        hr = psfBin->GetUIObjectOf(NULL, static_cast<UINT>(itemsToRestore.size()),
+                                 (LPCITEMIDLIST *)itemsToRestore.data(),
+                                 IID_IContextMenu, NULL, (void **)&pcm);
+        if (SUCCEEDED(hr)) {
+            HMENU hmenu = CreatePopupMenu();
+            if (hmenu) {
+                hr = pcm->QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL);
+                if (SUCCEEDED(hr)) {
+                    CMINVOKECOMMANDINFO info = {};
+                    info.cbSize = sizeof(info);
+                    info.lpVerb = "undelete";
+                    hr = pcm->InvokeCommand(&info);
+                    if (!SUCCEEDED(hr)) {
+
+                        logger::error("InvokeCommand failed with error: {:x}", hr);
+                        QMessageBox::warning(this, "Error", "Restore failed. Go to recycle bin and restore manually");
+                    }
+                    
+                } else {
+                    logger::error("QueryContextMenu failed with error: {:x}", hr);
+                    QMessageBox::warning(this, "Error", "Restore failed. Go to recycle bin and restore manually");
+                }
+                DestroyMenu(hmenu);
+            }
+            pcm->Release();
+        } else {
+            logger::error("GetUIObjectOf failed with error: {:x}", hr);
+            QMessageBox::warning(this, "Error", "Restore failed. Go to recycle bin and restore manually");
+        }
+    }
+
+    for (auto pidl : itemsToRestore) {
+        CoTaskMemFree(pidl);
+    }
+    peidl->Release();
+    psfBin->Release();
+    CoUninitialize();
+    recently_deleted_.clear();
+}
+
+
 void FastFileSearchDialog::reject()
 {
     // handle esc or whatever; clear the selection (if any) so the app 
@@ -412,6 +601,7 @@ void FastFileSearchDialog::reject()
 
 void FastFileSearchDialog::closeEvent(QCloseEvent *event)
 {
+    file_table_->clearSelection();
     hide();
     event->ignore();
 }
@@ -420,7 +610,7 @@ void FastFileSearchDialog::closeEvent(QCloseEvent *event)
 void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        if (file_table_->selectionModel()->hasSelection()) 
+        if (file_table_->selectionModel()->hasSelection())
             accept();
         event->accept();
     } else if (event->key() == Qt::Key_Escape) {
@@ -428,6 +618,12 @@ void FastFileSearchDialog::keyPressEvent(QKeyEvent *event)
         event->accept();
     } else if (event->key() == Qt::Key_F1) {
         show_help();
+        event->accept();
+    } else if (event->key() == Qt::Key_Delete) {
+        delete_selected_files();
+        event->accept();
+    } else if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_Z) {
+        restore_deleted_files();
         event->accept();
     } else {
         QDialog::keyPressEvent(event);
@@ -444,7 +640,6 @@ bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
     return QDialog::eventFilter(object, event);
 }
 
-#include <iostream>
 
 QStringList FastFileSearchDialog::find_files(const std::filesystem::path &path, QString &file_ending)
 {
