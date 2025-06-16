@@ -200,9 +200,6 @@ void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidge
         QString title = QString::fromStdString(bookmark.title_);
         title.replace('\n', ' ').replace('\r', ' '); // don't allow newlines in titles
 
-        if (bookmark.page_num_.has_value())
-            title += std::format(" {}", bookmark.page_num_.value());
-
         auto *item = new QTreeWidgetItem(QStringList() << title);
         set_item_info(item, bookmark);
 
