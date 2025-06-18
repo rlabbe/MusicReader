@@ -15,7 +15,7 @@
 #if !defined(NDEBUG)
 #pragma warning(push)
 #pragma warning( push, 1 )
-#include <opencv2/imgproc/imgproc.hpp>
+//#include <opencv2/imgproc/imgproc.hpp>
 #pragma warning(pop)
 
 #define IF_DEBUG(x) x
@@ -129,7 +129,7 @@ bool delete_annotation_by_content_and_position(fz_context *ctx, pdf_document *pd
 }
 
 
-
+/*
 #if !defined(NDEBUG)
 cv::Mat qimage_to_mat(QImage img)
 {
@@ -153,9 +153,7 @@ cv::Mat qimage_to_mat(QImage img)
         mat = cv::Mat(converted.height(), converted.width(), CV_8UC3, converted.bits(), converted.bytesPerLine());
     }
     return mat.clone();
-}
-#endif
-
+}*/
 
 inline std::string to_string(QImage::Format format)
 {
