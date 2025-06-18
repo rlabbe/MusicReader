@@ -6,6 +6,7 @@
 #include <filesystem>
 
 #include "config_file.h"
+#include "document_load_manager.h"
 
 class BookmarkPanel;
 class Document;
@@ -111,7 +112,6 @@ private:
     void show_page_count();
 
     void restore_open_documents();
-    void reopen_all_documents();
     void save_window_state_to_config();
     void check_for_errors_on_exit();
 
@@ -204,6 +204,8 @@ private:
     std::mutex fast_search_mutex_;
     std::condition_variable fast_search_cv_;
     bool fast_search_initialized_ = false;
+
+    bool restoring_documents_ = false;
 
 signals:
     void fastSearchInitialized();

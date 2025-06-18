@@ -3,6 +3,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <iostream>
+#include <set>
 
 #include "logger.h"
 #include "exception_logger.h"
@@ -262,10 +263,37 @@ void ConfigFile::read(bool reset_on_error)
                 od.filename = std::filesystem::path(std::u8string(filename_str.begin(), filename_str.end()));
                 od.page = doc["page"].get<int>();
                 od.page_count = doc["page_count"].get<int>();
+
+                if (doc.contains("access_order") && doc["access_order"].is_number_integer())
+                    od.access_order = doc["access_order"].get<int>();
+                else
+                    od.access_order = -1;  // Mark as needs assignment
+
                 open_documents_.push_back(od);
             } else {
                 logger::error("Invalid entry in 'open_documents'");
                 goto CLEANUP;
+            }
+        }
+
+        // Fix any missing or duplicate access_order values
+        std::set<int> used_orders;
+        int max_order = 0;
+
+        // First pass: collect valid orders
+        for (const auto &doc : open_documents_) {
+            if (doc.access_order > 0) {
+                used_orders.insert(doc.access_order);
+                max_order = std::max(max_order, doc.access_order);
+            }
+        }
+
+        // Second pass: assign unique orders to missing/invalid ones
+        for (auto &doc : open_documents_) {
+            if (doc.access_order <= 0 || used_orders.count(doc.access_order) > 1) {
+                ++max_order;
+                doc.access_order = max_order;
+                used_orders.insert(max_order);
             }
         }
     } else {
@@ -451,13 +479,14 @@ json ConfigFile::to_json() const
         doc_json["filename"] = std::string(reinterpret_cast<const char *>(doc.filename.u8string().c_str()));
         doc_json["page"] = doc.page;
         doc_json["page_count"] = doc.page_count;
+        doc_json["access_order"] = doc.access_order;
         j["open_documents"].push_back(doc_json);
     }
 
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents_) 
+    for (const auto &path : recent_documents_)
         j["recent_documents"].push_back(std::string(reinterpret_cast<const char *>(path.u8string().c_str())));
-    
+
     j["app_size"] = app_size_;
     j["toolbar_location"] = static_cast<int>(toolbar_location_);
     j["page_location"] = static_cast<int>(page_location_);
@@ -475,6 +504,7 @@ json ConfigFile::to_json() const
     j["log_level"] = log_level_to_string(log_level_);
     return j;
 }
+
 
 
 // Method to save configuration to file
@@ -565,6 +595,68 @@ void ConfigFile::remove_recent_documents(const std::vector<std::filesystem::path
         remove_recent_document(path);
     }
 }
+
+void ConfigFile::update_document_access(const std::filesystem::path &filepath)
+{
+    auto it = std::find_if(open_documents_.begin(), open_documents_.end(),
+        [&filepath](const OpenDocument &doc) {
+        return doc.filename == filepath;
+    });
+
+    if (it != open_documents_.end()) {
+        // Remove the accessed document temporarily
+        OpenDocument accessed_doc = *it;
+        open_documents_.erase(it);
+
+        // Renumber remaining documents
+        std::sort(open_documents_.begin(), open_documents_.end(),
+                  [](const OpenDocument &a, const OpenDocument &b) {
+            return a.access_order < b.access_order;
+        });
+
+        for (size_t i = 0; i < open_documents_.size(); ++i) {
+            open_documents_[i].access_order = static_cast<int>(i + 2);
+        }
+
+        // Add accessed document back as most recent (1)
+        accessed_doc.access_order = 1;
+        open_documents_.insert(open_documents_.begin(), accessed_doc);
+
+        save();
+    }
+}
+
+
+void ConfigFile::set_open_documents(const std::vector<OpenDocument> &value)
+{
+    open_documents_ = value;
+
+    // Sort by access_order and renumber to be consecutive
+    std::sort(open_documents_.begin(), open_documents_.end(),
+              [](const OpenDocument &a, const OpenDocument &b) {
+        return a.access_order < b.access_order;
+    });
+
+    for (size_t i = 0; i < open_documents_.size(); ++i) {
+        open_documents_[i].access_order = static_cast<int>(i + 1);
+    }
+
+    save();
+}
+
+
+void ConfigFile::add_new_document(const std::filesystem::path &filepath, int page, int page_count)
+{
+    // Increment all existing documents' access_order
+    for (auto &doc : open_documents_)
+        ++doc.access_order;
+
+    // Add new document with access_order = 1
+    open_documents_.push_back({ filepath, page, page_count, 1 });
+
+    save();
+}
+
 
 // Utility methods
 void ConfigFile::set_defaults()

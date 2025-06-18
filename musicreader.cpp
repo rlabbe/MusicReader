@@ -1048,12 +1048,21 @@ void MusicReader::save_open_documents_to_config()
             auto doc = pdf_viewer->document();
             bool is_temporary = doc->is_temporary();
 
-            if (is_temporary) continue; // Skip temporary documents
+            if (is_temporary) continue;
 
             auto name = doc->filename();
-            open_documents.push_back({
-                name, pdf_viewer->current_page(), doc->page_count()
-            });
+
+            for (const auto &existing_doc : config_.open_documents()) {
+                if (existing_doc.filename == name) {
+                    open_documents.push_back({
+                        name,
+                        pdf_viewer->current_page(),
+                        doc->page_count(),
+                        existing_doc.access_order
+                    });
+                    break;
+                }
+            }
         }
     }
     config_.set_open_documents(open_documents);
@@ -1067,7 +1076,16 @@ void MusicReader::on_tab_changed()
     update_title();
     update_bookmark_panel();
     auto viewer = current_viewer();
-    if (viewer) viewer->update_status_bar();
+    if (viewer) {
+        viewer->update_status_bar();
+
+        // Only update document access order if not restoring documents
+        if (!restoring_documents_) {
+            auto doc = current_document();
+            if (doc)
+                config_.update_document_access(doc->filename());
+        }
+    }
 }
 
 
@@ -1365,8 +1383,6 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
 {
     SAFE_METHOD;
 
-    // viewer will be nonnull if reloading document from F5
-
     if (!viewer) {
         if (auto i = doc_is_open(filename); i.has_value()) {
             focus_on_tab(i.value());
@@ -1396,14 +1412,17 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
         tab_widget_->setCurrentWidget(tab);
 
         focus_on_tab(tab_widget_->currentIndex());
-    } else
+        config_.add_new_document(filename, page, doc->page_count());
+    } else {
         viewer->replace_document(doc, page);
+        config_.update_document_access(filename);
+    }
 
     save_open_documents_to_config();
 
     std::thread([this, doc, page]() {
         ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-        doc->load_document();  // Load pages asynchronously
+        doc->load_document();
     }).detach();
 
     viewer->refresh();
@@ -1672,17 +1691,22 @@ void MusicReader::update_background()
     }
 }
 
-
-void MusicReader::reopen_all_documents()
-{
-    SAFE_METHOD;
-
-    while (tab_widget_->count() > 0)
-        // remove from back so qt doesn't spend time reindexing the tabs
-        tab_widget_->removeTab(tab_widget_->count() - 1);
-
-    restore_open_documents();
-}
+template<class T>
+class SaveState {
+private:
+    T &var_;
+    T old_value;
+public:
+    SaveState(T &var, T value) : var_(var)
+    {
+        old_value = var;
+        var_ = value;
+    }
+    ~SaveState()
+    {
+        var_ = old_value;
+    }
+};
 
 
 void MusicReader::restore_open_documents()
@@ -1690,6 +1714,11 @@ void MusicReader::restore_open_documents()
     SAFE_METHOD;
     REQUIRES(bookmark_panel_);
     REQUIRES(tab_widget_);
+
+    // this ensures document access order is not modified by
+    // reopening the documents. MUST set to false on return,
+    // which SaveState ensures.
+    SaveState(restoring_documents_, true);
 
     // Make a copy of the open documents list as it will
     // change when we add new tabs

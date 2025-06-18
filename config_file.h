@@ -38,6 +38,7 @@ struct OpenDocument {
     std::filesystem::path filename;
     int page;
     int page_count;
+    int access_order;  // 1 = most recent, higher numbers = older
 
     // get filename as a string, cant use filename.string() because it's not 
     // UTF-8 in Windows.
@@ -47,7 +48,7 @@ struct OpenDocument {
         return wide_to_utf8(filename.wstring());
 #else
         return doc.filename.string(); // Linux/macOS paths are already UTF-8
-#endif    
+#endif
     }*/
 };
 
@@ -68,7 +69,7 @@ private:
 
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
-    std::vector<int> app_size_ {10, 10, 640, 480};
+    std::vector<int> app_size_{ 10, 10, 640, 480 };
     ToolbarLocation toolbar_location_ = ToolbarLocation::Left;
     PageLocation page_location_ = PageLocation::Center;
     int page_view_count_ = 2;
@@ -79,7 +80,7 @@ private:
     int dpi_ = 300;
     bool allow_oversize_ = true;
     Theme theme_ = Theme::Dark;
-    std::vector<int> fast_search_dialog_size_ = {100, 100, 480, 320};
+    std::vector<int> fast_search_dialog_size_ = { 100, 100, 480, 320 };
     int border_margin_ = 10;
     std::filesystem::path music_directory_ = ".";
     LogLevel log_level_ = LogLevel::Normal;
@@ -88,7 +89,7 @@ public:
 
     explicit ConfigFile(bool reset_on_error = true);
 
-    void start_group_changes() { save_operation_enabled_ = false;}
+    void start_group_changes() { save_operation_enabled_ = false; }
     void end_group_changes() { save_operation_enabled_ = true; save(); }
 
     int file_version() const { return file_version_; }
@@ -119,7 +120,9 @@ public:
     void set_allow_file_delete(bool value) { allow_file_delete_ = value; save(); }
 
     const std::vector<OpenDocument> &open_documents() const { return open_documents_; }
-    void set_open_documents(const std::vector<OpenDocument> &value) { open_documents_ = value; save(); }
+    void set_open_documents(const std::vector<OpenDocument> &value);
+    void add_new_document(const std::filesystem::path &filepath, int page, int page_count);
+
 
     const std::vector<std::filesystem::path> &recent_documents() const { return recent_documents_; }
     void set_recent_documents(const std::vector<std::filesystem::path> &value) { recent_documents_ = value; save(); }
@@ -190,6 +193,7 @@ public:
     void add_recent_document(const std::filesystem::path &path);
     void remove_recent_document(const std::filesystem::path &path);
     void remove_recent_documents(const std::vector<std::filesystem::path> &paths);
+    void update_document_access(const std::filesystem::path &filepath);
 
     // Utility methods
     void set_defaults();
