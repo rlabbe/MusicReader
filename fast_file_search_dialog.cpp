@@ -647,12 +647,11 @@ QStringList FastFileSearchDialog::find_files(const std::filesystem::path &path, 
     QDirIterator it(QString::fromStdU16String(path.u16string()), QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString file_path = it.next();
-        if (file_ending.isEmpty() || file_path.endsWith(file_ending, Qt::CaseInsensitive))
+        if (file_ending.isEmpty() || file_path.endsWith((file_ending.startsWith('.') ? file_ending : "." + file_ending), Qt::CaseInsensitive))
             file_paths.append(file_path);
     }
     return file_paths;
 }
-
 
 void FastFileSearchDialog::directory_changed(const std::filesystem::path &new_search_path, FastFileSearchDialog *self)
 {
