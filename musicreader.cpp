@@ -36,6 +36,7 @@ constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
 MusicReader::MusicReader(QWidget *parent)
     : QMainWindow(parent)
+    , load_manager_(12)
 {
 #if !defined(NDEBUG)
     logger::initialize(true, &config_);
@@ -265,7 +266,7 @@ SAFE_METHOD;
 void MusicReader::closeEvent(QCloseEvent *event)
 {
     SAFE_METHOD;
-
+    load_manager_.stop_loading();
     save_window_state_to_config();
     save_config();
 
@@ -1079,15 +1080,15 @@ void MusicReader::on_tab_changed()
     if (viewer) {
         viewer->update_status_bar();
 
-        // Only update document access order if not restoring documents
         if (!restoring_documents_) {
             auto doc = current_document();
-            if (doc)
+            if (doc) {
                 config_.update_document_access(doc->filename());
+                update_document_priority_order();
+            }
         }
     }
 }
-
 
 void MusicReader::on_close_tab(int index)
 {
@@ -1096,22 +1097,23 @@ void MusicReader::on_close_tab(int index)
     auto doc = document_at(index);
     if (doc) {
         doc->kill_load();
-        // This function is only called when explicitly closing a tab, not on app shutdown,
-        // so it's safe to add the document to the recent documents list.
+        load_manager_.remove_document(doc->filename());
         config_.add_recent_document(doc->filename());
     }
 
     QWidget *widget_to_remove = tab_widget_->widget(index);
     if (widget_to_remove) {
-        widget_to_remove->deleteLater();  // Perform cleanup
+        widget_to_remove->deleteLater();
         tab_widget_->removeTab(index);
     }
 
     save_open_documents_to_config();
-    on_tab_changed(); // this will update the UI for whatever tab is now current
+    on_tab_changed();
 
     QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
 }
+
+
 
 void MusicReader::update_title(int index)
 {
@@ -1420,17 +1422,13 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
 
     save_open_documents_to_config();
 
-    std::thread([this, doc, page]() {
-        ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-        doc->load_document();
-    }).detach();
+    load_manager_.add_document(doc);
 
     viewer->refresh();
     QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
 
     return viewer;
 }
-
 
 
 void MusicReader::goto_page_dialog()
@@ -1485,6 +1483,8 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
         bookmark_panel_->populate();
         update_background();
     });
+    load_manager_.add_document(doc);
+
     return doc;
 }
 
@@ -1708,20 +1708,14 @@ public:
     }
 };
 
-
 void MusicReader::restore_open_documents()
 {
     SAFE_METHOD;
     REQUIRES(bookmark_panel_);
     REQUIRES(tab_widget_);
 
-    // this ensures document access order is not modified by
-    // reopening the documents. MUST set to false on return,
-    // which SaveState ensures.
     SaveState(restoring_documents_, true);
 
-    // Make a copy of the open documents list as it will
-    // change when we add new tabs
     const auto docs_info = config_.open_documents();
     int num_docs = static_cast<int>(docs_info.size());
 
@@ -1736,10 +1730,7 @@ void MusicReader::restore_open_documents()
     std::vector<std::shared_ptr<Document>> documents;
 
     for (auto doc_info : docs_info) {
-
-        // Only create document objects, don't load them yet
         auto doc = open_pdf_document(doc_info.filename, doc_info.page);
-        // nullptr if failed to open document
         if (!doc) {
             logger::debug(u8"Failed to re-open document: " + doc_info.filename.u8string());
             continue;
@@ -1759,7 +1750,7 @@ void MusicReader::restore_open_documents()
         tab_widget_->setTabToolTip(index, QString::fromStdWString(doc_info.filename.wstring()));
     }
 
-    num_docs = (int)documents.size(); // Update num_docs as not all may have been opened
+    num_docs = (int)documents.size();
     if (num_docs == 0) {
         update_background();
         bookmark_panel_->adjust_width();
@@ -1767,45 +1758,40 @@ void MusicReader::restore_open_documents()
         return;
     }
 
-    // Set focus to current tab
     tab_widget_->setCurrentIndex(current_tab);
-
-    // Process events to ensure UI updates immediately
     QApplication::processEvents();
 
-    // Start loading documents in separate threads with current tab first
-    // First start loading the current tab
-    std::thread current_thread([current_tab, documents]() {
-        ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-        documents[current_tab]->load_document();
-    });
-    current_thread.detach();
+    for (auto doc : documents) 
+        load_manager_.add_document(doc);
+    
 
-    // Process events again to ensure UI updates and first document starts loading
-    QApplication::processEvents();
-
-    // Then start loading all other tabs with delays
-    for (int i = 0; i < num_docs; i++) {
-        if (i == current_tab) continue; // Skip the current tab
-
-        // Use lambdas with copies of the shared_ptrs to prevent issues 
-        // with documents going out of scope
-        int index = i;
-        QTimer::singleShot(200 + (i * 100), this, [documents, index]() {
-            std::thread loading_thread([doc = documents[index]]() {
-                doc->load_document();
-            });
-            loading_thread.detach();
-        });
-    }
+    update_document_priority_order();
 
     bookmark_panel_->adjust_width();
     update_background();
-
-    // Save the current open tab setting
     config_.set_open_tab(current_tab);
 }
+void MusicReader::update_document_priority_order()
+{
+    SAFE_METHOD;
 
+    std::vector<std::filesystem::path> ordered_docs;
+
+    auto current_doc = current_document();
+    if (current_doc)
+        ordered_docs.push_back(current_doc->filename());
+
+    for (const auto &open_doc : config_.open_documents()) {
+        std::filesystem::path doc_path = open_doc.filename;
+        if (current_doc && doc_path == current_doc->filename())
+            continue;
+
+        if (doc_is_open(doc_path))
+            ordered_docs.push_back(doc_path);
+    }
+
+    load_manager_.set_document_priority_order(ordered_docs);
+}
 
 void MusicReader::toggle_bookmark_panel()
 {

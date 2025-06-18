@@ -200,12 +200,15 @@ private:
     void reset_cursor_timer();
     bool handle_mouse_movement(QObject *watched, QEvent *event);
 
+    void update_document_priority_order();
+
     // ensure the fast file search dialog is created
     std::mutex fast_search_mutex_;
     std::condition_variable fast_search_cv_;
     bool fast_search_initialized_ = false;
 
     bool restoring_documents_ = false;
+    DocumentLoadManager load_manager_;
 
 signals:
     void fastSearchInitialized();

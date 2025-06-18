@@ -85,6 +85,9 @@
     <ClCompile Include="imslp_search_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="document_load_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -124,6 +127,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="imslp_search_dialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="document_load_manager.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -185,7 +191,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
-    <None Include="M:\work\trunk\property-sheets\OpenCV.props" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="MusicReader.natvis" />
