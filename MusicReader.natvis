@@ -2,4 +2,20 @@
   <Type Name="Bookmark">
     <DisplayString>{title_} {page_num_} {handle_}</DisplayString>
   </Type>
+
+	<Type Name="Document">
+		<DisplayString>{filename_} {start_page_}</DisplayString>
+	</Type>
+
+	<Type Name="std::shared_ptr&lt;Document&gt;">
+		<DisplayString>{_Ptr-&gt;filename_} {_Ptr-&gt;start_page_}</DisplayString>
+		<Expand>
+			<ExpandedItem>_Ptr,na</ExpandedItem>
+		</Expand>
+	</Type>
+	
+	<Type Name="PageJob">
+		<DisplayString>{document} page_num: {page_num}</DisplayString>
+	</Type>
+
 </AutoVisualizer>

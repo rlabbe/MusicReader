@@ -126,6 +126,8 @@ void PDFViewer::change_page(int step)
     scrollbar_->setValue(new_page);
     manual_scrollbar_change_ = false;
 
+    if (document_) 
+        document_->prioritize();
     get_page(new_page);
 }
 

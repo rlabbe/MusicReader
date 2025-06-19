@@ -12,7 +12,7 @@ struct logger {
     // Parameters:
     // log_to_console - Whether to also log to the console.
     // max_size_kb - The maximum log file size in kilobytes.
-    static void initialize(bool log_to_console, ConfigFile *config_file, size_t max_size_kb = 4);
+    static void initialize(bool log_to_console, ConfigFile *config_file, size_t max_size_kb = 1024);
     static void shutdown();
 
     static void flush();

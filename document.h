@@ -32,6 +32,8 @@ public:
     bool is_fully_loaded() const { return get_pending_pages().empty(); }
 
     std::string filename() const { return filename_.string(); }
+    std::filesystem::path path() const { return filename_; }
+
     int page_count() const { return static_cast<int>(pages_.size()); }
     int dpi() const { return dpi_; }
 
@@ -67,6 +69,10 @@ public:
 
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);
+
+    // call when tab has focus, so loading is prioritized, preferably BEFORE
+    // get_page is called.
+    void prioritize();
 
 signals:
     void page_loaded(int page_index);

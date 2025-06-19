@@ -22,6 +22,7 @@ struct PageJob {
     }
 };
 
+
 class DocumentLoadManager : public QObject {
     Q_OBJECT
 
@@ -33,6 +34,10 @@ public:
     void remove_document(const std::filesystem::path &filename);
     void set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs);
     void prioritize_page(const std::filesystem::path &filename);
+    void prioritize_page(const Document &doc);
+
+	void start_group_changes() { group_changes_ = true; }
+	void end_group_changes();
 
     void stop_loading();
 
@@ -43,6 +48,8 @@ private slots:
     void on_job_completed();
 
 private:
+    void prioritize_page_internal(const std::filesystem::path &filename);
+
     void populate_job_queue();
     void reorder_jobs();
     void submit_next_jobs();
@@ -56,6 +63,31 @@ private:
     std::mutex mutex_;
     int max_concurrent_jobs_;
     int active_jobs_;
+	bool group_changes_ = false; // Flag to indicate if changes are grouped
 
     static DocumentLoadManager *instance_;
+};
+
+
+
+template <typename T>
+class GroupChangesGuard {
+public:
+    GroupChangesGuard(T &manager) : manager_(manager)
+    {
+        manager_.start_group_changes();
+    }
+    ~GroupChangesGuard()
+    {
+        manager_.end_group_changes();
+    }
+private:
+    T &manager_;
+}; 
+
+
+class DocumentLoadManagerGuard : public GroupChangesGuard<DocumentLoadManager> {
+    public:
+    DocumentLoadManagerGuard() : GroupChangesGuard<DocumentLoadManager>(*DocumentLoadManager::instance()) {}
+    ~DocumentLoadManagerGuard() = default;
 };

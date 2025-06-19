@@ -131,6 +131,8 @@
       <Optimization>MaxSpeed</Optimization>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>

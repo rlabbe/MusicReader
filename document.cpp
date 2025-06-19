@@ -337,13 +337,14 @@ Page Document::get_page(int page_num) const
 			need_to_request = true;
 	}
 
-	// Call prioritize_page without holding read_mutex_ to avoid deadlock
-	if (need_to_request) {
-		if (auto *manager = DocumentLoadManager::instance())
-			manager->prioritize_page(filename_);
-	}
-
 	return pages_[page_num - 1];
+}
+
+
+void Document::prioritize()
+{
+	if (auto *manager = DocumentLoadManager::instance())
+		manager->prioritize_page(filename_);
 }
 
 
@@ -408,25 +409,24 @@ void Document::initialize_document()
 std::vector<int> get_page_load_order(int start_page, int total_pages)
 {
 	std::vector<int> load_order;
-	load_order.push_back(start_page - 1);
-	int start_index = start_page - 1;  // Convert to zero-based index
+	load_order.push_back(start_page);
 
 	// Step 1: Load next page first
-	if (start_index + 1 < total_pages) load_order.push_back(start_index + 1);
+	if (start_page + 1 <= total_pages) 
+		load_order.push_back(start_page + 1);
 
 	// Step 2: Load previous page if it exists
-	if (start_index > 0) load_order.push_back(start_index - 1);
+	if (start_page > 0) 
+		load_order.push_back(start_page - 1);
 
 	// Step 3: Load remaining pages forward
-	for (int i = start_index + 2; i < total_pages; ++i) {
+	for (int i = start_page + 1; i <= total_pages; ++i) 
 		load_order.push_back(i);
-	}
 
 	// Step 4: Load remaining pages backward
-	for (int i = start_index - 2; i >= 0; --i) {
+	for (int i = start_page - 1; i > 0; --i) 
 		load_order.push_back(i);
-	}
-
+	
 	return load_order;
 }
 
@@ -483,7 +483,7 @@ void Document::load_page(int page_num)
 	QImage img;
 	fz_try(ctx)
 	{
-		img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
+	img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
 	}
 	fz_catch(ctx)
 	{
@@ -497,11 +497,11 @@ void Document::load_page(int page_num)
 	if (kill_loading_) return;
 
 	{
-		std::lock_guard lock(read_mutex_);
+		std::lock_guard lock(read_mutex_); 
 		pages_[page_num - 1] = Page(img, page_num, false);
 	}
 
-	//std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	emit page_loaded(page_num);
 }
 
