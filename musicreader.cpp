@@ -901,6 +901,7 @@ void MusicReader::create_toolbar()
 	toolbar_->addAction(action);
 
 	// Add this after the settings button and before the margin action:
+	/* // not ready for prime time yet!
 	action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
 	action->setToolTip("Text annotation mode (T)");
 	action->setCheckable(true);
@@ -912,6 +913,7 @@ void MusicReader::create_toolbar()
 	shortcut = new QShortcut(Qt::Key_T, this);
 	shortcut->setContext(Qt::WindowShortcut);
 	connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
+	*/
 }
 
 void MusicReader::set_page_view_count(int count)
