@@ -235,7 +235,7 @@ void Document::load_page(int page_num)
 
 	if (kill_loading_) return;
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
 
 	{
 		std::lock_guard lock(read_mutex_); 
