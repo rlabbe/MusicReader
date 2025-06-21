@@ -9,177 +9,207 @@
 #include "config_file.h"
 
 
-
+// put here to avoid including spdlog.h in the header file
 static std::shared_ptr<spdlog::logger> logger_;
-bool logger::logged_error_ = false;
-ConfigFile *logger::config_file_ = nullptr;
-std::string logger::log_file_path_;
 
-static std::string get_persistent_config_path(const std::string &file_name, const std::string &appname = "MusicReader")
+
+
+static std::string get_persistent_config_path(const std::string &file_name, [[maybe_unused]] const std::string &appname = "MusicReader")
 {
-    // Determine the operating system
-    std::filesystem::path config_path;
+
+	return file_name;
+	/*
+	// Determine the operating system
+	std::filesystem::path config_path;
 
 #if defined(_WIN32)
-    const char *appdata = std::getenv("APPDATA");
-    if (!appdata) throw std::runtime_error("APPDATA environment variable not set");
-    config_path = std::filesystem::path(appdata) / appname;
+	const char *appdata = std::getenv("APPDATA");
+	if (!appdata) throw std::runtime_error("APPDATA environment variable not set");
+	config_path = std::filesystem::path(appdata) / appname;
 #elif defined(__linux__)
-    const char *home = std::getenv("HOME");
-    if (!home) throw std::runtime_error("HOME environment variable not set");
-    config_path = std::filesystem::path(home) / ".config" / appname;
+	const char *home = std::getenv("HOME");
+	if (!home) throw std::runtime_error("HOME environment variable not set");
+	config_path = std::filesystem::path(home) / ".config" / appname;
 #elif defined(__APPLE__)
-    const char *home = std::getenv("HOME");
-    if (!home) throw std::runtime_error("HOME environment variable not set");
-    config_path = std::filesystem::path(home) / "Library" / "Application Support" / appname;
+	const char *home = std::getenv("HOME");
+	if (!home) throw std::runtime_error("HOME environment variable not set");
+	config_path = std::filesystem::path(home) / "Library" / "Application Support" / appname;
 #else
-    throw std::runtime_error("Unsupported OS");
+	throw std::runtime_error("Unsupported OS");
 #endif
 
-    // Ensure the directory exists
-    std::filesystem::create_directories(config_path);
+	// Ensure the directory exists
+	std::filesystem::create_directories(config_path);
 
-    // Return the full path to the config file
-    return (config_path / file_name).string();
+	// Return the full path to the config file
+	return (config_path / file_name).string();
+	*/
 }
 
-void logger::configure_logger(const std::string &filename, size_t max_size, bool log_to_console)
+void logger::configure_logger(const std::string &filename, size_t max_size_kb, bool log_to_console)
 {
-    try {
-        std::vector<spdlog::sink_ptr> sinks;
+	try {
+		std::vector<spdlog::sink_ptr> sinks;
 
-        // Create a rotating file sink (max 1 backup file)
-        sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_size * 1024, 1));
+		// Create a rotating file sink (max 1 backup file)
+		sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_size_kb * 1024, 1));
 
-        // Optionally log to console
-        if (log_to_console) {
-            sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-        }
+		// Optionally log to console
+		if (log_to_console) {
+			sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+		}
 
-        logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
-        spdlog::register_logger(logger_);
-        logger_->set_level(spdlog::level::info);
-        logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
-        logger_->flush_on(spdlog::level::debug);
-        spdlog::flush_every(std::chrono::seconds(10));
-    } catch (const std::exception &ex) {
-        std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
-    }
+		logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
+		spdlog::register_logger(logger_);
+		logger_->set_level(spdlog::level::info);
+		logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
+		logger_->flush_on(spdlog::level::debug);
+		spdlog::flush_every(std::chrono::seconds(10));
+	} catch (const std::exception &ex) {
+		std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
+	}
 }
 
 void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
 {
-    log_file_path_ = get_persistent_config_path("MusicReader.log");
-    std::cout << "opening log file: " << log_file_path_ << std::endl;
-    configure_logger(log_file_path_, max_size_kb, log_to_console);
-    logged_error_ = false;
-    config_file_ = cf;
+	log_file_path_ = get_persistent_config_path("MusicReader.log");
+	std::cout << "opening log file: " << log_file_path_ << std::endl;
+	configure_logger(log_file_path_, max_size_kb, log_to_console);
+	logged_error_ = false;
+	config_file_ = cf;
 }
 
 void logger::shutdown()
 {
-    if (logger_) {
-        logger_->flush();
-        spdlog::shutdown();
-        logger_ = nullptr;
-        logged_error_ = false;
-    }
+	if (logger_) {
+		logger_->flush();
+		spdlog::shutdown();
+		logger_ = nullptr;
+		logged_error_ = false;
+	}
 }
 
 std::string logger::log_file_path()
 {
-    return log_file_path_;
+	return log_file_path_;
 }
 
 bool logger::logged_error()
 {
-    return logged_error_;
+	return logged_error_;
 }
 
 void logger::flush()
 {
-    if (logger_) logger_->flush();
+	if (logger_) logger_->flush();
 }
 
 void logger::info(const std::string &message)
 {
-    if (logger_) logger_->info(message);
+	if (logger_) logger_->info(message);
 }
 
 void logger::info(const std::u8string &message)
 {
-    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
-    info(s);
+	std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+	info(s);
 }
 
 void logger::warning(const std::string &message)
 {
-    if (logger_) logger_->warn(message);
+	if (logger_) logger_->warn(message);
 }
 
 void logger::warning(const std::u8string &message)
 {
-    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
-    warning(s);
+	std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+	warning(s);
 }
 
 void logger::error(const std::string &message)
 {
-    if (logger_) {
-        logged_error_ = true;
-        logger_->error(message);
-    }
+	if (logger_) {
+		logged_error_ = true;
+		logger_->error(message);
+	}
 }
 
 void logger::error(const std::u8string &message)
 {
-    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
-    error(s);
+	std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+	error(s);
 }
 
 void logger::debug(const std::string &message)
 {
-    if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Diagnostic)) logger_->debug(message);
+	if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Diagnostic))
+		logger_->debug(message);
 }
 
 void logger::debug(const std::u8string &message)
 {
-    std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
-    debug(s);
+	std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+	debug(s);
+}
+
+void logger::trace(const std::string &message)
+{
+	if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Trace))
+		logger_->trace(message);
+}
+
+void logger::trace(const std::u8string &message)
+{
+	std::string s{ reinterpret_cast<const char *>(message.data()), message.size() };
+	trace(s);
 }
 
 void logger::enable_debug_logging(bool enable)
 {
-    if (logger_) {
-        logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
-        for (auto &sink : logger_->sinks()) {
-            sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
-        }
-    }
+	if (!logger_)
+		return;
+	logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
+	for (auto &sink : logger_->sinks())
+		sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
+
+	trace_enabled_ = false;
+	debug_enabled_ = true;
+}
+
+void logger::enable_trace_logging(bool enable)
+{
+	if (!logger_)
+		return;
+	logger_->set_level(enable ? spdlog::level::trace : spdlog::level::info);
+	for (auto &sink : logger_->sinks())
+		sink->set_level(enable ? spdlog::level::trace : spdlog::level::info);
+
+	trace_enabled_ = true;
+	debug_enabled_ = false;
 }
 
 std::string logger::get_log_content()
 {
-    if (!logger_)
-        return {};
+	if (!logger_)
+		return {};
 
-    logger_->flush();
+	logger_->flush();
 
-    auto sinks = logger_->sinks();
-    for (const auto &sink : sinks) {
-        auto file_sink = std::dynamic_pointer_cast<spdlog::sinks::rotating_file_sink_mt>(sink);
-        if (file_sink) {
-            std::string log_path = file_sink->filename();
-            std::ifstream file(log_path);
-            if (!file.is_open()) {
-                return "";
-            }
+	auto sinks = logger_->sinks();
+	for (const auto &sink : sinks) {
+		auto file_sink = std::dynamic_pointer_cast<spdlog::sinks::rotating_file_sink_mt>(sink);
+		if (file_sink) {
+			std::string log_path = file_sink->filename();
+			std::ifstream file(log_path);
+			if (!file.is_open()) {
+				return "";
+			}
 
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            return buffer.str();
-        }
-    }
+			std::stringstream buffer;
+			buffer << file.rdbuf();
+			return buffer.str();
+		}
+	}
 
-    return "";
+	return "";
 }

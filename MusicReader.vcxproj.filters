@@ -188,6 +188,9 @@
     <ClInclude Include="imslp_client.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="document_helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />

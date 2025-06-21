@@ -102,6 +102,8 @@ private:
     void set_light_theme() {/*TODO*/ }
     void set_dark_theme() {/*TODO*/ }
 
+    void update_logging_level();
+
     void initialize_fast_search();
 
     void refresh_all_documents();

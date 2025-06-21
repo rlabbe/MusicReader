@@ -64,16 +64,17 @@ PDFViewer::~PDFViewer()
 void PDFViewer::update_status_bar()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(document_);
     REQUIRES(status_bar_);
 
     if (!status_bar_) return;
     if (!isVisible()) return;
 
-    if (page_.is_empty()) {
+    /*if (page_.is_empty()) {
         status_bar_->clear_page_count();
         return;
-    }
+    }*/
 
     status_bar_->set_page_count(current_page(), document_->page_count());
 }
@@ -82,6 +83,7 @@ void PDFViewer::update_status_bar()
 bool PDFViewer::in_single_page_view() const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES_RET(config_, true);
 
     return config_->page_view_count() == 1 || page_count() == 1;
@@ -91,6 +93,7 @@ bool PDFViewer::in_single_page_view() const
 void PDFViewer::refresh()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     get_page(current_page());
     update_scrollbar_visibility();
 }
@@ -98,6 +101,7 @@ void PDFViewer::refresh()
 void PDFViewer::page_up()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     bool single_page = in_single_page_view() || config_->page_step_size() == 1;
 
     change_page(single_page ? -1 : -2);
@@ -106,6 +110,7 @@ void PDFViewer::page_up()
 void PDFViewer::page_down()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     bool single_page = in_single_page_view() || config_->page_step_size() == 1;
     change_page(single_page ? 1 : 2);
 }
@@ -113,6 +118,7 @@ void PDFViewer::page_down()
 void PDFViewer::change_page(int step)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(scrollbar_);
 
     int count = page_count();
@@ -134,6 +140,7 @@ void PDFViewer::change_page(int step)
 void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (!document || document == document_) return;
     document_ = document;
@@ -145,6 +152,7 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
 void PDFViewer::keyPressEvent(QKeyEvent *event)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     // Handle selection-related keys first
     if (event->key() == Qt::Key_Delete && has_selection_) {
@@ -195,6 +203,7 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
 void PDFViewer::wheelEvent(QWheelEvent *event)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (event->angleDelta().y() > 0)
         page_up();
@@ -207,8 +216,9 @@ bool PDFViewer::event(QEvent *event)
     SAFE_METHOD;
 
     if (event->type() == QEvent::Gesture) {
-        auto *gesture = dynamic_cast<QSwipeGesture *>(static_cast<QGestureEvent *>(event)->gesture(Qt::SwipeGesture));
+        TRACE_FUNCTION;
 
+        auto *gesture = dynamic_cast<QSwipeGesture *>(static_cast<QGestureEvent *>(event)->gesture(Qt::SwipeGesture));
         if (gesture->horizontalDirection() == QSwipeGesture::Left) {
             page_down();
         } else {
@@ -222,6 +232,7 @@ bool PDFViewer::event(QEvent *event)
 void PDFViewer::resizeEvent(QResizeEvent *event)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     QWidget::resizeEvent(event);
     update_image();
@@ -231,6 +242,7 @@ void PDFViewer::resizeEvent(QResizeEvent *event)
 void PDFViewer::init_ui(int page)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     layout_ = new QHBoxLayout(this);
 
@@ -286,6 +298,7 @@ void PDFViewer::init_ui(int page)
 void PDFViewer::on_scrollbar_value_changed(int new_page)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (manual_scrollbar_change_) return;
 
@@ -297,6 +310,7 @@ void PDFViewer::on_scrollbar_value_changed(int new_page)
 void PDFViewer::update_scrollbar_visibility()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(scrollbar_);
     REQUIRES(document_);
 
@@ -314,6 +328,7 @@ void PDFViewer::update_scrollbar_visibility()
 void PDFViewer::prefetch_async(int page_num)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(document_);
 
     std::jthread([this, page_num]() {
@@ -347,6 +362,7 @@ void PDFViewer::prefetch_async(int page_num)
 void PDFViewer::clear_prefetch()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     prefetch_.next.clear();
     prefetch_.prev.clear();
@@ -356,6 +372,7 @@ void PDFViewer::clear_prefetch()
 PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (!config_ || !document_)
         return PrefetchEntry(page_num, false, false, 0);
@@ -378,6 +395,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
 PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (!config_ || !document_)
         return PrefetchEntry(page_num, false, false, 0);
@@ -399,6 +417,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 void PDFViewer::get_page(int page_num)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(document_);
 
     const int count = document_->page_count();
@@ -431,6 +450,7 @@ void PDFViewer::get_page(int page_num)
 PixmapPage PDFViewer::get_single_page(int page_num)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     if (!document_) return PixmapPage();
 
     PixmapPage page = document_->get_page(page_num);
@@ -444,6 +464,7 @@ PixmapPage PDFViewer::get_single_page(int page_num)
 PixmapPage PDFViewer::get_double_page(int page_num)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     if (!document_ || !config_)
         return PixmapPage();
@@ -498,6 +519,7 @@ PixmapPage PDFViewer::get_double_page(int page_num)
 QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES_RET(config_, QPixmap());
 
     const bool zoom = config_->zoom_to_content();
@@ -528,6 +550,7 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 void PDFViewer::on_page_loaded(int page_index)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     int page_num = current_page();
     int count = page_count();
@@ -551,6 +574,7 @@ void PDFViewer::on_page_loaded(int page_index)
 void PDFViewer::update_image(const QString &message)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(label_);
     REQUIRES(config_);
 
@@ -603,6 +627,7 @@ void PDFViewer::update_image(const QString &message)
 void PDFViewer::adjust_initial_subwindow_size()
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES(label_);
 
     if (page_.is_empty()) return;
@@ -622,6 +647,7 @@ void PDFViewer::adjust_initial_subwindow_size()
 Qt::AlignmentFlag PDFViewer::page_alignment() const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     REQUIRES_RET(config_, Qt::AlignmentFlag::AlignLeft);
 
     switch (config_->page_location()) {
@@ -634,6 +660,7 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
 bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) const
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
 
     return page_num == target_page_num &&
         double_page == (config.page_view_count() == 2) &&
@@ -648,6 +675,7 @@ bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) co
 void PDFViewer::set_text_annotation_mode(bool enabled)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     text_annotation_mode_ = enabled;
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
@@ -656,6 +684,7 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
 void PDFViewer::mousePressEvent(QMouseEvent *event)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
     if (!document_) return;
     if (page_.is_empty()) return;
 

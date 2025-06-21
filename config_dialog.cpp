@@ -51,7 +51,8 @@ void ConfigDialog::setup_ui()
     combo_log_level_ = new QComboBox(this);
     combo_log_level_->addItem("Normal", static_cast<int>(LogLevel::Normal));
     combo_log_level_->addItem("Diagnostic", static_cast<int>(LogLevel::Diagnostic));
-    combo_log_level_->setWhatsThis("Logging verbosity level. Normal for standard operation, Diagnostic for troubleshooting and detailed debugging information.");
+    combo_log_level_->addItem("Trace", static_cast<int>(LogLevel::Trace));
+    combo_log_level_->setWhatsThis("Logging verbosity level. Normal for standard operation, Diagnostic for troubleshooting and detailed debugging information, Trace only if you need to trace every function call..");
 
     check_center_ = new QCheckBox("Center Document in window", this);
     check_center_->setWhatsThis("Center the PDF document in the view area. When unchecked, documents are aligned to the left side.");

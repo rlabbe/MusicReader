@@ -25,6 +25,10 @@ struct logger {
     static bool logged_error();
 
     static void enable_debug_logging(bool enable);
+    static void enable_trace_logging(bool enable);
+
+    static bool trace_enabled() { return trace_enabled_; }
+    static bool debug_enabled() {return debug_enabled_;}
 
     // Logs an INFO level message.
     static void info(const std::string &message);
@@ -42,6 +46,9 @@ struct logger {
     static void debug(const std::string &message);
     static void debug(const std::u8string &message);
 
+    static void trace(const std::string &message);
+    static void trace(const std::u8string &message);
+
     // format versions
     template<typename... Args>
     static void debug(std::format_string<Args...> fmt, Args&&... args);
@@ -55,12 +62,17 @@ struct logger {
     template<typename... Args>
     static void error(std::format_string<Args...> fmt, Args&&... args);
 
-private:
-    static void configure_logger(const std::string &filename, size_t max_size, bool log_to_console);
+    template<typename... Args>
+    static void trace(std::format_string<Args...> fmt, Args&&... args);
 
-    static bool logged_error_;
-    static ConfigFile *config_file_;
-    static std::string log_file_path_;
+private:
+    static void configure_logger(const std::string &filename, size_t max_size_kb, bool log_to_console);
+
+    static inline bool logged_error_;
+    static inline ConfigFile *config_file_ = nullptr;
+    static inline std::string log_file_path_;
+    static inline bool trace_enabled_ = false;
+    static inline bool debug_enabled_ = false;
 };
 
 template<typename... Args>
@@ -87,3 +99,28 @@ inline static void logger::error(std::format_string<Args...> fmt, Args&&... args
 {
     error(std::format(fmt, std::forward<Args>(args)...));
 }
+
+template<typename... Args>
+inline static void logger::trace(std::format_string<Args...> fmt, Args&&... args)
+{
+    trace(std::format(fmt, std::forward<Args>(args)...));
+}
+
+
+
+struct function_tracer {
+    const char *file_name;
+    const char *func_name;
+    int line_num;
+    __forceinline function_tracer(const char* file, const char *name, int line) 
+        : file_name(file), func_name(name), line_num(line)
+    {
+        logger::trace("Enter {} {}:{}", file_name, func_name, line_num);
+    }
+    __forceinline ~function_tracer()
+    {
+        logger::trace("Exit {} {}:{}", file_name, func_name, line_num);
+    }
+};
+
+#define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __func__, __LINE__)

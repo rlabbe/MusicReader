@@ -93,7 +93,6 @@ void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
 											   filename),
 								  document_priority_order_.end());
 
-	// Cancel any running jobs for this document
 	cancel_all_active_jobs();
 	submit_next_jobs();
 }
@@ -106,7 +105,7 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
 		logger::debug("no priority change");
 		return;
 	}
-	
+
 	std::ostringstream oss;
 	oss << "PRIORITY_ORDER_CHANGED: ";
 	for (const auto &doc : ordered_docs)
@@ -115,9 +114,9 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
 
 	document_priority_order_ = ordered_docs;
 
-	if (group_changes_) 
+	if (group_changes_)
 		return;
-	
+
 	// Cancel all active jobs and restart with new priority
 	cancel_all_active_jobs();
 	populate_job_queue();
@@ -156,6 +155,7 @@ void DocumentLoadManager::populate_job_queue()
 
 	reorder_jobs();
 }
+
 
 void DocumentLoadManager::reorder_jobs()
 {
@@ -198,15 +198,15 @@ void DocumentLoadManager::reorder_jobs()
 
 	} else {
 		// log first/last 10 jobs
-		for (size_t i = 0; i < 10 && i < job_queue_.size(); ++i) 
+		for (size_t i = 0; i < 10 && i < job_queue_.size(); ++i)
 			oss << job_queue_[i].doc_path.stem().string() << " " << job_queue_[i].page_num << " ";
 
 		oss << "... (" << job_queue_.size() - 20 << " more jobs) ... ";
-		for (size_t i = job_queue_.size() - 10; i < job_queue_.size(); ++i) 
+		for (size_t i = job_queue_.size() - 10; i < job_queue_.size(); ++i)
 			oss << job_queue_[i].doc_path.stem().string() << " " << job_queue_[i].page_num << " ";
 	}
 	logger::debug(oss.str());
-		
+
 	logger::flush();
 }
 
@@ -266,45 +266,46 @@ void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
 // no lock, calling internally from function that already has the lock
 void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &filename)
 {
-	if (group_changes_) 
-		// safe to ignore, so long as at the end you f
+	if (group_changes_)
 		return;
 
-	logger::debug("PRIORITIZE_PAGE: " + filename.stem().string());
+	// need at least 2 documents to prioritize
+	if (document_priority_order_.size() <= 1)
+		return;
+
 	// Find the document
 	auto doc_it = std::find_if(documents_.begin(), documents_.end(),
 							  [&filename](const auto &doc) {
 		return std::filesystem::path(doc->filename()) == filename;
 	});
-	if (doc_it == documents_.end()) {
-		logger::debug("PRIORITIZE_PAGE: Document not found: " + filename.stem().string());
+	if (doc_it == documents_.end())
 		return;
-	}
+
 	auto doc = *doc_it;
 	// Move document to front of priority order
 	auto priority_it = std::find(document_priority_order_.begin(), document_priority_order_.end(), filename);
-	if (priority_it != document_priority_order_.end()) {
+	if (priority_it == document_priority_order_.begin())
+		// already at front, nothing to do
+		return;
+
+	if (priority_it != document_priority_order_.end())
 		document_priority_order_.erase(priority_it);
-	}
+
 	document_priority_order_.insert(document_priority_order_.begin(), filename);
-	// Cancel current jobs
 	cancel_all_active_jobs();
-	// Remove all jobs for this document
 	job_queue_.erase(std::remove_if(job_queue_.begin(), job_queue_.end(),
 									[&filename](const PageJob &job) {
 		return job.doc_path == filename;
 	}), job_queue_.end());
+
 	// Get pending pages for this document (Document provides proper ordering)
 	std::vector<int> pending = doc->get_pending_pages();
 	if (!pending.empty()) {
-		// Add jobs in the correct order
-		for (int page : pending) {
+		for (int page : pending)
 			job_queue_.emplace_back(doc, page, filename);
-		}
 	}
 	submit_next_jobs();
 }
-
 
 
 void DocumentLoadManager::on_job_completed()
@@ -319,6 +320,7 @@ DocumentLoadManager *DocumentLoadManager::instance()
 	return instance_;
 }
 
+
 void DocumentLoadManager::cancel_all_active_jobs()
 {
 	logger::debug("CANCEL_ALL_ACTIVE_JOBS: canceling " + std::to_string(active_futures_.size()) + " jobs");
@@ -329,9 +331,8 @@ void DocumentLoadManager::cancel_all_active_jobs()
 	}
 
 	// Wait for all to finish or be cancelled
-	for (auto &future : active_futures_) {
+	for (auto &future : active_futures_)
 		future.waitForFinished();
-	}
 
 	active_futures_.clear();
 	active_jobs_ = 0;

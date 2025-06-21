@@ -251,6 +251,7 @@
     <ClInclude Include="config_file.h" />
     <QtMoc Include="directory_watcher.h" />
     <QtMoc Include="document_load_manager.h" />
+    <ClInclude Include="document_helpers.h" />
     <ClInclude Include="exception_logger.h" />
     <QtMoc Include="status_bar.h" />
     <QtMoc Include="fast_file_search_dialog.h" />

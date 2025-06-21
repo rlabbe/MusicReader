@@ -1,4 +1,6 @@
+#include "logger.h"
 #include "musicreader.h"
+
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
 #pragma warning(pop)
@@ -16,7 +18,6 @@
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
 #include "document.h"
-#include "logger.h"
 #include "bookmark_panel.h"
 #include "pdf_viewer.h"
 #include "exception_logger.h"
@@ -44,8 +45,7 @@ MusicReader::MusicReader(QWidget *parent)
 	logger::initialize(true, &config_);
 #endif
 
-	logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
-
+	update_logging_level();
 	setup_UI();
 }
 
@@ -53,6 +53,7 @@ MusicReader::MusicReader(QWidget *parent)
 void MusicReader::setup_UI()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	this->resize(600, 400);
 	this->setWindowTitle("MusicReader");
@@ -144,6 +145,7 @@ void MusicReader::setup_UI()
 void MusicReader::dragEnterEvent(QDragEnterEvent *event)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (event->mimeData()->hasUrls()) {
 		// Check if any URLs are PDF files
@@ -163,6 +165,7 @@ void MusicReader::dragEnterEvent(QDragEnterEvent *event)
 void MusicReader::dropEvent(QDropEvent *event)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (event->mimeData()->hasUrls()) {
 		for (const QUrl &url : event->mimeData()->urls()) {
@@ -278,6 +281,7 @@ void MusicReader::closeEvent(QCloseEvent *event)
 void MusicReader::save_window_state_to_config()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	ConfigFileGroupSave group_saver(config_);
 
@@ -299,6 +303,7 @@ void MusicReader::save_window_state_to_config()
 void MusicReader::check_for_errors_on_exit()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (logger::logged_error()) {
 		QMessageBox msg_box(this);
@@ -323,6 +328,7 @@ void MusicReader::check_for_errors_on_exit()
 void MusicReader::show_log_content()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QString log_content = QString::fromStdString(logger::get_log_content());
 
@@ -370,6 +376,7 @@ void MusicReader::show_log_content()
 void MusicReader::create_file_menu(auto *menu_bar)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	// File menu
 	QMenu *file_menu = menu_bar->addMenu("&File");
@@ -411,6 +418,7 @@ void MusicReader::create_file_menu(auto *menu_bar)
 void MusicReader::create_edit_menu(auto *menu_bar)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	edit_menu_ = menu_bar->addMenu("&Edit");
 
@@ -446,6 +454,7 @@ void MusicReader::create_edit_menu(auto *menu_bar)
 void MusicReader::create_view_menu(auto *menu_bar)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenu *view_menu = menu_bar->addMenu("&View");
 
@@ -502,6 +511,7 @@ void MusicReader::create_view_menu(auto *menu_bar)
 void MusicReader::create_imslp_menu(auto *menu_bar)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenu *imslp_menu = menu_bar->addMenu("&IMSLP");
 
@@ -515,6 +525,7 @@ void MusicReader::create_imslp_menu(auto *menu_bar)
 void MusicReader::create_menus()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenuBar *menu_bar = menuBar();
 
@@ -576,6 +587,7 @@ void MusicReader::create_menus()
 void MusicReader::create_help_menu(auto *menu_bar)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenu *help_menu = menu_bar->addMenu("&Help");
 
@@ -587,6 +599,7 @@ void MusicReader::create_help_menu(auto *menu_bar)
 void MusicReader::show_about_dialog()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QDialog dialog(this);
 	dialog.setWindowTitle("About MusicReader");
@@ -643,6 +656,7 @@ void MusicReader::show_about_dialog()
 void MusicReader::update_recent_files_list()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	open_recent_menu_->clear();
 
@@ -665,6 +679,7 @@ void MusicReader::update_recent_files_list()
 void MusicReader::show_context_menu(const QPoint &pos)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenu context_menu(this);
 
@@ -696,6 +711,7 @@ void MusicReader::show_context_menu(const QPoint &pos)
 void MusicReader::browse_folder()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto doc = current_document();
 	if (!doc) return;
@@ -711,6 +727,8 @@ void MusicReader::browse_folder()
 void MusicReader::show_log_file()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	auto viewer = new FileViewer(logger::log_file_path(), this);
 	viewer->show();
 }
@@ -739,6 +757,7 @@ bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintpt
 void MusicReader::reload_document()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto viewer = current_viewer();
 	auto doc = current_document();
@@ -752,6 +771,7 @@ void MusicReader::reload_document()
 void MusicReader::edit_document()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto doc = current_document();
 	if (!doc) return;
@@ -764,6 +784,7 @@ void MusicReader::edit_document()
 void MusicReader::show_titlebar_menu()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMenu menu(this);
 
@@ -788,6 +809,7 @@ void MusicReader::show_titlebar_menu()
 void MusicReader::add_bookmark()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (bookmark_panel_)
 		bookmark_panel_->add_bookmark();
@@ -796,6 +818,9 @@ void MusicReader::add_bookmark()
 
 void MusicReader::create_toolbar()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	toolbar_ = new QToolBar("Toolbar");
 	Qt::ToolBarArea area = Qt::LeftToolBarArea;
 	switch (config_.toolbar_location()) {
@@ -892,6 +917,8 @@ void MusicReader::create_toolbar()
 void MusicReader::set_page_view_count(int count)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	if (count < 1 || count > 2) {
 		logger::error("Invalid page view count: {}", count);
 		return;
@@ -920,12 +947,15 @@ void MusicReader::on_toggle_view_mode()
 
 bool MusicReader::in_single_page_mode() const
 {
+	TRACE_FUNCTION;
+
 	return config_.page_view_count() == 1;
 }
 
 void MusicReader::toggle_page_zoom()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	// Toggle zoom setting and save config
 	config_.set_zoom_to_content(!config_.zoom_to_content());
@@ -942,6 +972,7 @@ void MusicReader::toggle_page_zoom()
 void MusicReader::toggle_page_step()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	config_.toggle_page_step_size();
 
@@ -956,6 +987,7 @@ void MusicReader::toggle_page_step()
 PDFViewer *MusicReader::current_tab() const
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (!tab_widget_) return nullptr;
 
@@ -974,6 +1006,7 @@ PDFViewer *MusicReader::current_tab() const
 std::shared_ptr<Document> MusicReader::current_document(const std::string &log_msg) const
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *tab = current_tab();
 	if (tab) return tab->document();
@@ -986,6 +1019,7 @@ std::shared_ptr<Document> MusicReader::current_document(const std::string &log_m
 std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *viewer = current_viewer(log_msg);
 	if (viewer) return { viewer->current_page(), true };
@@ -998,6 +1032,7 @@ std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 std::string MusicReader::current_document_name() const
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto doc = current_document();
 	return doc ? doc->filename() : "";
@@ -1006,6 +1041,7 @@ std::string MusicReader::current_document_name() const
 std::shared_ptr<Document> MusicReader::document_at(int index) const
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *tab = viewer_tab(index);
 	return tab ? tab->document() : nullptr;
@@ -1014,6 +1050,9 @@ std::shared_ptr<Document> MusicReader::document_at(int index) const
 
 PDFViewer *MusicReader::viewer_tab(int index) const
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	try {
 		QWidget *tab = tab_widget_->widget(index);
 		for (QObject *child : tab->children()) {
@@ -1031,15 +1070,17 @@ PDFViewer *MusicReader::viewer_tab(int index) const
 void MusicReader::save_config()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	save_open_documents_to_config();
-	logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
+	update_logging_level();
 }
 
 
 void MusicReader::save_open_documents_to_config()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	std::vector<OpenDocument> open_documents;
 	open_documents.reserve(tab_widget_->count());
@@ -1073,6 +1114,7 @@ void MusicReader::save_open_documents_to_config()
 void MusicReader::on_tab_changed()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	update_title();
 	update_bookmark_panel();
@@ -1093,6 +1135,7 @@ void MusicReader::on_tab_changed()
 void MusicReader::on_close_tab(int index)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto doc = document_at(index);
 	if (doc) {
@@ -1118,6 +1161,8 @@ void MusicReader::on_close_tab(int index)
 void MusicReader::update_title(int index)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	index;
 
 	if (tab_widget_->count() > 0) {
@@ -1130,6 +1175,7 @@ void MusicReader::update_title(int index)
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (event->key() == Qt::Key_F11) {
 		if (isFullScreen()) {
@@ -1173,6 +1219,7 @@ void MusicReader::keyPressEvent(QKeyEvent *event)
 void MusicReader::on_page_up()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto tab = current_viewer();
 	if (tab) tab->page_up();
@@ -1181,6 +1228,7 @@ void MusicReader::on_page_up()
 void MusicReader::on_page_down()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto tab = current_viewer();
 	if (tab) tab->page_down();
@@ -1188,6 +1236,9 @@ void MusicReader::on_page_down()
 
 PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	// TODO may not be correct. not sure there is some weird logic in the python
 	// to detect the type of the object, may just have been do to earlier code that
 	// no longer exists.
@@ -1206,6 +1257,7 @@ PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 void MusicReader::create_bookmark_panel()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	bookmark_panel_ = new BookmarkPanel(this);
 	[[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
@@ -1217,6 +1269,7 @@ void MusicReader::create_bookmark_panel()
 void MusicReader::update_bookmark_panel()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	bookmark_panel_->populate();
 	update_background();
@@ -1226,6 +1279,7 @@ void MusicReader::update_bookmark_panel()
 void MusicReader::update_bookmarks_for_doc()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (bookmark_panel_) bookmark_panel_->populate();
 	update_background();
@@ -1234,6 +1288,7 @@ void MusicReader::update_bookmarks_for_doc()
 QIcon MusicReader::create_double_icon()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
 	QSize icon_size = single_icon.actualSize(QSize(32, 32));
@@ -1252,6 +1307,7 @@ QIcon MusicReader::create_double_icon()
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	for (int i = 0; i < tab_widget_->count(); ++i) {
 		auto widget = viewer_tab(i);
@@ -1265,6 +1321,7 @@ std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 void MusicReader::go_to_bookmark(int page_num)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (page_num > 0) {
 		auto *viewer = current_viewer();
@@ -1293,6 +1350,7 @@ void MusicReader::update_menu_bookmark_visibility()
 void MusicReader::refresh_all_documents()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	// Handle current tab first for responsiveness
 	PDFViewer *current = current_viewer();
@@ -1309,6 +1367,9 @@ void MusicReader::refresh_all_documents()
 
 void MusicReader::open_config_dialog()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	try {
 		ConfigDialog editor_dialog(config_, this);
 		save_open_documents_to_config();
@@ -1318,8 +1379,7 @@ void MusicReader::open_config_dialog()
 		if (editor_dialog.result() == QDialog::Accepted) {
 			config_.save();
 			on_config_saved();
-
-			logger::enable_debug_logging(config_.log_level() == LogLevel::Diagnostic);
+			update_logging_level();
 		}
 	} catch (const std::exception &e) {
 		logger::error("Failed to open settings dialog: " + std::string(e.what()));
@@ -1327,9 +1387,28 @@ void MusicReader::open_config_dialog()
 }
 
 
+void MusicReader::update_logging_level()
+{
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+	switch (config_.log_level()) {
+		case LogLevel::Diagnostic:
+			logger::enable_debug_logging(true);
+			break;
+		case LogLevel::Trace:
+			logger::enable_trace_logging(true);
+			break;
+		default:
+			logger::enable_debug_logging(false);
+			break;
+	}
+}
+
+
 void MusicReader::restore_window_state()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (config_.restore_window_position()) {
 		try {
@@ -1348,6 +1427,7 @@ void MusicReader::restore_window_state()
 void MusicReader::open_imslp_search_dialog()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	try {
 		auto *dialog = new IMSLPSearchDialog(this);
@@ -1361,6 +1441,7 @@ void MusicReader::open_imslp_search_dialog()
 void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	std::filesystem::path  default_directory;
 
@@ -1384,6 +1465,7 @@ void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
 PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, int page, PDFViewer *viewer, bool is_temporary)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (!viewer) {
 		if (auto i = doc_is_open(filename); i.has_value()) {
@@ -1425,7 +1507,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
 	load_manager_.add_document(doc);
 
 	viewer->refresh();
-	QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
+	QTimer::singleShot(5000, this, [this] { update_memory_usage(); });
 
 	return viewer;
 }
@@ -1434,6 +1516,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
 void MusicReader::goto_page_dialog()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto viewer = current_viewer();
 	if (!viewer) return;
@@ -1472,6 +1555,7 @@ void MusicReader::goto_page_dialog()
 std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::path &filename, int page_num)
 {
 	LOG_EXCEPTION;
+	TRACE_FUNCTION;
 
 	if (!std::filesystem::exists(filename)) {
 		logger::debug(filename.u8string() + u8" doesn't exist");
@@ -1492,6 +1576,7 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
 void MusicReader::focus_on_tab(int index)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *viewer = viewer_tab(index);
 	if (viewer) {
@@ -1505,6 +1590,7 @@ void MusicReader::focus_on_tab(int index)
 void MusicReader::display_error_message(const std::string &msg)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMessageBox mbox;
 	mbox.setIcon(QMessageBox::Critical);
@@ -1517,6 +1603,7 @@ void MusicReader::display_error_message(const std::string &msg)
 bool MusicReader::display_query(const std::string &msg)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	QMessageBox msgBox(this);
 	msgBox.setIcon(QMessageBox::Question);
@@ -1530,6 +1617,7 @@ bool MusicReader::display_query(const std::string &msg)
 void MusicReader::create_status_bar()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	status_bar_ = new StatusBar();
 	setStatusBar(status_bar_);
@@ -1542,15 +1630,16 @@ void MusicReader::create_status_bar()
 	// Display initial memory usage
 	update_memory_usage();
 
-	// Start timer to update memory usage every 15 seconds
+	// Start timer to update memory usage every 30 seconds
 	timer_ = new QTimer(this);
 	connect(timer_, &QTimer::timeout, this, &MusicReader::update_memory_usage);
-	timer_->start(15'000);
+	timer_->start(30'000);
 }
 
 void MusicReader::update_memory_usage()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	auto format_memory = [](size_t bytes) -> std::string {
 		static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
@@ -1582,6 +1671,7 @@ void MusicReader::update_memory_usage()
 void MusicReader::show_page_count()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *viewer = current_viewer();
 	if (!viewer) {
@@ -1597,6 +1687,7 @@ void MusicReader::show_page_count()
 void MusicReader::on_page_selected(int index)
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	PDFViewer *viewer = current_viewer();
 	if (viewer)
@@ -1608,6 +1699,7 @@ void MusicReader::on_page_selected(int index)
 void MusicReader::initialize_fast_search()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	std::string name = config_.music_directory().string();
 
@@ -1634,6 +1726,7 @@ void MusicReader::initialize_fast_search()
 void MusicReader::open_fast_search_dialog()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	{
 		std::unique_lock<std::mutex> lock(fast_search_mutex_);
@@ -1675,6 +1768,7 @@ void MusicReader::open_fast_search_dialog()
 void MusicReader::update_background()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (tab_widget_->count() == 0) {
 		tab_widget_->setStyleSheet(R"(
@@ -1711,6 +1805,8 @@ public:
 void MusicReader::restore_open_documents()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	REQUIRES(bookmark_panel_);
 	REQUIRES(tab_widget_);
 
@@ -1729,9 +1825,6 @@ void MusicReader::restore_open_documents()
 
 	{
 		DocumentLoadManagerGuard guard;
-
-		
-
 		std::vector<PDFViewer *> viewers;
 		std::vector<std::shared_ptr<Document>> documents;
 
@@ -1781,6 +1874,7 @@ void MusicReader::restore_open_documents()
 void MusicReader::update_document_priority_order()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	std::vector<std::filesystem::path> ordered_docs;
 
@@ -1803,6 +1897,7 @@ void MusicReader::update_document_priority_order()
 void MusicReader::toggle_bookmark_panel()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (bookmark_panel_) {
 		bool visible = !bookmark_panel_->isVisible();
@@ -1815,6 +1910,7 @@ void MusicReader::toggle_bookmark_panel()
 void MusicReader::set_statusbar_visibility()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (!status_bar_) return;
 	if (!statusbar_menu_action_) return;
@@ -1828,6 +1924,7 @@ void MusicReader::set_statusbar_visibility()
 void MusicReader::toggle_statusbar_visibility()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	config_.set_show_status_bar(!config_.show_status_bar());
 	set_statusbar_visibility();
@@ -1837,6 +1934,7 @@ void MusicReader::toggle_statusbar_visibility()
 void MusicReader::set_toolbar_visibility()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (!toolbar_) return;
 	if (!toolbar_menu_action_) return;
@@ -1850,6 +1948,7 @@ void MusicReader::set_toolbar_visibility()
 
 void MusicReader::toggle_toolbar_visibility()
 {
+	TRACE_FUNCTION;
 	SAFE_METHOD;
 
 	config_.set_show_toolbar(!config_.show_toolbar());
@@ -1859,6 +1958,7 @@ void MusicReader::toggle_toolbar_visibility()
 void MusicReader::toggle_menu_visibility()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	config_.set_show_menu(!config_.show_menu());
 	set_menu_visibility();
@@ -1867,6 +1967,7 @@ void MusicReader::toggle_menu_visibility()
 void MusicReader::set_menu_visibility()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	config_.show_menu() ? menuBar()->show() : menuBar()->hide();
 }
@@ -1875,6 +1976,7 @@ void MusicReader::set_menu_visibility()
 void MusicReader::on_config_saved()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	set_toolbar_visibility();
 	refresh_all_documents();
@@ -1885,6 +1987,7 @@ void MusicReader::on_config_saved()
 void MusicReader::copy_log_to_clipboard()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	if (!OpenClipboard(nullptr)) return;
 	EmptyClipboard();
@@ -1906,6 +2009,9 @@ void MusicReader::copy_log_to_clipboard()
 
 void MusicReader::on_annotation_mode_changed(bool enabled)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::cout << "MusicReader::on_annotation_mode_changed\n";
 	text_annotation_mode_ = enabled;
 	text_annotation_action_->setChecked(enabled);
@@ -1915,6 +2021,7 @@ void MusicReader::on_annotation_mode_changed(bool enabled)
 void MusicReader::toggle_text_annotation_mode()
 {
 	SAFE_METHOD;
+	TRACE_FUNCTION;
 
 	text_annotation_mode_ = !text_annotation_mode_;
 	text_annotation_action_->setChecked(text_annotation_mode_);

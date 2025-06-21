@@ -12,280 +12,8 @@
 #pragma warning(push,1)
 #include <mupdf/pdf.h>
 #pragma warning(pop)
-
-#if !defined(NDEBUG)
-#pragma warning(push)
-#pragma warning( push, 1 )
-//#include <opencv2/imgproc/imgproc.hpp>
-#pragma warning(pop)
-
-#define IF_DEBUG(x) x
-#else
-#define IF_DEBUG(x)
-#endif
-
-#pragma warning(disable : 4611) // disable warning about _setjump not working with c++ destructors
-
-
-// Standalone annotation deletion functions for Document class
-// Based on MuPDF's pdf-annot-edit.c patterns
-
-bool delete_all_freetext_annotations(fz_context *ctx, pdf_document *pdf)
-{
-	if (!ctx || !pdf) return false;
-
-	bool any_deleted = false;
-
-	fz_try(ctx)
-	{
-		int page_count = pdf_count_pages(ctx, pdf);
-
-		for (int page_idx = 0; page_idx < page_count; ++page_idx) {
-			pdf_page *page = pdf_load_page(ctx, pdf, page_idx);
-			if (!page) continue;
-
-			// Get all annotations for this page
-			pdf_annot *annot = pdf_first_annot(ctx, page);
-
-			while (annot) {
-				pdf_annot *next_annot = pdf_next_annot(ctx, annot);
-
-				// Check if this is a FreeText annotation
-				if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
-					pdf_delete_annot(ctx, page, annot);
-					any_deleted = true;
-				}
-
-				annot = next_annot;
-			}
-
-			pdf_drop_page(ctx, page);
-		}
-	}
-	fz_catch(ctx)
-	{
-		logger::error("Error deleting annotations: {}", fz_caught_message(ctx));
-		return false;
-	}
-
-	return any_deleted;
-}
-bool delete_annotation_by_content_and_position(fz_context *ctx, pdf_document *pdf,
-											 int target_page, const std::string &target_text,
-											 float target_x, float target_y, float tolerance = 1.0f)
-{
-	if (!ctx || !pdf || target_page < 1) return false;
-
-	bool deleted = false;
-	pdf_page *page = nullptr;
-
-	fz_try(ctx)
-	{
-		page = pdf_load_page(ctx, pdf, target_page - 1);
-	} fz_catch(ctx)
-	{
-		logger::error("Couldn't get page {}: {}", target_page, fz_caught_message(ctx));
-		return false;
-	}
-
-	if (!page) {
-		logger::error("Couldn't get page {}", target_page);
-		return false;
-	}
-
-
-	fz_try(ctx)
-	{
-		pdf_annot *annot = pdf_first_annot(ctx, page);
-
-		while (annot) {
-			pdf_annot *next_annot = pdf_next_annot(ctx, annot);
-
-			if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
-				// Check content match
-				const char *contents = pdf_annot_contents(ctx, annot);
-				if (contents && target_text == contents) {
-					// Check position match
-					fz_rect rect = pdf_annot_rect(ctx, annot);
-					if (fabs(rect.x0 - target_x) <= tolerance &&
-						fabs(rect.y1 - target_y) <= tolerance) {
-						pdf_delete_annot(ctx, page, annot);
-						deleted = true;
-						break; // Assuming we only want to delete the first match
-					}
-				}
-			}
-
-			annot = next_annot;
-		}
-
-		pdf_drop_page(ctx, page);
-	}
-	fz_catch(ctx)
-	{
-		logger::error("Error deleting specific annotation: {}", fz_caught_message(ctx));
-		return false;
-	}
-
-	return deleted;
-}
-
-
-/*
-#if !defined(NDEBUG)
-cv::Mat qimage_to_mat(QImage img)
-{
-	cv::Mat mat;
-	switch (img.format()) {
-	case QImage::Format_RGB888:
-		mat = cv::Mat(img.height(), img.width(), CV_8UC3, img.bits(), img.bytesPerLine());
-		break;
-	case QImage::Format_Grayscale8:
-		mat = cv::Mat(img.height(), img.width(), CV_8UC1, img.bits(), img.bytesPerLine());
-		break;
-	case QImage::Format_Mono:
-		mat = cv::Mat(img.height(), img.width(), CV_8UC1, img.bits(), img.bytesPerLine());
-		cv::threshold(mat, mat, 128, 255, cv::THRESH_BINARY);
-		break;
-	case QImage::Format_RGBA8888:
-		mat = cv::Mat(img.height(), img.width(), CV_8UC4, img.bits(), img.bytesPerLine());
-		break;
-	default:
-		QImage converted = img.convertToFormat(QImage::Format_RGB888);
-		mat = cv::Mat(converted.height(), converted.width(), CV_8UC3, converted.bits(), converted.bytesPerLine());
-	}
-	return mat.clone();
-}*/
-
-inline std::string to_string(QImage::Format format)
-{
-	switch (format) {
-	case QImage::Format_Invalid:
-		return "Format_Invalid";
-	case QImage::Format_Mono:
-		return "Format_Mono";
-	case QImage::Format_MonoLSB:
-		return "Format_MonoLSB";
-	case QImage::Format_Indexed8:
-		return "Format_Indexed8";
-	case QImage::Format_RGB32:
-		return "Format_RGB32";
-	case QImage::Format_ARGB32:
-		return "Format_ARGB32";
-	case QImage::Format_ARGB32_Premultiplied:
-		return "Format_ARGB32_Premultiplied";
-	case QImage::Format_RGB16:
-		return "Format_RGB16";
-	case QImage::Format_ARGB8565_Premultiplied:
-		return "Format_ARGB8565_Premultiplied";
-	case QImage::Format_RGB666:
-		return "Format_RGB666";
-	case QImage::Format_ARGB6666_Premultiplied:
-		return "Format_ARGB6666_Premultiplied";
-	case QImage::Format_RGB555:
-		return "Format_RGB555";
-	case QImage::Format_ARGB8555_Premultiplied:
-		return "Format_ARGB8555_Premultiplied";
-	case QImage::Format_RGB888:
-		return "Format_RGB888";
-	case QImage::Format_RGB444:
-		return "Format_RGB444";
-	case QImage::Format_ARGB4444_Premultiplied:
-		return "Format_ARGB4444_Premultiplied";
-	case QImage::Format_RGBX8888:
-		return "Format_RGBX8888";
-	case QImage::Format_RGBA8888:
-		return "Format_RGBA8888";
-	case QImage::Format_RGBA8888_Premultiplied:
-		return "Format_RGBA8888_Premultiplied";
-	case QImage::Format_BGR30:
-		return "Format_BGR30";
-	case QImage::Format_A2BGR30_Premultiplied:
-		return "Format_A2BGR30_Premultiplied";
-	case QImage::Format_RGB30:
-		return "Format_RGB30";
-	case QImage::Format_A2RGB30_Premultiplied:
-		return "Format_A2RGB30_Premultiplied";
-	case QImage::Format_Alpha8:
-		return "Format_Alpha8";
-	case QImage::Format_Grayscale8:
-		return "Format_Grayscale8";
-	case QImage::Format_RGBX64:
-		return "Format_RGBX64";
-	case QImage::Format_RGBA64:
-		return "Format_RGBA64";
-	case QImage::Format_RGBA64_Premultiplied:
-		return "Format_RGBA64_Premultiplied";
-	case QImage::Format_Grayscale16:
-		return "Format_Grayscale16";
-	case QImage::Format_BGR888:
-		return "Format_BGR888";
-	case QImage::Format_RGBX16FPx4:
-		return "Format_RGBX16FPx4";
-	case QImage::Format_RGBA16FPx4:
-		return "Format_RGBA16FPx4";
-	case QImage::Format_RGBA16FPx4_Premultiplied:
-		return "Format_RGBA16FPx4_Premultiplied";
-	case QImage::Format_RGBX32FPx4:
-		return "Format_RGBX32FPx4";
-	case QImage::Format_RGBA32FPx4:
-		return "Format_RGBA32FPx4";
-	case QImage::Format_RGBA32FPx4_Premultiplied:
-		return "Format_RGBA32FPx4_Premultiplied";
-	case QImage::Format_CMYK8888:
-		return "Format_CMYK8888";
-	default:
-		return "Unknown Format (" + std::to_string(static_cast<int>(format)) + ")";
-	}
-}
-
-inline int get_max_screen_height()
-{
-	static int max_screen_height = []() {
-		int max_height = 0;
-		const auto screens = QGuiApplication::screens();
-		for (const auto *screen : screens) {
-			max_height = std::max(max_height, screen->size().height());
-		}
-		return max_height;
-	}();
-	return max_screen_height;
-}
-
-inline QImage qimage_from_pixmapdata(const PixmapData &data)
-{
-	unsigned char *samples = fz_pixmap_samples(data.ctx, data.data);
-
-	// Create initial QImage with the source data
-	QImage source_img(samples, data.width, data.height, data.stride, QImage::Format_RGB888);
-
-	// Convert to the detected optimal format if needed
-	/*if (format != QImage::Format_RGB888) {
-		logger::debug("Converting image format from {} to {}", to_string(source_img.format()), to_string(format));
-		return source_img.convertToFormat(format);
-	}*/
-
-	// Do not allow image to be taller than the screen height, it slows down
-	// rendering for no reason. Also, we need to return a copy of the image because
-	// it currently refers to 
-	const int max_screen_height = get_max_screen_height();
-	if (source_img.height() > max_screen_height)
-		return source_img.scaledToHeight(max_screen_height, Qt::SmoothTransformation);
-	else
-		return source_img.copy();
-}
-
-
-inline QImage render_page(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
-{
-	PixmapData data = render_page_seh(ctx, doc, page_num, dpi, quit_now);
-	if (!data.success) return QImage();
-
-	QImage img = qimage_from_pixmapdata(data);
-	fz_drop_pixmap(ctx, data.data);
-	return img;
-}
-
+#include "document_helpers.h"
+#include "exception_logger.h"
 
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
@@ -319,6 +47,9 @@ Document::~Document()
 
 Page Document::get_page(int page_num) const
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	current_page_ = page_num;  // Update current page
 	auto count = page_count();
 
@@ -343,6 +74,9 @@ Page Document::get_page(int page_num) const
 
 void Document::prioritize()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	if (auto *manager = DocumentLoadManager::instance())
 		manager->prioritize_page(filename_);
 }
@@ -350,6 +84,9 @@ void Document::prioritize()
 
 void Document::initialize_document()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	auto [ctx, doc] = open_fitz(filename_.string());
 	if (!ctx || !doc) {
 		logger::error("Failed to open document: {}", filename_.string());
@@ -408,6 +145,9 @@ void Document::initialize_document()
 
 std::vector<int> get_page_load_order(int start_page, int total_pages)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::vector<int> load_order;
 	load_order.push_back(start_page);
 
@@ -433,6 +173,9 @@ std::vector<int> get_page_load_order(int start_page, int total_pages)
 
 std::vector<int> Document::get_pending_pages() const
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::mutex> lock(read_mutex_);
 
 	// Get all pending pages
@@ -458,15 +201,11 @@ std::vector<int> Document::get_pending_pages() const
 }
 
 
-
-
-
-
-
-
-
 void Document::load_page(int page_num)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	if (kill_loading_ || page_num < 1 || page_num > page_count())
 		return;
 
@@ -496,17 +235,22 @@ void Document::load_page(int page_num)
 
 	if (kill_loading_) return;
 
+	std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+
 	{
 		std::lock_guard lock(read_mutex_); 
 		pages_[page_num - 1] = Page(img, page_num, false);
 	}
 
-	//std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	emit page_loaded(page_num);
 }
 
+
 std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
 		return { 0.0f, 0.0f };
 
@@ -517,6 +261,9 @@ std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
 
 Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	for (auto &bookmark : bookmarks_) {
 		if (bookmark.handle_ == handle) return &bookmark;
 		auto child = bookmark.find(handle);
@@ -528,6 +275,9 @@ Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
 
 bool Document::reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	auto *bookmark = find_bookmark(handle);
 	if (!bookmark) return false;
 	return reparent_bookmark(*bookmark, new_parent_handle, false);
@@ -536,6 +286,9 @@ bool Document::reparent_bookmark(const BookmarkHandle &handle, const BookmarkHan
 
 bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_parent_handle, bool internal_call)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	if (bookmarks_.empty()) return false;
 
@@ -572,6 +325,9 @@ bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_pa
 
 bool Document::indent_bookmark(const BookmarkHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	if (bookmarks_.empty()) return false;
 
@@ -613,6 +369,9 @@ bool Document::indent_bookmark(const BookmarkHandle &handle)
 
 bool Document::unindent_bookmark(const BookmarkHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	if (bookmarks_.empty()) return false;
 
@@ -668,6 +427,9 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
 
 bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	if (bookmarks_.empty()) return false;
 
@@ -684,6 +446,9 @@ bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &
 
 bool Document::remove_bookmark(const BookmarkHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	if (bookmarks_.empty()) return false;
 
@@ -714,6 +479,9 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
 													   int page_num,
 													   const BookmarkHandle &parent_handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	undo_stack_.push_back(bookmarks_);
 
 	Bookmark new_bookmark(title, page_num);
@@ -750,6 +518,9 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
 
 BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	// Flatten all bookmarks into page order with their parents
 	std::vector<std::pair<int, BookmarkHandle>> flattened;
 	flatten_bookmarks(bookmarks, BookmarkHandle(), flattened);
@@ -777,6 +548,9 @@ BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::v
 
 bool Document::save()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	// Don't allow save if we're being destroyed or not modified
 	if (being_destroyed_ || !modified_) return false;
 
@@ -827,6 +601,9 @@ bool Document::save()
 
 void Document::clear_completed_features()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	// Remove completed futures
@@ -852,6 +629,9 @@ bool Document::can_redo() const
 
 void Document::undo()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	if (undo_stack_.empty()) return;
@@ -866,6 +646,9 @@ void Document::undo()
 
 void Document::redo()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	if (redo_stack_.empty()) return;
@@ -880,6 +663,10 @@ void Document::redo()
 
 Annotation *Document::find_annotation(const AnnotationHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
+
 	for (auto &annotation : annotations_) {
 		if (annotation.handle_ == handle) return &annotation;
 	}
@@ -888,8 +675,10 @@ Annotation *Document::find_annotation(const AnnotationHandle &handle)
 
 bool Document::add_annotation(const Annotation &annotation)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;	
+	
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-
 	annotations_.push_back(annotation);
 	modified_ = true;
 
@@ -900,6 +689,9 @@ bool Document::add_annotation(const Annotation &annotation)
 
 bool Document::remove_annotation(const AnnotationHandle &handle)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	auto it = std::remove_if(annotations_.begin(), annotations_.end(),
@@ -917,6 +709,9 @@ bool Document::remove_annotation(const AnnotationHandle &handle)
 
 bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::string &new_text)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+	
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	auto *annotation = find_annotation(handle);
@@ -933,6 +728,9 @@ bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::s
 
 bool Document::move_annotation(const AnnotationHandle &handle, float new_x, float new_y)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+	
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	auto *annotation = find_annotation(handle);
@@ -951,6 +749,9 @@ bool Document::move_annotation(const AnnotationHandle &handle, float new_x, floa
 
 void Document::reload_page(int page_num)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+	
 	if (page_num < 1 || page_num > page_count()) return;
 
 	auto [ctx, doc] = open_fitz(filename_.string());
@@ -980,8 +781,10 @@ void Document::reload_page(int page_num)
 
 std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_document *doc)
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+	
 	std::vector<Annotation> annotations;
-
 	if (!ctx || !doc) return annotations;
 
 	pdf_document *pdf = pdf_specifics(ctx, doc);
@@ -1116,6 +919,9 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
 
 bool Document::save_annotations_to_pdf()
 {
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
 	auto [ctx, doc] = open_fitz(filename_.string());
 	if (!ctx || !doc) {
 		logger::error("Failed to open document for annotation saving: {}", filename_.string());
