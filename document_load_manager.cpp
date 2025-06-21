@@ -29,7 +29,7 @@ DocumentLoadManager::~DocumentLoadManager()
 
 void DocumentLoadManager::add_document(std::shared_ptr<Document> doc)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 	std::filesystem::path filename = doc->filename();
 	logger::debug("ADD_DOCUMENT: " + filename.stem().string());
 
@@ -51,7 +51,7 @@ void DocumentLoadManager::end_group_changes()
 {
 	if (group_changes_) {
 		group_changes_ = false;
-		cancel_all_active_jobs();
+		cancel_all_active_jobs_async();
 		populate_job_queue();
 		reorder_jobs();
 		submit_next_jobs();
@@ -62,13 +62,12 @@ void DocumentLoadManager::end_group_changes()
 
 void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
 	logger::debug("REMOVE_DOCUMENT: " + filename.stem().string());
 
 	auto filename_str = filename.string();
 
-	// Kill loading for the document
 	auto doc_it = std::find_if(documents_.begin(), documents_.end(),
 							  [&filename_str](const auto &doc) {
 		return doc->filename() == filename_str;
@@ -93,13 +92,13 @@ void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
 											   filename),
 								  document_priority_order_.end());
 
-	cancel_all_active_jobs();
+	cancel_all_active_jobs_async();
 	submit_next_jobs();
 }
 
 void DocumentLoadManager::set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
 	if (document_priority_order_ == ordered_docs) {
 		logger::debug("no priority change");
@@ -117,8 +116,7 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
 	if (group_changes_)
 		return;
 
-	// Cancel all active jobs and restart with new priority
-	cancel_all_active_jobs();
+	cancel_all_active_jobs_async();
 	populate_job_queue();
 	reorder_jobs();
 	submit_next_jobs();
@@ -126,10 +124,10 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
 
 void DocumentLoadManager::stop_loading()
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
 	job_queue_.clear();
-	cancel_all_active_jobs();
+	cancel_all_active_jobs_async();
 }
 
 void DocumentLoadManager::populate_job_queue()
@@ -178,9 +176,8 @@ void DocumentLoadManager::reorder_jobs()
 		if (a_priority != b_priority)
 			return a_priority < b_priority;
 
-		// Only compare page order within the same document
 		if (a.doc_path != b.doc_path)
-			return false; // Equal priority, maintain stable sort
+			return false;
 
 		const auto &page_order = doc_page_order[a.doc_path];
 		auto a_pos = std::find(page_order.begin(), page_order.end(), a.page_num);
@@ -197,7 +194,6 @@ void DocumentLoadManager::reorder_jobs()
 			oss << job.doc_path.stem().string() << " " << job.page_num << " ";
 
 	} else {
-		// log first/last 10 jobs
 		for (size_t i = 0; i < 10 && i < job_queue_.size(); ++i)
 			oss << job_queue_[i].doc_path.stem().string() << " " << job_queue_[i].page_num << " ";
 
@@ -213,14 +209,7 @@ void DocumentLoadManager::reorder_jobs()
 
 void DocumentLoadManager::submit_next_jobs()
 {
-	// Clean up completed futures
-	active_futures_.erase(std::remove_if(active_futures_.begin(), active_futures_.end(),
-										 [](const QFuture<void> &future) {
-		return future.isFinished();
-	}),
-						 active_futures_.end());
-
-	active_jobs_ = static_cast<int>(active_futures_.size());
+	cleanup_finished_futures();
 
 	while (active_jobs_ < max_concurrent_jobs_ && !job_queue_.empty()) {
 		const auto &job = job_queue_.front();
@@ -232,7 +221,6 @@ void DocumentLoadManager::submit_next_jobs()
 
 		logger::debug("SUBMIT: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
 
-		// Create future with cancellation support
 		auto future = QtConcurrent::run([this, job]() {
 			logger::debug("LOAD_START: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
 
@@ -241,7 +229,6 @@ void DocumentLoadManager::submit_next_jobs()
 
 			logger::debug("LOAD_DONE: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
 
-			// Trigger next job submission
 			QMetaObject::invokeMethod(this, &DocumentLoadManager::on_job_completed, Qt::QueuedConnection);
 		});
 
@@ -259,58 +246,82 @@ void DocumentLoadManager::prioritize_page(const Document &doc)
 
 void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	// If cancellation is in progress, just remember the filename and return immediately
+	if (cancellation_in_progress_) {
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+		pending_priority_doc_ = filename;
+		has_pending_prioritization_ = true;
+		logger::debug("PRIORITIZE_DEFERRED: " + filename.stem().string());
+		return;
+	}
+
+	// If final processing is happening, block until it completes
+	while (final_processing_) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+
 	prioritize_page_internal(filename);
 }
 
-// no lock, calling internally from function that already has the lock
 void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &filename)
 {
-	if (group_changes_)
-		return;
+	final_processing_ = true;
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-	// need at least 2 documents to prioritize
-	if (document_priority_order_.size() <= 1)
-		return;
+	logger::debug("PRIORITIZE_PROCESSING: " + filename.stem().string());
 
-	// Find the document
+	if (group_changes_) {
+		final_processing_ = false;
+		return;
+	}
+
+	if (document_priority_order_.size() <= 1) {
+		final_processing_ = false;
+		return;
+	}
+
 	auto doc_it = std::find_if(documents_.begin(), documents_.end(),
 							  [&filename](const auto &doc) {
 		return std::filesystem::path(doc->filename()) == filename;
 	});
-	if (doc_it == documents_.end())
+	if (doc_it == documents_.end()) {
+		final_processing_ = false;
 		return;
+	}
 
 	auto doc = *doc_it;
-	// Move document to front of priority order
 	auto priority_it = std::find(document_priority_order_.begin(), document_priority_order_.end(), filename);
-	if (priority_it == document_priority_order_.begin())
-		// already at front, nothing to do
+	if (priority_it == document_priority_order_.begin()) {
+		final_processing_ = false;
 		return;
+	}
 
 	if (priority_it != document_priority_order_.end())
 		document_priority_order_.erase(priority_it);
 
 	document_priority_order_.insert(document_priority_order_.begin(), filename);
-	cancel_all_active_jobs();
+
+	cancel_all_active_jobs_async();
+
 	job_queue_.erase(std::remove_if(job_queue_.begin(), job_queue_.end(),
 									[&filename](const PageJob &job) {
 		return job.doc_path == filename;
 	}), job_queue_.end());
 
-	// Get pending pages for this document (Document provides proper ordering)
 	std::vector<int> pending = doc->get_pending_pages();
 	if (!pending.empty()) {
 		for (int page : pending)
 			job_queue_.emplace_back(doc, page, filename);
 	}
 	submit_next_jobs();
+
+	final_processing_ = false;
 }
 
 
 void DocumentLoadManager::on_job_completed()
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
 	submit_next_jobs();
 }
 
@@ -321,8 +332,13 @@ DocumentLoadManager *DocumentLoadManager::instance()
 }
 
 
-void DocumentLoadManager::cancel_all_active_jobs()
+void DocumentLoadManager::cancel_all_active_jobs_async()
 {
+	if (cancellation_in_progress_)
+		return;
+
+	cancellation_in_progress_ = true;
+
 	logger::debug("CANCEL_ALL_ACTIVE_JOBS: canceling " + std::to_string(active_futures_.size()) + " jobs");
 
 	for (auto &future : active_futures_) {
@@ -330,10 +346,37 @@ void DocumentLoadManager::cancel_all_active_jobs()
 			future.cancel();
 	}
 
-	// Wait for all to finish or be cancelled
-	for (auto &future : active_futures_)
-		future.waitForFinished();
+	QTimer::singleShot(0, this, [this]() {
+		cleanup_finished_futures();
+		cancellation_in_progress_ = false;
 
-	active_futures_.clear();
-	active_jobs_ = 0;
+		// Process any pending prioritization
+		std::filesystem::path filename_to_process;
+		bool should_process = false;
+
+		{
+			std::lock_guard<std::recursive_mutex> lock(mutex_);
+			if (has_pending_prioritization_) {
+				filename_to_process = pending_priority_doc_;
+				has_pending_prioritization_ = false;
+				should_process = true;
+				logger::debug("PRIORITIZE_PENDING_FOUND: " + filename_to_process.stem().string());
+			}
+		}
+
+		if (should_process) {
+			prioritize_page_internal(filename_to_process);
+		}
+	});
+}
+
+void DocumentLoadManager::cleanup_finished_futures()
+{
+	active_futures_.erase(std::remove_if(active_futures_.begin(), active_futures_.end(),
+										 [](const QFuture<void> &future) {
+		return future.isFinished();
+	}),
+						 active_futures_.end());
+
+	active_jobs_ = static_cast<int>(active_futures_.size());
 }
