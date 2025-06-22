@@ -221,20 +221,26 @@ QString format_page_ranges(const std::vector<int> &pages)
     if (pages.empty())
         return "";
 
-    QStringList ranges;
-    int start = pages[0];
-    int end = pages[0];
+    // Remove duplicates and sort
+    std::vector<int> sorted_pages = pages;
+    //std::sort(sorted_pages.begin(), sorted_pages.end());
+    //sorted_pages.erase(std::unique(sorted_pages.begin(), sorted_pages.end()), sorted_pages.end());
 
-    for (size_t i = 1; i < pages.size(); ++i) {
-        if (pages[i] == end + 1) {
-            end = pages[i];
+    QStringList ranges;
+    int start = sorted_pages[0];
+    int end = sorted_pages[0];
+
+    for (size_t i = 1; i < sorted_pages.size(); ++i) {
+        if (sorted_pages[i] == end + 1) {
+            end = sorted_pages[i];
         } else {
             if (start == end)
                 ranges << QString::number(start);
             else
                 ranges << QString("%1-%2").arg(start).arg(end);
 
-            start = end = pages[i];
+            start = sorted_pages[i];
+            end = sorted_pages[i];
         }
     }
 

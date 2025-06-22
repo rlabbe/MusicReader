@@ -151,30 +151,26 @@ std::vector<int> get_page_load_order(int start_page, int total_pages)
 	load_order.push_back(start_page);
 
 	// Step 1: Load next page first
-	if (start_page + 1 <= total_pages) 
+	if (start_page + 1 <= total_pages)
 		load_order.push_back(start_page + 1);
 
 	// Step 2: Load previous page if it exists
-	if (start_page > 0) 
+	if (start_page > 0)
 		load_order.push_back(start_page - 1);
 
-	// Step 3: Load remaining pages forward
-	for (int i = start_page + 1; i <= total_pages; ++i) 
+	// Step 3: Load remaining pages forward (start from +2 to avoid duplicate)
+	for (int i = start_page + 2; i <= total_pages; ++i)
 		load_order.push_back(i);
 
-	// Step 4: Load remaining pages backward
-	for (int i = start_page - 1; i > 0; --i) 
+	// Step 4: Load remaining pages backward (start from -2 to avoid duplicate)
+	for (int i = start_page - 2; i > 0; --i)
 		load_order.push_back(i);
-	
+
 	return load_order;
 }
 
-
 std::vector<int> Document::get_pending_pages() const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
-
 	std::lock_guard<std::mutex> lock(read_mutex_);
 
 	// Get all pending pages
@@ -186,14 +182,30 @@ std::vector<int> Document::get_pending_pages() const
 
 	if (pending.empty()) return pending;
 
+	// Convert to set for fast lookups
+	std::unordered_set<int> pending_set(pending.begin(), pending.end());
+
 	// Get load order starting from start_page
 	auto load_order = get_page_load_order(current_page_, page_count());
 
 	// Return pending pages in load order
 	std::vector<int> ordered_pending;
 	for (int page : load_order) {
-		if (std::find(pending.begin(), pending.end(), page) != pending.end())
+		if (pending_set.contains(page))
 			ordered_pending.push_back(page);
+	}
+
+	// Sort and check for duplicates
+	std::vector<int> sorted_result = ordered_pending;
+	std::sort(sorted_result.begin(), sorted_result.end());
+
+	// Check for duplicates - set breakpoint here
+	for (size_t i = 1; i < sorted_result.size(); ++i) {
+		if (sorted_result[i] == sorted_result[i - 1]) {
+			// Duplicate found - breakpoint here
+			int duplicate_page = sorted_result[i];
+			(void)duplicate_page; // Prevent unused variable warning
+		}
 	}
 
 	return ordered_pending;
