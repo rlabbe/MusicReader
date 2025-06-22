@@ -46,6 +46,17 @@ static std::string get_persistent_config_path(const std::string &file_name, [[ma
 	*/
 }
 
+void set_high_precision(std::shared_ptr<spdlog::logger> logger, bool tf)
+{
+	if (!logger) return;
+	if (tf)
+	    logger->set_pattern("[%Y-%m-%d %H:%M:%S.%f] [%l] %v"); // microseconds!
+	else
+		logger->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v"); // seconds
+}
+
+
+
 void logger::configure_logger(const std::string &filename, size_t max_size_kb, bool log_to_console)
 {
 	try {
@@ -62,7 +73,7 @@ void logger::configure_logger(const std::string &filename, size_t max_size_kb, b
 		logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
 		spdlog::register_logger(logger_);
 		logger_->set_level(spdlog::level::info);
-		logger_->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
+		set_high_precision(logger_, false);
 		logger_->flush_on(spdlog::level::debug);
 		spdlog::flush_every(std::chrono::seconds(10));
 	} catch (const std::exception &ex) {
@@ -74,6 +85,10 @@ void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
 {
 	log_file_path_ = get_persistent_config_path("MusicReader.log");
 	std::cout << "opening log file: " << log_file_path_ << std::endl;
+
+	// Delete existing log file to start fresh
+	std::filesystem::remove(log_file_path_);
+
 	configure_logger(log_file_path_, max_size_kb, log_to_console);
 	logged_error_ = false;
 	config_file_ = cf;
@@ -174,6 +189,8 @@ void logger::enable_debug_logging(bool enable)
 
 	trace_enabled_ = false;
 	debug_enabled_ = true;
+	set_high_precision(logger_, false);
+
 }
 
 void logger::enable_trace_logging(bool enable)
@@ -186,6 +203,8 @@ void logger::enable_trace_logging(bool enable)
 
 	trace_enabled_ = true;
 	debug_enabled_ = false;
+	set_high_precision(logger_, true);
+
 }
 
 std::string logger::get_log_content()
