@@ -26,13 +26,13 @@ public:
               ConfigFile *config,
               int page,
               StatusBar *sbar,
-              QWidget* parent,
+              QWidget *parent,
               MusicReader *reader,
-              BookmarkPanel* panel);
+              BookmarkPanel *panel);
 
     ~PDFViewer();
 
-    int page_count() const { return (document_ ?  document_->page_count() : 0); }
+    int page_count() const { return (document_ ? document_->page_count() : 0); }
     int current_page() const { return page_.page_num; }
 
     bool in_single_page_view() const;

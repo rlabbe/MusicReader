@@ -79,7 +79,7 @@ public:
     static DocumentLoadManager *instance();
 
 
-	// For debugging and monitoring
+    // For debugging and monitoring
     struct DocumentLoadInfo {
         std::string name;
         std::vector<int> pending_pages;

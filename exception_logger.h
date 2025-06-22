@@ -28,8 +28,7 @@
  * }
  * ```
  */
-class ExceptionLogger
-{
+class ExceptionLogger {
 public:
     /**
      * @brief Constructs the ExceptionLogger for a given function.
@@ -38,7 +37,8 @@ public:
      */
     ExceptionLogger(const std::string &func_name, bool allow_throw)
         : func_name_(func_name), allow_throw_(allow_throw)
-    {}
+    {
+    }
 
     /**
      * @brief Destructor that checks for unhandled exceptions and logs them.
@@ -48,19 +48,13 @@ public:
      */
     ~ExceptionLogger() noexcept(false)
     {
-        if (std::uncaught_exceptions() > 0)
-        {
-            try
-            {
+        if (std::uncaught_exceptions() > 0) {
+            try {
                 throw;
-            }
-            catch (const std::exception &e)
-            {
+            } catch (const std::exception &e) {
                 logger::error("Exception in " + func_name_ + ": " + e.what());
                 if (allow_throw_) throw;
-            }
-            catch (...)
-            {
+            } catch (...) {
                 logger::error("Unknown exception in " + func_name_);
                 if (allow_throw_) throw;
             }

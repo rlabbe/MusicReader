@@ -2,15 +2,13 @@
 
 #include <QtWidgets>
 
-class StatusBar : public QStatusBar
-{
+class StatusBar : public QStatusBar {
     Q_OBJECT
 
 public:
     explicit StatusBar(QWidget *parent = nullptr) : QStatusBar(parent)
     {
-        auto make_label = []()
-        {
+        auto make_label = []() {
             QLabel *label = new QLabel("");
             label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
             return label;
@@ -35,20 +33,16 @@ public:
 
     void set_page_count(int current_page, int total_pages)
     {
-        if (total_pages > 0)
-        {
+        if (total_pages > 0) {
             page_combo_box_->blockSignals(true);
             page_combo_box_->clear();
-            for (int i = 0; i < total_pages; ++i)
-            {
+            for (int i = 0; i < total_pages; ++i) {
                 page_combo_box_->addItem(QString::number(i + 1) + "/" + QString::number(total_pages));
             }
             page_combo_box_->setCurrentIndex(current_page - 1);
             page_combo_box_->adjustSize();
             page_combo_box_->blockSignals(false);
-        }
-        else
-        {
+        } else {
             clear_page_count();
         }
     }

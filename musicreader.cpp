@@ -37,517 +37,517 @@ constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
 
 MusicReader::MusicReader(QWidget *parent)
-	: QMainWindow(parent)
-	, load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
+    : QMainWindow(parent)
+    , load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)
-	logger::initialize(true, config_);
+    logger::initialize(true, config_);
 #else
-	logger::initialize(true, config_);
+    logger::initialize(true, config_, true, 1024);
 #endif
 
-	update_logging_level();
-	setup_UI();
+    update_logging_level();
+    setup_UI();
 }
 
 
 void MusicReader::setup_UI()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	this->resize(600, 400);
-	this->setWindowTitle("MusicReader");
+    this->resize(600, 400);
+    this->setWindowTitle("MusicReader");
 
-	splitter_ = new QSplitter(Qt::Horizontal, this);
+    splitter_ = new QSplitter(Qt::Horizontal, this);
 
-	create_bookmark_panel();
-	splitter_->addWidget(bookmark_panel_);
+    create_bookmark_panel();
+    splitter_->addWidget(bookmark_panel_);
 
-	if (config_.horiz_tabs())
-		tab_widget_ = new VerticalTabsWidget;
-	else
-		tab_widget_ = new HorizontalTabWidget;
+    if (config_.horiz_tabs())
+        tab_widget_ = new VerticalTabsWidget;
+    else
+        tab_widget_ = new HorizontalTabWidget;
 
-	tab_widget_->setTabsClosable(true);
-	tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
-	tab_widget_->tabBar()->setFocusPolicy(Qt::NoFocus);
-	tab_widget_->setUsesScrollButtons(false);
+    tab_widget_->setTabsClosable(true);
+    tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
+    tab_widget_->tabBar()->setFocusPolicy(Qt::NoFocus);
+    tab_widget_->setUsesScrollButtons(false);
 
-	connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
-	connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
-	connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
+    connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
+    connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
+    connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
 
-	connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
-		auto i = doc_is_open(name);
-		if (i.has_value()) {
-			auto viewer = viewer_tab(i.value());
-			if (viewer)
-				viewer->get_page(page);  // Show the loaded page
-		}
-	});
+    connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
+        auto i = doc_is_open(name);
+        if (i.has_value()) {
+            auto viewer = viewer_tab(i.value());
+            if (viewer)
+                viewer->get_page(page);  // Show the loaded page
+        }
+    });
 
-	splitter_->addWidget(tab_widget_);
-	splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
-	splitter_->setStretchFactor(1, 1);  // Document view gets priority
+    splitter_->addWidget(tab_widget_);
+    splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
+    splitter_->setStretchFactor(1, 1);  // Document view gets priority
 
-	// Adjust the bookmark panel width to fit contents
-	bookmark_panel_->adjust_width();
+    // Adjust the bookmark panel width to fit contents
+    bookmark_panel_->adjust_width();
 
-	// Determine content width, ensuring a reasonable minimum
-	int content_width = std::max(bookmark_panel_->width() + 20, 100);
+    // Determine content width, ensuring a reasonable minimum
+    int content_width = std::max(bookmark_panel_->width() + 20, 100);
 
-	// Set initial splitter sizes: Bookmark panel gets calculated width, rest goes to document view
-	splitter_->setSizes({ content_width, width() - content_width });
+    // Set initial splitter sizes: Bookmark panel gets calculated width, rest goes to document view
+    splitter_->setSizes({ content_width, width() - content_width });
 
-	setCentralWidget(splitter_);
+    setCentralWidget(splitter_);
 
-	create_menus();
-	create_toolbar();
-	create_status_bar();
+    create_menus();
+    create_toolbar();
+    create_status_bar();
 
-	setWindowIcon(QIcon(":/MusicReader/images/gclef.png"));
+    setWindowIcon(QIcon(":/MusicReader/images/gclef.png"));
 
-	restore_window_state();
+    restore_window_state();
 
-	// hides background image if there are open documents
-	update_background();
+    // hides background image if there are open documents
+    update_background();
 
-	exit_button_ = new FullscreenExitButton(this);
-	qApp->installEventFilter(this);
+    exit_button_ = new FullscreenExitButton(this);
+    qApp->installEventFilter(this);
 
-	if (config_.save_cadence_secs() > 0) {
-		QTimer *autosave_timer = new QTimer(this);
-		// cast to void just to avoid warning that we are discarding the return value. ugh.
-		connect(autosave_timer, &QTimer::timeout, this, [this]() {
-			(void)QtConcurrent::run([this]() {
-				for (int i = 0; i < tab_widget_->count(); ++i) {
-					auto doc = document_at(i);
-					if (doc) {
-						doc->save();
-					}
-				}
-			});
-		});
+    if (config_.save_cadence_secs() > 0) {
+        QTimer *autosave_timer = new QTimer(this);
+        // cast to void just to avoid warning that we are discarding the return value. ugh.
+        connect(autosave_timer, &QTimer::timeout, this, [this]() {
+            (void)QtConcurrent::run([this]() {
+                for (int i = 0; i < tab_widget_->count(); ++i) {
+                    auto doc = document_at(i);
+                    if (doc) {
+                        doc->save();
+                    }
+                }
+            });
+        });
 
-		autosave_timer->start(config_.save_cadence_secs() * 1000);
-	}
+        autosave_timer->start(config_.save_cadence_secs() * 1000);
+    }
 
-	if (config_.restore_documents())
-		QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
+    if (config_.restore_documents())
+        QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
 
-	setup_mouse_hiding();
-	// this will search the directories and create the fast search dialog
-	// asynchronously, because it can take many seconds to populate all the
-	// files.
-	initialize_fast_search();
+    setup_mouse_hiding();
+    // this will search the directories and create the fast search dialog
+    // asynchronously, because it can take many seconds to populate all the
+    // files.
+    initialize_fast_search();
 
-	setAcceptDrops(true);
+    setAcceptDrops(true);
 }
 
 void MusicReader::dragEnterEvent(QDragEnterEvent *event)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (event->mimeData()->hasUrls()) {
-		// Check if any URLs are PDF files
-		for (const QUrl &url : event->mimeData()->urls()) {
-			if (url.isLocalFile()) {
-				QString file_path = url.toLocalFile();
-				if (file_path.toLower().endsWith(".pdf")) {
-					event->acceptProposedAction();
-					return;
-				}
-			}
-		}
-	}
-	event->ignore();
+    if (event->mimeData()->hasUrls()) {
+        // Check if any URLs are PDF files
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                QString file_path = url.toLocalFile();
+                if (file_path.toLower().endsWith(".pdf")) {
+                    event->acceptProposedAction();
+                    return;
+                }
+            }
+        }
+    }
+    event->ignore();
 }
 
 void MusicReader::dropEvent(QDropEvent *event)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (event->mimeData()->hasUrls()) {
-		for (const QUrl &url : event->mimeData()->urls()) {
-			if (url.isLocalFile()) {
-				QString file_path = url.toLocalFile();
-				if (file_path.toLower().endsWith(".pdf")) {
-					open_pdf_in_tab(file_path.toStdString());
-				}
-			}
-		}
-		event->acceptProposedAction();
-	} else {
-		event->ignore();
-	}
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                QString file_path = url.toLocalFile();
+                if (file_path.toLower().endsWith(".pdf")) {
+                    open_pdf_in_tab(file_path.toStdString());
+                }
+            }
+        }
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
 }
 
 bool MusicReader::eventFilter(QObject *watched, QEvent *event)
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	// Handle mouse movement for cursor hiding
-	if (event->type() == QEvent::MouseMove) {
-		if (handle_mouse_movement(watched, event))
-			return true;
-	}
-	// handle fullscreen logic
-	if (event->type() == QEvent::MouseMove && isFullScreen()) {
-		auto y = QCursor::pos().y();
-		if (y <= 15) { // If mouse is near the top
-			if (!exit_button_->isVisible())
-				exit_button_->showAtTop();
-			return true;
-		} else if (y > 200 && exit_button_->isVisible()) {
-			exit_button_->hideWithAnimation();
-			return true;
-		}
-	}
-	return QMainWindow::eventFilter(watched, event);
+    // Handle mouse movement for cursor hiding
+    if (event->type() == QEvent::MouseMove) {
+        if (handle_mouse_movement(watched, event))
+            return true;
+    }
+    // handle fullscreen logic
+    if (event->type() == QEvent::MouseMove && isFullScreen()) {
+        auto y = QCursor::pos().y();
+        if (y <= 15) { // If mouse is near the top
+            if (!exit_button_->isVisible())
+                exit_button_->showAtTop();
+            return true;
+        } else if (y > 200 && exit_button_->isVisible()) {
+            exit_button_->hideWithAnimation();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 
 bool MusicReader::handle_mouse_movement(QObject *watched, QEvent *event)
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	Q_UNUSED(watched);
-	Q_UNUSED(event);
+    Q_UNUSED(watched);
+    Q_UNUSED(event);
 
-	// Show cursor if it was hidden
-	if (cursor_hidden_) {
-		QApplication::restoreOverrideCursor();
-		cursor_hidden_ = false;
-	}
+    // Show cursor if it was hidden
+    if (cursor_hidden_) {
+        QApplication::restoreOverrideCursor();
+        cursor_hidden_ = false;
+    }
 
-	// Reset the timer
-	mouse_hide_timer_->start(3000); // 3 seconds
+    // Reset the timer
+    mouse_hide_timer_->start(3000); // 3 seconds
 
-	// Return false to allow event propagation
-	return false;
+    // Return false to allow event propagation
+    return false;
 }
 
 
 void MusicReader::setup_mouse_hiding()
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	// Create timer for hiding the mouse cursor after inactivity
-	mouse_hide_timer_ = new QTimer(this);
-	mouse_hide_timer_->setSingleShot(true);
-	connect(mouse_hide_timer_, &QTimer::timeout, this, [this]() {
-		// Only hide cursor if we're over a document
-		PDFViewer *current = current_viewer();
-		if (current) {
-			QRect viewerRect = current->rect();
-			QPoint globalPos = QCursor::pos();
-			QPoint localPos = current->mapFromGlobal(globalPos);
+    // Create timer for hiding the mouse cursor after inactivity
+    mouse_hide_timer_ = new QTimer(this);
+    mouse_hide_timer_->setSingleShot(true);
+    connect(mouse_hide_timer_, &QTimer::timeout, this, [this]() {
+        // Only hide cursor if we're over a document
+        PDFViewer *current = current_viewer();
+        if (current) {
+            QRect viewerRect = current->rect();
+            QPoint globalPos = QCursor::pos();
+            QPoint localPos = current->mapFromGlobal(globalPos);
 
-			if (viewerRect.contains(localPos)) {
-				QApplication::setOverrideCursor(Qt::BlankCursor);
-				cursor_hidden_ = true;
-			}
-		}
-	});
+            if (viewerRect.contains(localPos)) {
+                QApplication::setOverrideCursor(Qt::BlankCursor);
+                cursor_hidden_ = true;
+            }
+        }
+    });
 
-	mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
+    mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
 }
 
 
 void MusicReader::reset_cursor_timer()
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	if (cursor_hidden_) {
-		QApplication::restoreOverrideCursor();
-		cursor_hidden_ = false;
-	}
-	mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
+    if (cursor_hidden_) {
+        QApplication::restoreOverrideCursor();
+        cursor_hidden_ = false;
+    }
+    mouse_hide_timer_->start(HIDE_MOUSE_TIMEOUT_MS);
 }
 
 
 void MusicReader::closeEvent(QCloseEvent *event)
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	load_manager_.stop_loading();
-	DevStatusDialog::close_if_open();
-	save_window_state_to_config();
-	save_config();
+    load_manager_.stop_loading();
+    DevStatusDialog::close_if_open();
+    save_window_state_to_config();
+    save_config();
 
-	QMainWindow::closeEvent(event);  // Call base class implementation
-	check_for_errors_on_exit();
+    QMainWindow::closeEvent(event);  // Call base class implementation
+    check_for_errors_on_exit();
 }
 
 
 void MusicReader::save_window_state_to_config()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	ConfigFileGroupSave group_saver(config_);
+    ConfigFileGroupSave group_saver(config_);
 
-	// Save the currently open tab index
-	config_.set_open_tab(tab_widget_->currentIndex());
+    // Save the currently open tab index
+    config_.set_open_tab(tab_widget_->currentIndex());
 
-	// Ensure position values are non-negative to prevent config errors
-	int x = std::max(0, pos().x());
-	int y = std::max(0, pos().y());
-	int width = size().width();
-	int height = size().height();
+    // Ensure position values are non-negative to prevent config errors
+    int x = std::max(0, pos().x());
+    int y = std::max(0, pos().y());
+    int width = size().width();
+    int height = size().height();
 
-	config_.set_app_size({ x, y, width, height });
+    config_.set_app_size({ x, y, width, height });
 
-	// Save the toolbar location (Qt enum values match ToolbarLocation)
-	config_.set_toolbar_location(static_cast<ToolbarLocation>(toolBarArea(toolbar_)));
+    // Save the toolbar location (Qt enum values match ToolbarLocation)
+    config_.set_toolbar_location(static_cast<ToolbarLocation>(toolBarArea(toolbar_)));
 }
 
 void MusicReader::check_for_errors_on_exit()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (logger::logged_error()) {
-		QMessageBox msg_box(this);
-		msg_box.setWindowTitle("Internal Errors");
-		msg_box.setText("There were internal errors");
-		msg_box.setIcon(QMessageBox::Warning);
+    if (logger::logged_error()) {
+        QMessageBox msg_box(this);
+        msg_box.setWindowTitle("Internal Errors");
+        msg_box.setText("There were internal errors");
+        msg_box.setIcon(QMessageBox::Warning);
 
-		QPushButton *ok_button = msg_box.addButton("Ignore", QMessageBox::AcceptRole);
-		QPushButton *view_errors_button = msg_box.addButton("View errors", QMessageBox::ActionRole);
-		msg_box.setDefaultButton(view_errors_button);
+        QPushButton *ok_button = msg_box.addButton("Ignore", QMessageBox::AcceptRole);
+        QPushButton *view_errors_button = msg_box.addButton("View errors", QMessageBox::ActionRole);
+        msg_box.setDefaultButton(view_errors_button);
 
-		msg_box.exec();
+        msg_box.exec();
 
-		if (msg_box.clickedButton() == view_errors_button) {
-			show_log_content();
-		} else if (msg_box.clickedButton() == ok_button) {
-			msg_box.close();
-		}
-	}
+        if (msg_box.clickedButton() == view_errors_button) {
+            show_log_content();
+        } else if (msg_box.clickedButton() == ok_button) {
+            msg_box.close();
+        }
+    }
 }
 
 void MusicReader::show_log_content()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QString log_content = QString::fromStdString(logger::get_log_content());
+    QString log_content = QString::fromStdString(logger::get_log_content());
 
-	QDialog dialog(this);
-	dialog.setWindowTitle("Log Content");
-	dialog.setModal(true);
+    QDialog dialog(this);
+    dialog.setWindowTitle("Log Content");
+    dialog.setModal(true);
 
-	QVBoxLayout layout(&dialog);
+    QVBoxLayout layout(&dialog);
 
-	QScrollArea scroll_area(&dialog);
-	scroll_area.setWidgetResizable(true);
+    QScrollArea scroll_area(&dialog);
+    scroll_area.setWidgetResizable(true);
 
-	QTextEdit text_edit;
-	text_edit.setText(log_content);
-	text_edit.setReadOnly(true);
+    QTextEdit text_edit;
+    text_edit.setText(log_content);
+    text_edit.setReadOnly(true);
 
-	scroll_area.setWidget(&text_edit);
-	layout.addWidget(&scroll_area);
+    scroll_area.setWidget(&text_edit);
+    layout.addWidget(&scroll_area);
 
-	QHBoxLayout button_layout;
+    QHBoxLayout button_layout;
 
-	// Future enhancement: Report button (commented out)
-	/*
-	QPushButton report_button("Report Issue");
-	QObject::connect(&report_button, &QPushButton::clicked, [&]() {
-		report_issue(log_content.toStdString());
-	});
-	button_layout.addWidget(&report_button);
-	*/
+    // Future enhancement: Report button (commented out)
+    /*
+    QPushButton report_button("Report Issue");
+    QObject::connect(&report_button, &QPushButton::clicked, [&]() {
+        report_issue(log_content.toStdString());
+    });
+    button_layout.addWidget(&report_button);
+    */
 
-	QPushButton ok_button("OK");
-	QObject::connect(&ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
+    QPushButton ok_button("OK");
+    QObject::connect(&ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
 
-	button_layout.addStretch();
-	button_layout.addWidget(&ok_button);
+    button_layout.addStretch();
+    button_layout.addWidget(&ok_button);
 
-	layout.addLayout(&button_layout);
+    layout.addLayout(&button_layout);
 
-	dialog.setLayout(&layout);
-	dialog.resize(800, 600);
-	dialog.exec();
+    dialog.setLayout(&layout);
+    dialog.resize(800, 600);
+    dialog.exec();
 }
 
 
 void MusicReader::create_file_menu(auto *menu_bar)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	// File menu
-	QMenu *file_menu = menu_bar->addMenu("&File");
+    // File menu
+    QMenu *file_menu = menu_bar->addMenu("&File");
 
-	QAction *action = new QAction("&Open...", this);
-	action->setShortcut(shortcuts_["open_file"]);
-	file_menu->addAction(action);
-	connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+    QAction *action = new QAction("&Open...", this);
+    action->setShortcut(shortcuts_["open_file"]);
+    file_menu->addAction(action);
+    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
-	action = new QAction("&Fast Search...", this);
-	action->setShortcut(shortcuts_["fast_search"]);
-	connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
-	file_menu->addAction(action);
+    action = new QAction("&Fast Search...", this);
+    action->setShortcut(shortcuts_["fast_search"]);
+    connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
+    file_menu->addAction(action);
 
-	action = new QAction("&Settings...", this);
-	action->setShortcut(shortcuts_["settings"]);
-	connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
-	file_menu->addAction(action);
+    action = new QAction("&Settings...", this);
+    action->setShortcut(shortcuts_["settings"]);
+    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+    file_menu->addAction(action);
 
-	open_recent_menu_ = new QMenu("Open &Recent", this);
-	file_menu->addMenu(open_recent_menu_);
-	connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
+    open_recent_menu_ = new QMenu("Open &Recent", this);
+    file_menu->addMenu(open_recent_menu_);
+    connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
 
-	file_menu->addSeparator();
+    file_menu->addSeparator();
 
-	action = new QAction("Copy log to clipboard", this);
-	action->setShortcut(shortcuts_["open_file"]);
-	connect(action, &QAction::triggered, this, [this]() { copy_log_to_clipboard(); });
-	file_menu->addAction(action);
+    action = new QAction("Copy log to clipboard", this);
+    action->setShortcut(shortcuts_["open_file"]);
+    connect(action, &QAction::triggered, this, [this]() { copy_log_to_clipboard(); });
+    file_menu->addAction(action);
 
-	file_menu->addSeparator();
+    file_menu->addSeparator();
 
-	QAction *exit_action = new QAction("E&xit", this);
-	connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
-	file_menu->addAction(exit_action);
+    QAction *exit_action = new QAction("E&xit", this);
+    connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
+    file_menu->addAction(exit_action);
 }
 
 
 void MusicReader::create_edit_menu(auto *menu_bar)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	edit_menu_ = menu_bar->addMenu("&Edit");
+    edit_menu_ = menu_bar->addMenu("&Edit");
 
-	/* TODO
-	edit_margin_action_ = new QAction("Edit Document Margin", this);
-	edit_margin_action_->setCheckable(true);
-	connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
-	edit_menu_->addAction(edit_margin_action_);
-	*/
+    /* TODO
+    edit_margin_action_ = new QAction("Edit Document Margin", this);
+    edit_margin_action_->setCheckable(true);
+    connect(edit_margin_action_, &QAction::triggered, this, &MusicReader::toggle_draw_margin);
+    edit_menu_->addAction(edit_margin_action_);
+    */
 
-	undo_action_ = new QAction("Undo", this);
-	undo_action_->setShortcut(QKeySequence::Undo);
-	connect(undo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::undo);
-	undo_action_->setDisabled(true);
-	edit_menu_->addAction(undo_action_);
-	addAction(undo_action_);
+    undo_action_ = new QAction("Undo", this);
+    undo_action_->setShortcut(QKeySequence::Undo);
+    connect(undo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::undo);
+    undo_action_->setDisabled(true);
+    edit_menu_->addAction(undo_action_);
+    addAction(undo_action_);
 
-	redo_action_ = new QAction("Redo", this);
-	redo_action_->setShortcut(QKeySequence::Redo);
-	connect(redo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::redo);
-	redo_action_->setEnabled(false);
-	edit_menu_->addAction(redo_action_);
-	addAction(redo_action_);
+    redo_action_ = new QAction("Redo", this);
+    redo_action_->setShortcut(QKeySequence::Redo);
+    connect(redo_action_, &QAction::triggered, bookmark_panel_, &BookmarkPanel::redo);
+    redo_action_->setEnabled(false);
+    edit_menu_->addAction(redo_action_);
+    addAction(redo_action_);
 
-	connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
-		auto doc = current_document();
-		undo_action_->setEnabled(doc && doc->can_undo());
-		redo_action_->setEnabled(doc && doc->can_redo());
-	});
+    connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
+        auto doc = current_document();
+        undo_action_->setEnabled(doc && doc->can_undo());
+        redo_action_->setEnabled(doc && doc->can_redo());
+    });
 
 }
 
 void MusicReader::create_view_menu(auto *menu_bar)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenu *view_menu = menu_bar->addMenu("&View");
+    QMenu *view_menu = menu_bar->addMenu("&View");
 
-	bookmark_menu_action_ = new QAction("Show Bookmarks", this);
-	bookmark_menu_action_->setCheckable(true);
-	bookmark_menu_action_->setChecked(true);
-	connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
-	view_menu->addAction(bookmark_menu_action_);
+    bookmark_menu_action_ = new QAction("Show Bookmarks", this);
+    bookmark_menu_action_->setCheckable(true);
+    bookmark_menu_action_->setChecked(true);
+    connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
+    view_menu->addAction(bookmark_menu_action_);
 
-	menubar_menu_action_ = new QAction("&Menu Bar", this);
-	menubar_menu_action_->setCheckable(true);
-	menubar_menu_action_->setChecked(config_.show_menu());
-	connect(menubar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_menu_visibility);
-	view_menu->addAction(menubar_menu_action_);
+    menubar_menu_action_ = new QAction("&Menu Bar", this);
+    menubar_menu_action_->setCheckable(true);
+    menubar_menu_action_->setChecked(config_.show_menu());
+    connect(menubar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_menu_visibility);
+    view_menu->addAction(menubar_menu_action_);
 
-	toolbar_menu_action_ = new QAction("&Tool Bar", this);
-	toolbar_menu_action_->setShortcut(shortcuts_["toolbar"]);
-	toolbar_menu_action_->setCheckable(true);
-	toolbar_menu_action_->setChecked(true);
-	connect(toolbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
-	view_menu->addAction(toolbar_menu_action_);
+    toolbar_menu_action_ = new QAction("&Tool Bar", this);
+    toolbar_menu_action_->setShortcut(shortcuts_["toolbar"]);
+    toolbar_menu_action_->setCheckable(true);
+    toolbar_menu_action_->setChecked(true);
+    connect(toolbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_toolbar_visibility);
+    view_menu->addAction(toolbar_menu_action_);
 
-	statusbar_menu_action_ = new QAction("&Status Bar", this);
-	statusbar_menu_action_->setCheckable(true);
-	statusbar_menu_action_->setChecked(config_.show_status_bar());
-	connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
-	view_menu->addAction(statusbar_menu_action_);
+    statusbar_menu_action_ = new QAction("&Status Bar", this);
+    statusbar_menu_action_->setCheckable(true);
+    statusbar_menu_action_->setChecked(config_.show_status_bar());
+    connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
+    view_menu->addAction(statusbar_menu_action_);
 
-	if (config_.in_dev_mode()) {
-		view_menu->addSeparator();
-		auto *dev_action = new QAction("Show &Developer Status Dialog...", this);
-		connect(dev_action, &QAction::triggered, this, &MusicReader::open_dev_status_dialog);
-		view_menu->addAction(dev_action);
-	}
+    if (config_.in_dev_mode()) {
+        view_menu->addSeparator();
+        auto *dev_action = new QAction("Show &Developer Status Dialog...", this);
+        connect(dev_action, &QAction::triggered, this, &MusicReader::open_dev_status_dialog);
+        view_menu->addAction(dev_action);
+    }
 
-	/*action = new QAction("&Light Theme", this);
-	action->setCheckable(true);
-	action->setChecked(config_.theme() == Theme::Light);
-	connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
-	light_theme_menu_item_ = action;
-	view_menu->addAction(action);
+    /*action = new QAction("&Light Theme", this);
+    action->setCheckable(true);
+    action->setChecked(config_.theme() == Theme::Light);
+    connect(action, &QAction::triggered, this, &MusicReader::set_light_theme);
+    light_theme_menu_item_ = action;
+    view_menu->addAction(action);
 
-	action = new QAction("&Dark Theme", this);
-	action->setCheckable(true);
-	action->setChecked(config_.theme() == Theme::Dark);
-	connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
-	dark_theme_menu_item_ = action;
-	view_menu->addAction(action);*/
+    action = new QAction("&Dark Theme", this);
+    action->setCheckable(true);
+    action->setChecked(config_.theme() == Theme::Dark);
+    connect(action, &QAction::triggered, this, &MusicReader::set_dark_theme);
+    dark_theme_menu_item_ = action;
+    view_menu->addAction(action);*/
 
-	auto *action = new QAction("View Log...", this);
-	connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
-	view_menu->addAction(action);
+    auto *action = new QAction("View Log...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
+    view_menu->addAction(action);
 
-	QAction *goto_action = new QAction("&Goto Page...", this);
-	goto_action->setShortcut(QKeySequence("Ctrl+G"));
-	connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
-	view_menu->addAction(goto_action);
+    QAction *goto_action = new QAction("&Goto Page...", this);
+    goto_action->setShortcut(QKeySequence("Ctrl+G"));
+    connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
+    view_menu->addAction(goto_action);
 
 }
 
 void MusicReader::create_imslp_menu(auto *menu_bar)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenu *imslp_menu = menu_bar->addMenu("&IMSLP");
+    QMenu *imslp_menu = menu_bar->addMenu("&IMSLP");
 
-	QAction *action = new QAction("&Search...", this);
-	action->setShortcut(QKeySequence("I"));
-	connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
-	imslp_menu->addAction(action);
+    QAction *action = new QAction("&Search...", this);
+    action->setShortcut(QKeySequence("I"));
+    connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
+    imslp_menu->addAction(action);
 }
 
 
 void MusicReader::create_menus()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenuBar *menu_bar = menuBar();
+    QMenuBar *menu_bar = menuBar();
 
-	create_file_menu(menu_bar);
-	create_edit_menu(menu_bar);
-	create_imslp_menu(menu_bar);
-	create_view_menu(menu_bar);
-	create_help_menu(menu_bar);
+    create_file_menu(menu_bar);
+    create_edit_menu(menu_bar);
+    create_imslp_menu(menu_bar);
+    create_view_menu(menu_bar);
+    create_help_menu(menu_bar);
 
-	menuBar()->setStyleSheet(R"(
+    menuBar()->setStyleSheet(R"(
         QMenu::item {
             font-weight: normal;
         }
@@ -555,1508 +555,1508 @@ void MusicReader::create_menus()
             color: gray;
         })");
 
-	// Make global keyboard shortcuts within the app
-	QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
+    // Make global keyboard shortcuts within the app
+    QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
 
-	shortcut = new QShortcut(QKeySequence("PageUp"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
+    shortcut = new QShortcut(QKeySequence("PageUp"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
 
-	shortcut = new QShortcut(Qt::Key_B, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
+    shortcut = new QShortcut(Qt::Key_B, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
 
-	shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
+    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
 
-	shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
+    shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
 
 
-	shortcut = new QShortcut(Qt::Key_Space, this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, [this]() {
-		auto viewer = current_viewer();
-		if (viewer) viewer->page_down();
-	});
+    shortcut = new QShortcut(Qt::Key_Space, this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        auto viewer = current_viewer();
+        if (viewer) viewer->page_down();
+    });
 
-	shortcut = new QShortcut(QKeySequence("F5"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::reload_document);
+    shortcut = new QShortcut(QKeySequence("F5"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::reload_document);
 
-	shortcut = new QShortcut(QKeySequence("F2"), this);
-	shortcut->setContext(Qt::ApplicationShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
+    shortcut = new QShortcut(QKeySequence("F2"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
 
-	if (!config_.show_menu())
-		menu_bar->hide();
+    if (!config_.show_menu())
+        menu_bar->hide();
 }
 
 void MusicReader::create_help_menu(auto *menu_bar)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenu *help_menu = menu_bar->addMenu("&Help");
+    QMenu *help_menu = menu_bar->addMenu("&Help");
 
-	QAction *action = new QAction("&About MusicReader...", this);
-	connect(action, &QAction::triggered, this, &MusicReader::show_about_dialog);
-	help_menu->addAction(action);
+    QAction *action = new QAction("&About MusicReader...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::show_about_dialog);
+    help_menu->addAction(action);
 }
 
 void MusicReader::show_about_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QDialog dialog(this);
-	dialog.setWindowTitle("About MusicReader");
-	dialog.setModal(true);
+    QDialog dialog(this);
+    dialog.setWindowTitle("About MusicReader");
+    dialog.setModal(true);
 
-	QVBoxLayout layout(&dialog);
+    QVBoxLayout layout(&dialog);
 
-	QLabel *title = new QLabel("MusicReader", &dialog);
-	title->setAlignment(Qt::AlignCenter);
-	QFont title_font = title->font();
-	title_font.setPointSize(16);
-	title_font.setBold(true);
-	title->setFont(title_font);
-	layout.addWidget(title);
+    QLabel *title = new QLabel("MusicReader", &dialog);
+    title->setAlignment(Qt::AlignCenter);
+    QFont title_font = title->font();
+    title_font.setPointSize(16);
+    title_font.setBold(true);
+    title->setFont(title_font);
+    layout.addWidget(title);
 
-	QLabel *version = new QLabel("Version 1.0", &dialog);
-	version->setAlignment(Qt::AlignCenter);
-	layout.addWidget(version);
+    QLabel *version = new QLabel("Version 1.0", &dialog);
+    version->setAlignment(Qt::AlignCenter);
+    layout.addWidget(version);
 
-	QLabel *copyright_info = new QLabel("&copy; 2025 Roger Labbe. All rights reserved.<br>"
-									   "github.com/rlabbe/MusicReader", &dialog);
-	copyright_info->setAlignment(Qt::AlignCenter);
-	copyright_info->setTextFormat(Qt::RichText);
-	layout.addWidget(copyright_info);
+    QLabel *copyright_info = new QLabel("&copy; 2025 Roger Labbe. All rights reserved.<br>"
+                                       "github.com/rlabbe/MusicReader", &dialog);
+    copyright_info->setAlignment(Qt::AlignCenter);
+    copyright_info->setTextFormat(Qt::RichText);
+    layout.addWidget(copyright_info);
 
-	layout.addSpacing(20);
+    layout.addSpacing(20);
 
-	QLabel *info = new QLabel(&dialog);
-	info->setWordWrap(true);
-	info->setTextFormat(Qt::RichText);
-	info->setText("PDF music reader application with IMSLP integration.<br><br>"
-			   "This application is free and open source software.<br><br>"
-			   "<b>License:</b> MIT License<br><br>"
-			   "<b>Third-party libraries and data:</b>"
-			   "<ul>"
-			   "<li>Qt Framework - &copy; The Qt Company Ltd. Licensed under LGPL v3<br>https://www.qt.io/<br></li>"
-			   "<li>MuPDF - &copy; Artifex Software, Inc. Licensed under AGPL v3<br>https://mupdf.com/<br></li>"
-			   "<li>IMSLP (International Music Score Library Project).<br>Optional search integration for public domain scores. Users must respect IMSLP's terms of service, copyright laws in the user's country, and download limits.<br>https://imslp.org</li>"
-			   "</ul>"
-			   "Built with Qt " QT_VERSION_STR "<br><br>"
-			   "Source code and license information available at github.com/rlabbe/MusicReader.");
-	layout.addWidget(info);
+    QLabel *info = new QLabel(&dialog);
+    info->setWordWrap(true);
+    info->setTextFormat(Qt::RichText);
+    info->setText("PDF music reader application with IMSLP integration.<br><br>"
+               "This application is free and open source software.<br><br>"
+               "<b>License:</b> MIT License<br><br>"
+               "<b>Third-party libraries and data:</b>"
+               "<ul>"
+               "<li>Qt Framework - &copy; The Qt Company Ltd. Licensed under LGPL v3<br>https://www.qt.io/<br></li>"
+               "<li>MuPDF - &copy; Artifex Software, Inc. Licensed under AGPL v3<br>https://mupdf.com/<br></li>"
+               "<li>IMSLP (International Music Score Library Project).<br>Optional search integration for public domain scores. Users must respect IMSLP's terms of service, copyright laws in the user's country, and download limits.<br>https://imslp.org</li>"
+               "</ul>"
+               "Built with Qt " QT_VERSION_STR "<br><br>"
+               "Source code and license information available at github.com/rlabbe/MusicReader.");
+    layout.addWidget(info);
 
-	QHBoxLayout button_layout;
-	QPushButton *ok_button = new QPushButton("OK", &dialog);
-	connect(ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
-	button_layout.addStretch();
-	button_layout.addWidget(ok_button);
-	layout.addLayout(&button_layout);
+    QHBoxLayout button_layout;
+    QPushButton *ok_button = new QPushButton("OK", &dialog);
+    connect(ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
+    button_layout.addStretch();
+    button_layout.addWidget(ok_button);
+    layout.addLayout(&button_layout);
 
-	dialog.exec();
+    dialog.exec();
 }
 
 void MusicReader::update_recent_files_list()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	open_recent_menu_->clear();
+    open_recent_menu_->clear();
 
-	for (const auto &path : std::views::reverse(config_.recent_documents())) {
-		QString display_text = QString::fromStdWString(path.wstring());
-		QString tooltip_text = QString::fromStdWString(path.wstring());
+    for (const auto &path : std::views::reverse(config_.recent_documents())) {
+        QString display_text = QString::fromStdWString(path.wstring());
+        QString tooltip_text = QString::fromStdWString(path.wstring());
 
-		QAction *action = new QAction(display_text, this);
-		action->setToolTip(tooltip_text);
+        QAction *action = new QAction(display_text, this);
+        action->setToolTip(tooltip_text);
 
-		connect(action, &QAction::triggered, this, [this, path]() {
-			open_pdf_in_tab(path.string());
-		});
+        connect(action, &QAction::triggered, this, [this, path]() {
+            open_pdf_in_tab(path.string());
+        });
 
-		open_recent_menu_->addAction(action);
-	}
+        open_recent_menu_->addAction(action);
+    }
 }
 
 
 void MusicReader::show_context_menu(const QPoint &pos)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenu context_menu(this);
+    QMenu context_menu(this);
 
-	QAction *reload_action = new QAction("Reload", this);
-	reload_action->setShortcut(QKeySequence("F5"));
-	connect(reload_action, &QAction::triggered, this, &MusicReader::reload_document);
+    QAction *reload_action = new QAction("Reload", this);
+    reload_action->setShortcut(QKeySequence("F5"));
+    connect(reload_action, &QAction::triggered, this, &MusicReader::reload_document);
 
-	QAction *edit_action = new QAction("Edit...", this);
-	edit_action->setShortcut(QKeySequence("F2"));
-	connect(edit_action, &QAction::triggered, this, &MusicReader::edit_document);
+    QAction *edit_action = new QAction("Edit...", this);
+    edit_action->setShortcut(QKeySequence("F2"));
+    connect(edit_action, &QAction::triggered, this, &MusicReader::edit_document);
 
-	QAction *open_folder_action = new QAction("Open from containing folder...", this);
-	connect(open_folder_action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+    QAction *open_folder_action = new QAction("Open from containing folder...", this);
+    connect(open_folder_action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
-	QAction *browse_folder_action = new QAction("Browse containing folder...", this);
-	connect(browse_folder_action, &QAction::triggered, this, &MusicReader::browse_folder);
+    QAction *browse_folder_action = new QAction("Browse containing folder...", this);
+    connect(browse_folder_action, &QAction::triggered, this, &MusicReader::browse_folder);
 
-	context_menu.addAction(reload_action);
-	context_menu.addSeparator();
-	context_menu.addAction(edit_action);
-	context_menu.addAction(open_folder_action);
-	context_menu.addAction(browse_folder_action);
+    context_menu.addAction(reload_action);
+    context_menu.addSeparator();
+    context_menu.addAction(edit_action);
+    context_menu.addAction(open_folder_action);
+    context_menu.addAction(browse_folder_action);
 
-	context_menu.exec(tab_widget_->mapToGlobal(pos));
+    context_menu.exec(tab_widget_->mapToGlobal(pos));
 }
 
 
 
 void MusicReader::browse_folder()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto doc = current_document();
-	if (!doc) return;
+    auto doc = current_document();
+    if (!doc) return;
 
-	auto file_path = QString::fromStdString(doc->filename());
-	QFileInfo file_info(file_path);
-	if (!file_info.exists()) return;
+    auto file_path = QString::fromStdString(doc->filename());
+    QFileInfo file_info(file_path);
+    if (!file_info.exists()) return;
 
-	QString folder_path = file_info.absolutePath();
-	QProcess::startDetached("explorer", { folder_path });
+    QString folder_path = file_info.absolutePath();
+    QProcess::startDetached("explorer", { folder_path });
 }
 
 void MusicReader::show_log_file()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto viewer = new FileViewer(logger::log_file_path(), this);
-	viewer->show();
+    auto viewer = new FileViewer(logger::log_file_path(), this);
+    viewer->show();
 }
 
 
 bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
 #ifdef Q_OS_WIN
 
-	if (!config_.show_menu()) {
-		MSG *msg = static_cast<MSG *>(message);
+    if (!config_.show_menu()) {
+        MSG *msg = static_cast<MSG *>(message);
 
-		if (msg->message == WM_SYSCOMMAND && (msg->wParam & 0xFFF0) == SC_MOUSEMENU) {
-			show_titlebar_menu();
-			*result = 0;
-			return true; // Prevents Windows from showing its own menu
-		}
-	}
+        if (msg->message == WM_SYSCOMMAND && (msg->wParam & 0xFFF0) == SC_MOUSEMENU) {
+            show_titlebar_menu();
+            *result = 0;
+            return true; // Prevents Windows from showing its own menu
+        }
+    }
 #endif
-	return QMainWindow::nativeEvent(eventType, message, result);
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 
 void MusicReader::reload_document()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto viewer = current_viewer();
-	auto doc = current_document();
-	if (!viewer || !doc) return;
+    auto viewer = current_viewer();
+    auto doc = current_document();
+    if (!viewer || !doc) return;
 
-	int page_num = viewer->current_page();
+    int page_num = viewer->current_page();
 
-	open_pdf_in_tab(doc->filename(), page_num, viewer);
+    open_pdf_in_tab(doc->filename(), page_num, viewer);
 }
 
 void MusicReader::edit_document()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto doc = current_document();
-	if (!doc) return;
+    auto doc = current_document();
+    if (!doc) return;
 
-	auto filename = doc->filename();
-	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(filename)));
+    auto filename = doc->filename();
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(filename)));
 }
 
 
 void MusicReader::show_titlebar_menu()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMenu menu(this);
+    QMenu menu(this);
 
-	create_file_menu(&menu);
-	create_edit_menu(&menu);
-	create_view_menu(&menu);
+    create_file_menu(&menu);
+    create_edit_menu(&menu);
+    create_view_menu(&menu);
 
 
-	// Separator before Exit
-	menu.addSeparator();
+    // Separator before Exit
+    menu.addSeparator();
 
-	// Standalone Exit Action
-	QAction *exit_action = new QAction("E&xit", this);
-	connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
-	menu.addAction(exit_action);
+    // Standalone Exit Action
+    QAction *exit_action = new QAction("E&xit", this);
+    connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
+    menu.addAction(exit_action);
 
-	menu.exec(QCursor::pos());
+    menu.exec(QCursor::pos());
 }
 
 
 
 void MusicReader::add_bookmark()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (bookmark_panel_)
-		bookmark_panel_->add_bookmark();
+    if (bookmark_panel_)
+        bookmark_panel_->add_bookmark();
 }
 
 
 void MusicReader::create_toolbar()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	toolbar_ = new QToolBar("Toolbar");
-	Qt::ToolBarArea area = Qt::LeftToolBarArea;
-	switch (config_.toolbar_location()) {
-	case ToolbarLocation::Top: area = Qt::TopToolBarArea; break;
-	case ToolbarLocation::Bottom: area = Qt::BottomToolBarArea; break;
-	case ToolbarLocation::Left: area = Qt::LeftToolBarArea; break;
-	case ToolbarLocation::Right: area = Qt::RightToolBarArea; break;
-	default: logger::error("Invalid toolbar location in config"); ;
-	}
-	addToolBar(area, toolbar_);
+    toolbar_ = new QToolBar("Toolbar");
+    Qt::ToolBarArea area = Qt::LeftToolBarArea;
+    switch (config_.toolbar_location()) {
+    case ToolbarLocation::Top: area = Qt::TopToolBarArea; break;
+    case ToolbarLocation::Bottom: area = Qt::BottomToolBarArea; break;
+    case ToolbarLocation::Left: area = Qt::LeftToolBarArea; break;
+    case ToolbarLocation::Right: area = Qt::RightToolBarArea; break;
+    default: logger::error("Invalid toolbar location in config"); ;
+    }
+    addToolBar(area, toolbar_);
 
-	QAction *action = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), "", this);
-	action->setToolTip("Search for file...");
-	connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
-	toolbar_->addAction(action);
+    QAction *action = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), "", this);
+    action->setToolTip("Search for file...");
+    connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
+    toolbar_->addAction(action);
 
-	action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
-	action->setToolTip("Open File...");
-	connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+    action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
+    action->setToolTip("Open File...");
+    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
 
-	toolbar_->addAction(action);
+    toolbar_->addAction(action);
 
-	single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
-	double_icon_ = create_double_icon();
+    single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
+    double_icon_ = create_double_icon();
 
-	if (in_single_page_mode())
-		action = new QAction(single_icon_, "", this);
-	else
-		action = new QAction(double_icon_, "", this);
+    if (in_single_page_mode())
+        action = new QAction(single_icon_, "", this);
+    else
+        action = new QAction(double_icon_, "", this);
 
-	action->setToolTip("View one/two pages (1/2)");
-	connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
-	toolbar_->addAction(action);
-	view_toggle_action_ = action;
+    action->setToolTip("View one/two pages (1/2)");
+    connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
+    toolbar_->addAction(action);
+    view_toggle_action_ = action;
 
-	page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
-	page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
+    page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
+    page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
 
-	action = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
-	connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
-	action->setToolTip("Page Step (S)");
-	toolbar_->addAction(action);
-	page_step_action_ = action;
+    action = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
+    action->setToolTip("Page Step (S)");
+    toolbar_->addAction(action);
+    page_step_action_ = action;
 
-	auto shortcut = new QShortcut(Qt::Key_1, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(shortcut, &QShortcut::activated, this, [this]() {
-		set_page_view_count(1);
-	});
+    auto shortcut = new QShortcut(Qt::Key_1, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        set_page_view_count(1);
+    });
 
-	shortcut = new QShortcut(Qt::Key_2, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(shortcut, &QShortcut::activated, this, [this]() {
-		set_page_view_count(2);
-	});
+    shortcut = new QShortcut(Qt::Key_2, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        set_page_view_count(2);
+    });
 
-	shortcut = new QShortcut(Qt::Key_S, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
+    shortcut = new QShortcut(Qt::Key_S, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
 
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
 
-	zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
-	zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
-	action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
-	connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
-	action->setToolTip("Toggle zoom to content (Z)");
-	toolbar_->addAction(action);
-	zoom_in_out_action_ = action;
+    zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
+    zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
+    action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
+    action->setToolTip("Toggle zoom to content (Z)");
+    toolbar_->addAction(action);
+    zoom_in_out_action_ = action;
 
-	shortcut = new QShortcut(Qt::Key_Z, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
+    shortcut = new QShortcut(Qt::Key_Z, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
 
-	action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
-	action->setToolTip("Settings");
-	connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
-	toolbar_->addAction(action);
+    action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
+    action->setToolTip("Settings");
+    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+    toolbar_->addAction(action);
 
-	// Add this after the settings button and before the margin action:
-	/* // not ready for prime time yet!
-	action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
-	action->setToolTip("Text annotation mode (T)");
-	action->setCheckable(true);
-	connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
-	toolbar_->addAction(action);
-	text_annotation_action_ = action;
+    // Add this after the settings button and before the margin action:
+    /* // not ready for prime time yet!
+    action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
+    action->setToolTip("Text annotation mode (T)");
+    action->setCheckable(true);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
+    toolbar_->addAction(action);
+    text_annotation_action_ = action;
 
-	// Add T shortcut
-	shortcut = new QShortcut(Qt::Key_T, this);
-	shortcut->setContext(Qt::WindowShortcut);
-	connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
-	*/
+    // Add T shortcut
+    shortcut = new QShortcut(Qt::Key_T, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
+    */
 }
 
 void MusicReader::set_page_view_count(int count)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (count < 1 || count > 2) {
-		logger::error("Invalid page view count: {}", count);
-		return;
-	}
-	config_.set_page_view_count(count);
-	view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
+    if (count < 1 || count > 2) {
+        logger::error("Invalid page view count: {}", count);
+        return;
+    }
+    config_.set_page_view_count(count);
+    view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
 
-	refresh_all_documents();
+    refresh_all_documents();
 }
 
 void MusicReader::on_toggle_view_mode()
 {
-	SAFE_METHOD;
+    SAFE_METHOD;
 
-	ConfigFileGroupSave group_saver(config_);
+    ConfigFileGroupSave group_saver(config_);
 
-	// Toggle between single and double page view mode
-	config_.set_page_view_count((config_.page_view_count() == 1) ? 2 : 1);
+    // Toggle between single and double page view mode
+    config_.set_page_view_count((config_.page_view_count() == 1) ? 2 : 1);
 
-	// Update the icon
-	view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
+    // Update the icon
+    view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
 
-	refresh_all_documents();
+    refresh_all_documents();
 }
 
 
 bool MusicReader::in_single_page_mode() const
 {
-	TRACE_FUNCTION;
+    TRACE_FUNCTION;
 
-	return config_.page_view_count() == 1;
+    return config_.page_view_count() == 1;
 }
 
 void MusicReader::toggle_page_zoom()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	// Toggle zoom setting and save config
-	config_.set_zoom_to_content(!config_.zoom_to_content());
-	config_.save();
+    // Toggle zoom setting and save config
+    config_.set_zoom_to_content(!config_.zoom_to_content());
+    config_.save();
 
-	// Update the icon
-	QIcon icon = config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_;
-	zoom_in_out_action_->setIcon(icon);
+    // Update the icon
+    QIcon icon = config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_;
+    zoom_in_out_action_->setIcon(icon);
 
-	refresh_all_documents();
+    refresh_all_documents();
 }
 
 
 void MusicReader::toggle_page_step()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	config_.toggle_page_step_size();
+    config_.toggle_page_step_size();
 
-	// Update the icon
-	if (config_.page_step_size() == 1)
-		page_step_action_->setIcon(page_by_1_icon_);
-	else
-		page_step_action_->setIcon(page_by_2_icon_);
+    // Update the icon
+    if (config_.page_step_size() == 1)
+        page_step_action_->setIcon(page_by_1_icon_);
+    else
+        page_step_action_->setIcon(page_by_2_icon_);
 }
 
 
 PDFViewer *MusicReader::current_tab() const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (!tab_widget_) return nullptr;
+    if (!tab_widget_) return nullptr;
 
-	int i = tab_widget_->currentIndex();
-	if (i >= 0) {
-		QWidget *tab_widget = tab_widget_->widget(i);
-		for (QObject *child : tab_widget->children()) {
-			if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
-				return viewer;
-			}
-		}
-	}
-	return nullptr;
+    int i = tab_widget_->currentIndex();
+    if (i >= 0) {
+        QWidget *tab_widget = tab_widget_->widget(i);
+        for (QObject *child : tab_widget->children()) {
+            if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
+                return viewer;
+            }
+        }
+    }
+    return nullptr;
 }
 
 std::shared_ptr<Document> MusicReader::current_document(const std::string &log_msg) const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *tab = current_tab();
-	if (tab) return tab->document();
+    PDFViewer *tab = current_tab();
+    if (tab) return tab->document();
 
-	if (!log_msg.empty()) logger::error(log_msg);
-	return nullptr;
+    if (!log_msg.empty()) logger::error(log_msg);
+    return nullptr;
 }
 
 
 std::pair<int, bool> MusicReader::current_page(const std::string &log_msg) const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *viewer = current_viewer(log_msg);
-	if (viewer) return { viewer->current_page(), true };
+    PDFViewer *viewer = current_viewer(log_msg);
+    if (viewer) return { viewer->current_page(), true };
 
-	if (!log_msg.empty()) logger::error(log_msg);
-	return { 1, false };
+    if (!log_msg.empty()) logger::error(log_msg);
+    return { 1, false };
 }
 
 
 std::string MusicReader::current_document_name() const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto doc = current_document();
-	return doc ? doc->filename() : "";
+    auto doc = current_document();
+    return doc ? doc->filename() : "";
 }
 
 std::shared_ptr<Document> MusicReader::document_at(int index) const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *tab = viewer_tab(index);
-	return tab ? tab->document() : nullptr;
+    PDFViewer *tab = viewer_tab(index);
+    return tab ? tab->document() : nullptr;
 }
 
 
 PDFViewer *MusicReader::viewer_tab(int index) const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	try {
-		QWidget *tab = tab_widget_->widget(index);
-		for (QObject *child : tab->children()) {
-			if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
-				return viewer;
-			}
-		}
-	} catch (...) {
-		return nullptr;
-	}
-	return nullptr;
+    try {
+        QWidget *tab = tab_widget_->widget(index);
+        for (QObject *child : tab->children()) {
+            if (auto *viewer = qobject_cast<PDFViewer *>(child)) {
+                return viewer;
+            }
+        }
+    } catch (...) {
+        return nullptr;
+    }
+    return nullptr;
 }
 
 
 void MusicReader::save_config()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	save_open_documents_to_config();
-	update_logging_level();
+    save_open_documents_to_config();
+    update_logging_level();
 }
 
 
 void MusicReader::save_open_documents_to_config()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	std::vector<OpenDocument> open_documents;
-	open_documents.reserve(tab_widget_->count());
-	for (int index = 0; index < tab_widget_->count(); ++index) {
-		auto pdf_viewer = tab_widget_->widget(index)->findChild<PDFViewer *>();
-		if (pdf_viewer) {
-			auto doc = pdf_viewer->document();
-			bool is_temporary = doc->is_temporary();
+    std::vector<OpenDocument> open_documents;
+    open_documents.reserve(tab_widget_->count());
+    for (int index = 0; index < tab_widget_->count(); ++index) {
+        auto pdf_viewer = tab_widget_->widget(index)->findChild<PDFViewer *>();
+        if (pdf_viewer) {
+            auto doc = pdf_viewer->document();
+            bool is_temporary = doc->is_temporary();
 
-			if (is_temporary) continue;
+            if (is_temporary) continue;
 
-			auto name = doc->filename();
+            auto name = doc->filename();
 
-			for (const auto &existing_doc : config_.open_documents()) {
-				if (existing_doc.filename == name) {
-					open_documents.push_back({
-						name,
-						pdf_viewer->current_page(),
-						doc->page_count(),
-						existing_doc.access_order
-					});
-					break;
-				}
-			}
-		}
-	}
-	config_.set_open_documents(open_documents);
+            for (const auto &existing_doc : config_.open_documents()) {
+                if (existing_doc.filename == name) {
+                    open_documents.push_back({
+                        name,
+                        pdf_viewer->current_page(),
+                        doc->page_count(),
+                        existing_doc.access_order
+                    });
+                    break;
+                }
+            }
+        }
+    }
+    config_.set_open_documents(open_documents);
 }
 
 
 void MusicReader::on_tab_changed()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	update_title();
-	update_bookmark_panel();
-	auto viewer = current_viewer();
-	if (viewer) {
-		viewer->update_status_bar();
+    update_title();
+    update_bookmark_panel();
+    auto viewer = current_viewer();
+    if (viewer) {
+        viewer->update_status_bar();
 
-		if (!restoring_documents_) {
-			auto doc = current_document();
-			if (doc) {
-				config_.update_document_access(doc->filename());
-				update_document_priority_order();
-			}
-		}
-	}
+        if (!restoring_documents_) {
+            auto doc = current_document();
+            if (doc) {
+                config_.update_document_access(doc->filename());
+                update_document_priority_order();
+            }
+        }
+    }
 }
 
 void MusicReader::on_close_tab(int index)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto doc = document_at(index);
-	if (doc) {
-		doc->kill_load();
-		load_manager_.remove_document(doc->filename());
-		config_.add_recent_document(doc->filename());
-	}
+    auto doc = document_at(index);
+    if (doc) {
+        doc->kill_load();
+        load_manager_.remove_document(doc->filename());
+        config_.add_recent_document(doc->filename());
+    }
 
-	QWidget *widget_to_remove = tab_widget_->widget(index);
-	if (widget_to_remove) {
-		widget_to_remove->deleteLater();
-		tab_widget_->removeTab(index);
-	}
+    QWidget *widget_to_remove = tab_widget_->widget(index);
+    if (widget_to_remove) {
+        widget_to_remove->deleteLater();
+        tab_widget_->removeTab(index);
+    }
 
-	save_open_documents_to_config();
-	on_tab_changed();
+    save_open_documents_to_config();
+    on_tab_changed();
 
-	QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
+    QTimer::singleShot(1000, this, [this] { update_memory_usage(); });
 }
 
 
 
 void MusicReader::update_title(int index)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	index;
+    index;
 
-	if (tab_widget_->count() > 0) {
-		QString current_tab_title = tab_widget_->tabText(tab_widget_->currentIndex());
-		setWindowTitle(current_tab_title);
-	} else {
-		setWindowTitle("MusicReader");
-	}
+    if (tab_widget_->count() > 0) {
+        QString current_tab_title = tab_widget_->tabText(tab_widget_->currentIndex());
+        setWindowTitle(current_tab_title);
+    } else {
+        setWindowTitle("MusicReader");
+    }
 }
 
 
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	// Rest of existing keyPressEvent code...
-	if (event->key() == Qt::Key_F11) {
-		// ... existing code
-	}
-	if (event->key() == Qt::Key_F11) {
-		if (isFullScreen()) {
-			status_bar_->setVisible(config_.show_status_bar());
-			config_.show_menu() ? menuBar()->show() : menuBar()->hide();
-			showNormal();
-		} else {
-			menuBar()->hide();
-			if (status_bar_) status_bar_->setVisible(false);
-			showFullScreen();
-		}
-		event->accept();
-		return;
-	}
-	if (event->key() == Qt::Key_Escape) {
-		if (isFullScreen()) {
-			status_bar_->setVisible(config_.show_status_bar());
-			config_.show_menu() ? menuBar()->show() : menuBar()->hide();
-			showNormal();
-		}
-		event->accept();
+    // Rest of existing keyPressEvent code...
+    if (event->key() == Qt::Key_F11) {
+        // ... existing code
+    }
+    if (event->key() == Qt::Key_F11) {
+        if (isFullScreen()) {
+            status_bar_->setVisible(config_.show_status_bar());
+            config_.show_menu() ? menuBar()->show() : menuBar()->hide();
+            showNormal();
+        } else {
+            menuBar()->hide();
+            if (status_bar_) status_bar_->setVisible(false);
+            showFullScreen();
+        }
+        event->accept();
+        return;
+    }
+    if (event->key() == Qt::Key_Escape) {
+        if (isFullScreen()) {
+            status_bar_->setVisible(config_.show_status_bar());
+            config_.show_menu() ? menuBar()->show() : menuBar()->hide();
+            showNormal();
+        }
+        event->accept();
 
-		return;
-	}
+        return;
+    }
 
-	auto tab = current_viewer();
-	if (!tab) {
-		QMainWindow::keyPressEvent(event);
-		return;
-	}
+    auto tab = current_viewer();
+    if (!tab) {
+        QMainWindow::keyPressEvent(event);
+        return;
+    }
 
-	switch (event->key()) {
-	case Qt::Key_PageUp: tab->page_up(); event->accept(); return;
-	case Qt::Key_PageDown: tab->page_down(); event->accept(); return;
-	case Qt::Key_Left: tab->change_page(-1); event->accept(); return;
-	case Qt::Key_Right: tab->change_page(1); event->accept(); return;
-	default: QMainWindow::keyPressEvent(event);
-	}
+    switch (event->key()) {
+    case Qt::Key_PageUp: tab->page_up(); event->accept(); return;
+    case Qt::Key_PageDown: tab->page_down(); event->accept(); return;
+    case Qt::Key_Left: tab->change_page(-1); event->accept(); return;
+    case Qt::Key_Right: tab->change_page(1); event->accept(); return;
+    default: QMainWindow::keyPressEvent(event);
+    }
 }
 
 void MusicReader::on_page_up()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto tab = current_viewer();
-	if (tab) tab->page_up();
+    auto tab = current_viewer();
+    if (tab) tab->page_up();
 }
 
 void MusicReader::on_page_down()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto tab = current_viewer();
-	if (tab) tab->page_down();
+    auto tab = current_viewer();
+    if (tab) tab->page_down();
 }
 
 PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	// TODO may not be correct. not sure there is some weird logic in the python
-	// to detect the type of the object, may just have been do to earlier code that
-	// no longer exists.
-	try {
-		PDFViewer *tab = current_tab();
-		if (tab) return tab;
+    // TODO may not be correct. not sure there is some weird logic in the python
+    // to detect the type of the object, may just have been do to earlier code that
+    // no longer exists.
+    try {
+        PDFViewer *tab = current_tab();
+        if (tab) return tab;
 
-		if (!log_err.empty()) logger::error(log_err);
-	} catch (...) {
-		if (!log_err.empty()) logger::error(log_err);
-	}
-	return nullptr;
+        if (!log_err.empty()) logger::error(log_err);
+    } catch (...) {
+        if (!log_err.empty()) logger::error(log_err);
+    }
+    return nullptr;
 }
 
 
 void MusicReader::create_bookmark_panel()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	bookmark_panel_ = new BookmarkPanel(this);
-	[[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
+    bookmark_panel_ = new BookmarkPanel(this);
+    [[maybe_unused]] bool s = connect(bookmark_panel_, &BookmarkPanel::bookmark_clicked, this, &MusicReader::go_to_bookmark);
 
-	connect(bookmark_panel_, &BookmarkPanel::bookmark_visibility_changed, this, &MusicReader::update_menu_bookmark_visibility);
+    connect(bookmark_panel_, &BookmarkPanel::bookmark_visibility_changed, this, &MusicReader::update_menu_bookmark_visibility);
 }
 
 
 void MusicReader::update_bookmark_panel()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	bookmark_panel_->populate();
-	update_background();
+    bookmark_panel_->populate();
+    update_background();
 }
 
 
 void MusicReader::update_bookmarks_for_doc()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (bookmark_panel_) bookmark_panel_->populate();
-	update_background();
+    if (bookmark_panel_) bookmark_panel_->populate();
+    update_background();
 }
 
 QIcon MusicReader::create_double_icon()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
-	QSize icon_size = single_icon.actualSize(QSize(32, 32));
+    QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
+    QSize icon_size = single_icon.actualSize(QSize(32, 32));
 
-	QPixmap pixmap(icon_size.width() * 2, icon_size.height());
-	pixmap.fill(Qt::transparent);
+    QPixmap pixmap(icon_size.width() * 2, icon_size.height());
+    pixmap.fill(Qt::transparent);
 
-	QPainter painter(&pixmap);
-	single_icon.paint(&painter, 0, 0, icon_size.width(), icon_size.height());
-	single_icon.paint(&painter, icon_size.width(), 0, icon_size.width(), icon_size.height());
-	painter.end();
+    QPainter painter(&pixmap);
+    single_icon.paint(&painter, 0, 0, icon_size.width(), icon_size.height());
+    single_icon.paint(&painter, icon_size.width(), 0, icon_size.width(), icon_size.height());
+    painter.end();
 
-	return QIcon(pixmap);
+    return QIcon(pixmap);
 }
 
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	for (int i = 0; i < tab_widget_->count(); ++i) {
-		auto widget = viewer_tab(i);
-		if (widget && widget->document()->filename() == name) return i;
-	}
+    for (int i = 0; i < tab_widget_->count(); ++i) {
+        auto widget = viewer_tab(i);
+        if (widget && widget->document()->filename() == name) return i;
+    }
 
-	return std::nullopt;
+    return std::nullopt;
 }
 
 
 void MusicReader::go_to_bookmark(int page_num)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (page_num > 0) {
-		auto *viewer = current_viewer();
-		if (viewer)
-			viewer->get_page(page_num);
-		else
-			logger::error("No viewer to navigate to bookmark");
-	}
+    if (page_num > 0) {
+        auto *viewer = current_viewer();
+        if (viewer)
+            viewer->get_page(page_num);
+        else
+            logger::error("No viewer to navigate to bookmark");
+    }
 
-	// Updates Undo and Redo menu states based on stack availability
-	/*TODO
-	bool enable_undo = !undo_stack_.empty();
-	bool enable_redo = !redo_stack_.empty();
-	undo_action_->setEnabled(enable_undo);
-	redo_action_->setEnabled(enable_redo);*/
+    // Updates Undo and Redo menu states based on stack availability
+    /*TODO
+    bool enable_undo = !undo_stack_.empty();
+    bool enable_redo = !redo_stack_.empty();
+    undo_action_->setEnabled(enable_undo);
+    redo_action_->setEnabled(enable_redo);*/
 }
 
 
 void MusicReader::update_menu_bookmark_visibility()
 {
-	//TODO
-	SAFE_METHOD;
+    //TODO
+    SAFE_METHOD;
 
 }
 
 void MusicReader::refresh_all_documents()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	// Handle current tab first for responsiveness
-	PDFViewer *current = current_viewer();
-	if (current)
-		current->refresh();
+    // Handle current tab first for responsiveness
+    PDFViewer *current = current_viewer();
+    if (current)
+        current->refresh();
 
-	// Then update other tabs in the background
-	for (int i = 0; i < tab_widget_->count(); ++i) {
-		PDFViewer *viewer = viewer_tab(i);
-		if (viewer && viewer != current)
-			viewer->refresh();
-	}
+    // Then update other tabs in the background
+    for (int i = 0; i < tab_widget_->count(); ++i) {
+        PDFViewer *viewer = viewer_tab(i);
+        if (viewer && viewer != current)
+            viewer->refresh();
+    }
 }
 
 void MusicReader::open_config_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	try {
-		ConfigDialog editor_dialog(config_, this);
-		save_open_documents_to_config();
+    try {
+        ConfigDialog editor_dialog(config_, this);
+        save_open_documents_to_config();
 
-		editor_dialog.exec();
+        editor_dialog.exec();
 
-		if (editor_dialog.result() == QDialog::Accepted) {
-			config_.save();
-			on_config_saved();
-			update_logging_level();
-		}
-	} catch (const std::exception &e) {
-		logger::error("Failed to open settings dialog: " + std::string(e.what()));
-	}
+        if (editor_dialog.result() == QDialog::Accepted) {
+            config_.save();
+            on_config_saved();
+            update_logging_level();
+        }
+    } catch (const std::exception &e) {
+        logger::error("Failed to open settings dialog: " + std::string(e.what()));
+    }
 }
 
 
 void MusicReader::update_logging_level()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
-	switch (config_.log_level()) {
-	case LogLevel::Diagnostic:
-		logger::enable_debug_logging(true);
-		break;
-	case LogLevel::Trace:
-		logger::enable_trace_logging(true);
-		break;
-	default:
-		logger::enable_debug_logging(false);
-		break;
-	}
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+    switch (config_.log_level()) {
+    case LogLevel::Diagnostic:
+        logger::enable_debug_logging(true);
+        break;
+    case LogLevel::Trace:
+        logger::enable_trace_logging(true);
+        break;
+    default:
+        logger::enable_debug_logging(false);
+        break;
+    }
 }
 
 
 void MusicReader::restore_window_state()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (config_.restore_window_position()) {
-		try {
-			const auto &app_size = config_.app_size();
-			if (app_size.size() >= 4) {
-				move(app_size[0], app_size[1]);
-				resize(app_size[2], app_size[3]);
-				ensure_window_is_visible(this);
-			}
-		} catch (...) {
-			logger::error("Failed to restore app position and size");
-		}
-	}
+    if (config_.restore_window_position()) {
+        try {
+            const auto &app_size = config_.app_size();
+            if (app_size.size() >= 4) {
+                move(app_size[0], app_size[1]);
+                resize(app_size[2], app_size[3]);
+                ensure_window_is_visible(this);
+            }
+        } catch (...) {
+            logger::error("Failed to restore app position and size");
+        }
+    }
 }
 
 
 void MusicReader::open_dev_status_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	DevStatusDialog::show(config_, this);
+    DevStatusDialog::show(config_, this);
 }
 
 
 void MusicReader::open_imslp_search_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	try {
-		auto *dialog = new IMSLPSearchDialog(this);
-		dialog->show();
-	} catch (const std::exception &e) {
-		logger::error("Failed to open IMSLP search dialog: " + std::string(e.what()));
-		display_error_message("Failed to open IMSLP search dialog: " + std::string(e.what()));
-	}
+    try {
+        auto *dialog = new IMSLPSearchDialog(this);
+        dialog->show();
+    } catch (const std::exception &e) {
+        logger::error("Failed to open IMSLP search dialog: " + std::string(e.what()));
+        display_error_message("Failed to open IMSLP search dialog: " + std::string(e.what()));
+    }
 }
 
 void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	std::filesystem::path  default_directory;
+    std::filesystem::path  default_directory;
 
-	if (!pathname.empty()) {
-		default_directory = pathname;
-	} else {
-		auto doc = current_document();
-		if (doc)
-			default_directory = std::filesystem::path(doc->filename()).parent_path();
-	}
+    if (!pathname.empty()) {
+        default_directory = pathname;
+    } else {
+        auto doc = current_document();
+        if (doc)
+            default_directory = std::filesystem::path(doc->filename()).parent_path();
+    }
 
-	QStringList filenames = QFileDialog::getOpenFileNames(
-		this, "Open PDF", QString::fromStdU16String(default_directory.u16string()), "PDF Files (*.pdf)");
+    QStringList filenames = QFileDialog::getOpenFileNames(
+        this, "Open PDF", QString::fromStdU16String(default_directory.u16string()), "PDF Files (*.pdf)");
 
-	if (!filenames.isEmpty()) {
-		for (const QString &name : filenames)
-			open_pdf_in_tab(name.toStdU16String());
-	}
+    if (!filenames.isEmpty()) {
+        for (const QString &name : filenames)
+            open_pdf_in_tab(name.toStdU16String());
+    }
 }
 
 PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, int page, PDFViewer *viewer, bool is_temporary)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (!viewer) {
-		if (auto i = doc_is_open(filename); i.has_value()) {
-			focus_on_tab(i.value());
-			return nullptr;
-		}
-	}
+    if (!viewer) {
+        if (auto i = doc_is_open(filename); i.has_value()) {
+            focus_on_tab(i.value());
+            return nullptr;
+        }
+    }
 
-	auto doc = open_pdf_document(filename, page);
-	if (!doc)
-		return nullptr;
+    auto doc = open_pdf_document(filename, page);
+    if (!doc)
+        return nullptr;
 
-	doc->set_is_temporary(is_temporary);
+    doc->set_is_temporary(is_temporary);
 
-	logger::info("Opened " + doc->filename());
+    logger::info("Opened " + doc->filename());
 
-	if (!viewer) {
-		QWidget *tab = new QWidget();
-		viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this, bookmark_panel_);
+    if (!viewer) {
+        QWidget *tab = new QWidget();
+        viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this, bookmark_panel_);
 
-		QVBoxLayout *layout = new QVBoxLayout();
-		layout->setContentsMargins(0, 0, 0, 0);
-		layout->addWidget(viewer);
-		tab->setLayout(layout);
+        QVBoxLayout *layout = new QVBoxLayout();
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(viewer);
+        tab->setLayout(layout);
 
-		int index = tab_widget_->addTab(tab, QString::fromStdU16String(filename.stem().u16string()));
-		tab_widget_->setTabToolTip(index, QString::fromStdU16String(filename.u16string()));
-		tab_widget_->setCurrentWidget(tab);
+        int index = tab_widget_->addTab(tab, QString::fromStdU16String(filename.stem().u16string()));
+        tab_widget_->setTabToolTip(index, QString::fromStdU16String(filename.u16string()));
+        tab_widget_->setCurrentWidget(tab);
 
-		focus_on_tab(tab_widget_->currentIndex());
-		config_.add_new_document(filename, page, doc->page_count());
-	} else {
-		viewer->replace_document(doc, page);
-		config_.update_document_access(filename);
-	}
+        focus_on_tab(tab_widget_->currentIndex());
+        config_.add_new_document(filename, page, doc->page_count());
+    } else {
+        viewer->replace_document(doc, page);
+        config_.update_document_access(filename);
+    }
 
-	save_open_documents_to_config();
+    save_open_documents_to_config();
 
-	load_manager_.add_document(doc);
+    load_manager_.add_document(doc);
 
-	viewer->refresh();
-	QTimer::singleShot(5000, this, [this] { update_memory_usage(); });
+    viewer->refresh();
+    QTimer::singleShot(5000, this, [this] { update_memory_usage(); });
 
-	return viewer;
+    return viewer;
 }
 
 
 void MusicReader::goto_page_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto viewer = current_viewer();
-	if (!viewer) return;
+    auto viewer = current_viewer();
+    if (!viewer) return;
 
-	int max_page = viewer->page_count();
+    int max_page = viewer->page_count();
 
-	QDialog dialog(this);
-	dialog.setWindowTitle("Go to Page");
-	dialog.setModal(true);
+    QDialog dialog(this);
+    dialog.setWindowTitle("Go to Page");
+    dialog.setModal(true);
 
-	QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
-	QLabel *label = new QLabel(QString("Enter page number (1 - %1):").arg(max_page), &dialog);
-	layout->addWidget(label);
+    QLabel *label = new QLabel(QString("Enter page number (1 - %1):").arg(max_page), &dialog);
+    layout->addWidget(label);
 
-	QLineEdit *line_edit = new QLineEdit(&dialog);
-	line_edit->setValidator(new QIntValidator(1, max_page, line_edit));
-	layout->addWidget(line_edit);
+    QLineEdit *line_edit = new QLineEdit(&dialog);
+    line_edit->setValidator(new QIntValidator(1, max_page, line_edit));
+    layout->addWidget(line_edit);
 
-	QDialogButtonBox *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-	layout->addWidget(button_box);
+    QDialogButtonBox *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(button_box);
 
-	QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-	QObject::connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
-	if (dialog.exec() == QDialog::Accepted) {
-		bool ok = false;
-		int page = line_edit->text().toInt(&ok);
-		if (ok && page >= 1 && page <= max_page) {
-			viewer->get_page(page);
-		}
-	}
+    if (dialog.exec() == QDialog::Accepted) {
+        bool ok = false;
+        int page = line_edit->text().toInt(&ok);
+        if (ok && page >= 1 && page <= max_page) {
+            viewer->get_page(page);
+        }
+    }
 }
 
 
 std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::path &filename, int page_num)
 {
-	LOG_EXCEPTION;
-	TRACE_FUNCTION;
+    LOG_EXCEPTION;
+    TRACE_FUNCTION;
 
-	if (!std::filesystem::exists(filename)) {
-		logger::debug(filename.u8string() + u8" doesn't exist");
-		return {};
-	}
+    if (!std::filesystem::exists(filename)) {
+        logger::debug(filename.u8string() + u8" doesn't exist");
+        return {};
+    }
 
-	auto doc = std::make_shared<Document>(filename, config_.dpi(), page_num);
-	connect(doc.get(), &Document::bookmarks_loaded, this, [&]() {
-		bookmark_panel_->populate();
-		update_background();
-	});
-	load_manager_.add_document(doc);
+    auto doc = std::make_shared<Document>(filename, config_.dpi(), page_num);
+    connect(doc.get(), &Document::bookmarks_loaded, this, [&]() {
+        bookmark_panel_->populate();
+        update_background();
+    });
+    load_manager_.add_document(doc);
 
-	return doc;
+    return doc;
 }
 
 
 void MusicReader::focus_on_tab(int index)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *viewer = viewer_tab(index);
-	if (viewer) {
-		tab_widget_->setCurrentIndex(index);
-		viewer->setFocusPolicy(Qt::StrongFocus);
-		viewer->setFocus();
-	}
+    PDFViewer *viewer = viewer_tab(index);
+    if (viewer) {
+        tab_widget_->setCurrentIndex(index);
+        viewer->setFocusPolicy(Qt::StrongFocus);
+        viewer->setFocus();
+    }
 }
 
 
 void MusicReader::display_error_message(const std::string &msg)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMessageBox mbox;
-	mbox.setIcon(QMessageBox::Critical);
-	mbox.setText(QString::fromStdString(msg));
-	mbox.setWindowTitle("Error");
-	mbox.setStandardButtons(QMessageBox::Ok);
-	mbox.exec();
+    QMessageBox mbox;
+    mbox.setIcon(QMessageBox::Critical);
+    mbox.setText(QString::fromStdString(msg));
+    mbox.setWindowTitle("Error");
+    mbox.setStandardButtons(QMessageBox::Ok);
+    mbox.exec();
 }
 
 bool MusicReader::display_query(const std::string &msg)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	QMessageBox msgBox(this);
-	msgBox.setIcon(QMessageBox::Question);
-	msgBox.setText(QString::fromStdString(msg));
-	msgBox.setWindowTitle("Confirmation");
-	msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-	return msgBox.exec() == QMessageBox::Yes;
+    QMessageBox msgBox(this);
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setText(QString::fromStdString(msg));
+    msgBox.setWindowTitle("Confirmation");
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    return msgBox.exec() == QMessageBox::Yes;
 }
 
 
 void MusicReader::create_status_bar()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	status_bar_ = new StatusBar();
-	setStatusBar(status_bar_);
-	status_bar_->setVisible(config_.show_status_bar());
+    status_bar_ = new StatusBar();
+    setStatusBar(status_bar_);
+    status_bar_->setVisible(config_.show_status_bar());
 
-	// Connect dropdown selection to page change
-	connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-			this, &MusicReader::on_page_selected);
+    // Connect dropdown selection to page change
+    connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MusicReader::on_page_selected);
 
-	// Display initial memory usage
-	update_memory_usage();
+    // Display initial memory usage
+    update_memory_usage();
 
-	// Start timer to update memory usage every 30 seconds
-	timer_ = new QTimer(this);
-	connect(timer_, &QTimer::timeout, this, &MusicReader::update_memory_usage);
-	timer_->start(30'000);
+    // Start timer to update memory usage every 30 seconds
+    timer_ = new QTimer(this);
+    connect(timer_, &QTimer::timeout, this, &MusicReader::update_memory_usage);
+    timer_->start(30'000);
 }
 
 void MusicReader::update_memory_usage()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	auto format_memory = [](size_t bytes) -> std::string {
-		static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
-		int unit_index = 0;
-		double size = static_cast<double>(bytes);
+    auto format_memory = [](size_t bytes) -> std::string {
+        static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
+        int unit_index = 0;
+        double size = static_cast<double>(bytes);
 
-		while (size >= 1024.0 && unit_index < 4) {
-			size /= 1024.0;
-			unit_index++;
-		}
+        while (size >= 1024.0 && unit_index < 4) {
+            size /= 1024.0;
+            unit_index++;
+        }
 
-		return std::to_string(static_cast<int>(size)) + " " + units[unit_index];
-	};
+        return std::to_string(static_cast<int>(size)) + " " + units[unit_index];
+    };
 
-	PROCESS_MEMORY_COUNTERS mem_info;
-	if (GetProcessMemoryInfo(GetCurrentProcess(), &mem_info, sizeof(mem_info))) {
-		size_t usage = mem_info.WorkingSetSize;
-		MEMORYSTATUSEX mem_status;
-		mem_status.dwLength = sizeof(mem_status);
-		GlobalMemoryStatusEx(&mem_status);
+    PROCESS_MEMORY_COUNTERS mem_info;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &mem_info, sizeof(mem_info))) {
+        size_t usage = mem_info.WorkingSetSize;
+        MEMORYSTATUSEX mem_status;
+        mem_status.dwLength = sizeof(mem_status);
+        GlobalMemoryStatusEx(&mem_status);
 
-		int pct = static_cast<int>(100.0 * usage / mem_status.ullTotalPhys);
-		std::string msg = "Mem: " + format_memory(usage) + " (" + std::to_string(pct) + "%)";
-		status_bar_->set_memory_usage(msg);
-	}
+        int pct = static_cast<int>(100.0 * usage / mem_status.ullTotalPhys);
+        std::string msg = "Mem: " + format_memory(usage) + " (" + std::to_string(pct) + "%)";
+        status_bar_->set_memory_usage(msg);
+    }
 }
 
 
 void MusicReader::show_page_count()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *viewer = current_viewer();
-	if (!viewer) {
-		status_bar_->clear_page_count();
-		return;
-	}
+    PDFViewer *viewer = current_viewer();
+    if (!viewer) {
+        status_bar_->clear_page_count();
+        return;
+    }
 
-	int total_pages = viewer->page_count();
-	int current_page = viewer->current_page();
-	status_bar_->set_page_count(current_page, total_pages);
+    int total_pages = viewer->page_count();
+    int current_page = viewer->current_page();
+    status_bar_->set_page_count(current_page, total_pages);
 }
 
 void MusicReader::on_page_selected(int index)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	PDFViewer *viewer = current_viewer();
-	if (viewer)
-		viewer->get_page(index + 1);  // Convert index to 1-based page number
+    PDFViewer *viewer = current_viewer();
+    if (viewer)
+        viewer->get_page(index + 1);  // Convert index to 1-based page number
 
-	show_page_count();  // Ensure status bar reflects any adjustments
+    show_page_count();  // Ensure status bar reflects any adjustments
 }
 
 void MusicReader::initialize_fast_search()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	std::string name = config_.music_directory().string();
+    std::string name = config_.music_directory().string();
 
-	QTimer::singleShot(100, this, [this, name]() {
-		FastFileSearchDialog::initialize_data(name);
-		auto dsize = config_.fast_search_dialog_size();
-		QRect size(dsize[0], dsize[1], dsize[2], dsize[3]);
+    QTimer::singleShot(100, this, [this, name]() {
+        FastFileSearchDialog::initialize_data(name);
+        auto dsize = config_.fast_search_dialog_size();
+        QRect size(dsize[0], dsize[1], dsize[2], dsize[3]);
 
-		// Use mutex to safely initialize
-		{
-			std::lock_guard<std::mutex> lock(fast_search_mutex_);
+        // Use mutex to safely initialize
+        {
+            std::lock_guard<std::mutex> lock(fast_search_mutex_);
 
-			// Create dialog - constructor will load and prepare file display while hidden
-			fast_search_dialog_ = new FastFileSearchDialog(this, config_, size);
-			fast_search_initialized_ = true;
-		}
-		logger::debug("initialize_fast_search done");
+            // Create dialog - constructor will load and prepare file display while hidden
+            fast_search_dialog_ = new FastFileSearchDialog(this, config_, size);
+            fast_search_initialized_ = true;
+        }
+        logger::debug("initialize_fast_search done");
 
 
-	});
+    });
 }
 
 
 void MusicReader::open_fast_search_dialog()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	{
-		std::unique_lock<std::mutex> lock(fast_search_mutex_);
-		if (!fast_search_initialized_)
-			fast_search_cv_.wait(lock, [this]() { return fast_search_initialized_; });
-	}
+    {
+        std::unique_lock<std::mutex> lock(fast_search_mutex_);
+        if (!fast_search_initialized_)
+            fast_search_cv_.wait(lock, [this]() { return fast_search_initialized_; });
+    }
 
-	try {
-		tab_widget_->setEnabled(false);
-		fast_search_dialog_->show_dialog();
-		//fast_search_dialog_->exec();
-	} catch (const std::exception &e) {
-		logger::error("Failed to open fast search dialog: " + std::string(e.what()));
-	}
+    try {
+        tab_widget_->setEnabled(false);
+        fast_search_dialog_->show_dialog();
+        //fast_search_dialog_->exec();
+    } catch (const std::exception &e) {
+        logger::error("Failed to open fast search dialog: " + std::string(e.what()));
+    }
 
-	tab_widget_->setEnabled(true);
+    tab_widget_->setEnabled(true);
 
-	// Save dialog geometry
-	QRect geometry = fast_search_dialog_->geometry();
-	std::array<int, 4> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
+    // Save dialog geometry
+    QRect geometry = fast_search_dialog_->geometry();
+    std::array<int, 4> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
 
-	{
-		ConfigFileGroupSave group_saver(config_);
-		config_.set_fast_search_dialog_size(size);
-		config_.set_music_directory(fast_search_dialog_->path());
-	}
+    {
+        ConfigFileGroupSave group_saver(config_);
+        config_.set_fast_search_dialog_size(size);
+        config_.set_music_directory(fast_search_dialog_->path());
+    }
 
-	// Handle selected files
-	auto [selected_files, filepath] = fast_search_dialog_->selected_files();
-	if (selected_files.size() == 1 && selected_files[0] == "open") {
-		open_file_dialog(filepath);
-	} else {
-		for (const auto &file : selected_files) {
-			open_pdf_in_tab(file);
-		}
-	}
+    // Handle selected files
+    auto [selected_files, filepath] = fast_search_dialog_->selected_files();
+    if (selected_files.size() == 1 && selected_files[0] == "open") {
+        open_file_dialog(filepath);
+    } else {
+        for (const auto &file : selected_files) {
+            open_pdf_in_tab(file);
+        }
+    }
 }
 
 void MusicReader::update_background()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (tab_widget_->count() == 0) {
-		tab_widget_->setStyleSheet(R"(
+    if (tab_widget_->count() == 0) {
+        tab_widget_->setStyleSheet(R"(
             background-image: url(":/MusicReader/images/gclef.png");
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
         )");
-	} else {
-		// Remove the background image only, without wiping other styles
-		tab_widget_->setStyleSheet(R"(
+    } else {
+        // Remove the background image only, without wiping other styles
+        tab_widget_->setStyleSheet(R"(
             background: none;
         )");
-	}
+    }
 }
 
 template<class T>
 class SaveState {
 private:
-	T &var_;
-	T old_value;
+    T &var_;
+    T old_value;
 public:
-	SaveState(T &var, T value) : var_(var)
-	{
-		old_value = var;
-		var_ = value;
-	}
-	~SaveState()
-	{
-		var_ = old_value;
-	}
+    SaveState(T &var, T value) : var_(var)
+    {
+        old_value = var;
+        var_ = value;
+    }
+    ~SaveState()
+    {
+        var_ = old_value;
+    }
 };
 
 void MusicReader::restore_open_documents()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	REQUIRES(bookmark_panel_);
-	REQUIRES(tab_widget_);
+    REQUIRES(bookmark_panel_);
+    REQUIRES(tab_widget_);
 
-	logger::debug("Restoring open documents...");
-	SaveState(restoring_documents_, true);
+    logger::debug("Restoring open documents...");
+    SaveState(restoring_documents_, true);
 
-	const auto docs_info = config_.open_documents();
-	int num_docs = static_cast<int>(docs_info.size());
+    const auto docs_info = config_.open_documents();
+    int num_docs = static_cast<int>(docs_info.size());
 
-	if (num_docs == 0) {
-		update_background();
-		return;
-	}
+    if (num_docs == 0) {
+        update_background();
+        return;
+    }
 
-	int tab_to_focus = config_.open_tab();
+    int tab_to_focus = config_.open_tab();
 
-	{
-		DocumentLoadManagerGuard guard;
-		std::vector<PDFViewer *> viewers;
-		std::vector<std::shared_ptr<Document>> documents;
+    {
+        DocumentLoadManagerGuard guard;
+        std::vector<PDFViewer *> viewers;
+        std::vector<std::shared_ptr<Document>> documents;
 
-		for (auto doc_info : docs_info) {
-			logger::debug("restoring document {} at page {}", doc_info.filename.string(), doc_info.page);
-			auto doc = open_pdf_document(doc_info.filename, doc_info.page);
-			if (!doc) {
-				logger::info("Failed to re-open document: {}", doc_info.filename.string());
-				continue;
-			}
-			documents.push_back(doc);
+        for (auto doc_info : docs_info) {
+            logger::debug("restoring document {} at page {}", doc_info.filename.string(), doc_info.page);
+            auto doc = open_pdf_document(doc_info.filename, doc_info.page);
+            if (!doc) {
+                logger::info("Failed to re-open document: {}", doc_info.filename.string());
+                continue;
+            }
+            documents.push_back(doc);
 
-			QWidget *tab = new QWidget();
-			PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this, bookmark_panel_);
-			viewers.push_back(viewer);
+            QWidget *tab = new QWidget();
+            PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this, bookmark_panel_);
+            viewers.push_back(viewer);
 
-			QVBoxLayout *layout = new QVBoxLayout();
-			layout->setContentsMargins(0, 0, 0, 0);
-			layout->addWidget(viewer);
-			tab->setLayout(layout);
+            QVBoxLayout *layout = new QVBoxLayout();
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->addWidget(viewer);
+            tab->setLayout(layout);
 
-			int index = tab_widget_->addTab(tab, QString::fromStdWString(doc_info.filename.stem().wstring()));
-			tab_widget_->setTabToolTip(index, QString::fromStdWString(doc_info.filename.wstring()));
-		}
+            int index = tab_widget_->addTab(tab, QString::fromStdWString(doc_info.filename.stem().wstring()));
+            tab_widget_->setTabToolTip(index, QString::fromStdWString(doc_info.filename.wstring()));
+        }
 
-		num_docs = (int)documents.size();
-		if (num_docs == 0) {
-			update_background();
-			bookmark_panel_->adjust_width();
-			config_.set_open_tab(-1);
-			return;
-		}
+        num_docs = (int)documents.size();
+        if (num_docs == 0) {
+            update_background();
+            bookmark_panel_->adjust_width();
+            config_.set_open_tab(-1);
+            return;
+        }
 
-		tab_widget_->setCurrentIndex(tab_to_focus);
-		QApplication::processEvents();
-	}
+        tab_widget_->setCurrentIndex(tab_to_focus);
+        QApplication::processEvents();
+    }
 
-	update_document_priority_order();
+    update_document_priority_order();
 
-	logger::debug("cleaning up");
-	update_document_priority_order();
+    logger::debug("cleaning up");
+    update_document_priority_order();
 
-	bookmark_panel_->adjust_width();
-	update_background();
+    bookmark_panel_->adjust_width();
+    update_background();
 }
 
 void MusicReader::update_document_priority_order()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	std::vector<std::filesystem::path> ordered_docs;
+    std::vector<std::filesystem::path> ordered_docs;
 
-	auto current_doc = current_document();
-	if (current_doc)
-		ordered_docs.push_back(current_doc->filename());
+    auto current_doc = current_document();
+    if (current_doc)
+        ordered_docs.push_back(current_doc->filename());
 
-	for (const auto &open_doc : config_.open_documents()) {
-		std::filesystem::path doc_path = open_doc.filename;
-		if (current_doc && doc_path == current_doc->filename())
-			continue;
+    for (const auto &open_doc : config_.open_documents()) {
+        std::filesystem::path doc_path = open_doc.filename;
+        if (current_doc && doc_path == current_doc->filename())
+            continue;
 
-		if (doc_is_open(doc_path))
-			ordered_docs.push_back(doc_path);
-	}
+        if (doc_is_open(doc_path))
+            ordered_docs.push_back(doc_path);
+    }
 
-	load_manager_.set_document_priority_order(ordered_docs);
+    load_manager_.set_document_priority_order(ordered_docs);
 }
 
 void MusicReader::toggle_bookmark_panel()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (bookmark_panel_) {
-		bool visible = !bookmark_panel_->isVisible();
-		bookmark_panel_->setVisible(visible);
-		bookmark_menu_action_->setChecked(visible);
-	}
+    if (bookmark_panel_) {
+        bool visible = !bookmark_panel_->isVisible();
+        bookmark_panel_->setVisible(visible);
+        bookmark_menu_action_->setChecked(visible);
+    }
 }
 
 
 void MusicReader::set_statusbar_visibility()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (!status_bar_) return;
-	if (!statusbar_menu_action_) return;
+    if (!status_bar_) return;
+    if (!statusbar_menu_action_) return;
 
-	bool visible = config_.show_status_bar();
-	status_bar_->setVisible(visible);
-	statusbar_menu_action_->setChecked(visible);
+    bool visible = config_.show_status_bar();
+    status_bar_->setVisible(visible);
+    statusbar_menu_action_->setChecked(visible);
 }
 
 
 void MusicReader::toggle_statusbar_visibility()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	config_.set_show_status_bar(!config_.show_status_bar());
-	set_statusbar_visibility();
+    config_.set_show_status_bar(!config_.show_status_bar());
+    set_statusbar_visibility();
 }
 
 
 void MusicReader::set_toolbar_visibility()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (!toolbar_) return;
-	if (!toolbar_menu_action_) return;
+    if (!toolbar_) return;
+    if (!toolbar_menu_action_) return;
 
-	bool visible = config_.show_toolbar();
-	config_.set_show_toolbar(visible);
-	toolbar_->setVisible(visible);
-	toolbar_menu_action_->setChecked(visible);
+    bool visible = config_.show_toolbar();
+    config_.set_show_toolbar(visible);
+    toolbar_->setVisible(visible);
+    toolbar_menu_action_->setChecked(visible);
 }
 
 
 void MusicReader::toggle_toolbar_visibility()
 {
-	TRACE_FUNCTION;
-	SAFE_METHOD;
+    TRACE_FUNCTION;
+    SAFE_METHOD;
 
-	config_.set_show_toolbar(!config_.show_toolbar());
-	set_toolbar_visibility();
+    config_.set_show_toolbar(!config_.show_toolbar());
+    set_toolbar_visibility();
 }
 
 void MusicReader::toggle_menu_visibility()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	config_.set_show_menu(!config_.show_menu());
-	set_menu_visibility();
+    config_.set_show_menu(!config_.show_menu());
+    set_menu_visibility();
 }
 
 void MusicReader::set_menu_visibility()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	config_.show_menu() ? menuBar()->show() : menuBar()->hide();
+    config_.show_menu() ? menuBar()->show() : menuBar()->hide();
 }
 
 
 void MusicReader::on_config_saved()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	set_toolbar_visibility();
-	refresh_all_documents();
-	set_statusbar_visibility();
-	set_menu_visibility();
+    set_toolbar_visibility();
+    refresh_all_documents();
+    set_statusbar_visibility();
+    set_menu_visibility();
 }
 
 void MusicReader::copy_log_to_clipboard()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	if (!OpenClipboard(nullptr)) return;
-	EmptyClipboard();
+    if (!OpenClipboard(nullptr)) return;
+    EmptyClipboard();
 
-	std::string contents = logger::get_log_content();
+    std::string contents = logger::get_log_content();
 
-	HGLOBAL hglob = GlobalAlloc(GMEM_MOVEABLE, contents.size() + 1);
-	if (!hglob) {
-		CloseClipboard();
-		return;
-	}
+    HGLOBAL hglob = GlobalAlloc(GMEM_MOVEABLE, contents.size() + 1);
+    if (!hglob) {
+        CloseClipboard();
+        return;
+    }
 
-	memcpy(GlobalLock(hglob), contents.c_str(), contents.size() + 1);
-	GlobalUnlock(hglob);
-	SetClipboardData(CF_TEXT, hglob);
-	CloseClipboard();
+    memcpy(GlobalLock(hglob), contents.c_str(), contents.size() + 1);
+    GlobalUnlock(hglob);
+    SetClipboardData(CF_TEXT, hglob);
+    CloseClipboard();
 }
 
 
 void MusicReader::on_annotation_mode_changed(bool enabled)
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	std::cout << "MusicReader::on_annotation_mode_changed\n";
-	text_annotation_mode_ = enabled;
-	text_annotation_action_->setChecked(enabled);
+    std::cout << "MusicReader::on_annotation_mode_changed\n";
+    text_annotation_mode_ = enabled;
+    text_annotation_action_->setChecked(enabled);
 }
 
 
 void MusicReader::toggle_text_annotation_mode()
 {
-	SAFE_METHOD;
-	TRACE_FUNCTION;
+    SAFE_METHOD;
+    TRACE_FUNCTION;
 
-	text_annotation_mode_ = !text_annotation_mode_;
-	text_annotation_action_->setChecked(text_annotation_mode_);
+    text_annotation_mode_ = !text_annotation_mode_;
+    text_annotation_action_->setChecked(text_annotation_mode_);
 
-	auto viewer = current_viewer();
-	if (viewer)
-		viewer->set_text_annotation_mode(text_annotation_mode_);
+    auto viewer = current_viewer();
+    if (viewer)
+        viewer->set_text_annotation_mode(text_annotation_mode_);
 }

@@ -23,8 +23,6 @@
 #include <filesystem>
 #include "directory_watcher.h"
 
-
-
 class ConfigFile;
 
 

@@ -38,7 +38,7 @@ inline PixmapData render_page_seh(fz_context *ctx, fz_document *doc, int page_nu
     PixmapData result{ .ctx = ctx, .data = nullptr, .width = 0, .height = 0,
                  .stride = 0, .depth = 0, .size = 0, .success = false };
 
-    if (quit_now ||!ctx || !doc) return result;
+    if (quit_now || !ctx || !doc) return result;
 
     __try {
         fz_matrix transform = fz_scale(dpi / 72.0f, dpi / 72.0f);

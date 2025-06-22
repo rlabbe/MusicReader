@@ -29,12 +29,12 @@ void InPlaceAnnotationEditor::start_editing(const QPoint &position, const QStrin
 
     FontInfo current_font{ font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text) };
     QSize size;
-    if (initial_text.isEmpty()) 
+    if (initial_text.isEmpty())
         // For empty text, use single character width as starting point
         size = calculate_text_size("A", current_font);
-     else 
+    else
         size = calculate_text_size(initial_text, current_font);
-   
+
     resize(size);
 
     // Position editor so text appears exactly at click point

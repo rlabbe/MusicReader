@@ -98,6 +98,6 @@ private:
     // Hover functionality
     QLabel *hover_popup_;
 
-   int large_icon_size_ = 300;
-   int small_icon_size_ = 150;
+    int large_icon_size_ = 300;
+    int small_icon_size_ = 150;
 };

@@ -10,8 +10,7 @@ class QPushButton;
 class ConfigFile;
 
 
-class ConfigDialog : public QDialog
-{
+class ConfigDialog : public QDialog {
     Q_OBJECT
 
 public:

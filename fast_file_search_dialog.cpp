@@ -447,7 +447,7 @@ void FastFileSearchDialog::delete_selected_files()
 
 void FastFileSearchDialog::restore_deleted_files()
 {
-    if (recently_deleted_.empty()) 
+    if (recently_deleted_.empty())
         return;
 
     HRESULT hr = CoInitialize(NULL);
@@ -566,7 +566,7 @@ void FastFileSearchDialog::restore_deleted_files()
                         logger::error("InvokeCommand failed with error: {:x}", hr);
                         QMessageBox::warning(this, "Error", "Restore failed. Go to recycle bin and restore manually");
                     }
-                    
+
                 } else {
                     logger::error("QueryContextMenu failed with error: {:x}", hr);
                     QMessageBox::warning(this, "Error", "Restore failed. Go to recycle bin and restore manually");

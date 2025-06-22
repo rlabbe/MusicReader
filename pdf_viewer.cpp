@@ -131,7 +131,7 @@ void PDFViewer::change_page(int step)
     scrollbar_->setValue(new_page);
     manual_scrollbar_change_ = false;
 
-    if (document_) 
+    if (document_)
         document_->prioritize();
     get_page(new_page);
 }
@@ -284,7 +284,7 @@ void PDFViewer::init_ui(int page)
     connect(delete_shortcut, &QShortcut::activated, this, [this]() {
         std::cout << "here\n";
         if (has_selection_ && document_) {
-            
+
             if (document_->remove_annotation(selected_annotation_)) {
                 std::cout << "Deleted annotation: " << static_cast<int>(selected_annotation_) << std::endl;
                 clear_selection();
@@ -441,7 +441,7 @@ void PDFViewer::get_page(int page_num)
     if (page_num - delta >= 1)
         prefetch_async(page_num - delta);
 
-    if(bookmark_panel_)
+    if (bookmark_panel_)
         bookmark_panel_->select_page(page_num);
 }
 
@@ -642,8 +642,7 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
 
         event->accept();
         return;
-    }
-    else if (event->button() == Qt::LeftButton) {
+    } else if (event->button() == Qt::LeftButton) {
         // Handle annotation selection
         std::cout << "Mouse click at screen pos: (" << event->pos().x() << ", " << event->pos().y() << ")" << std::endl;
 
@@ -662,7 +661,7 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
             }
         }
     }
-    
+
     QWidget::mousePressEvent(event);
 }
 

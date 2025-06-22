@@ -2,8 +2,7 @@
 #include <QGuiApplication>
 #include <QCursor>
 
-class WaitCursor
-{
+class WaitCursor {
 public:
     WaitCursor()
     {

@@ -11,7 +11,7 @@ struct FontInfo {
     QString family = "Consolas";
     float size = 14.0f;
     QColor color = QColor(255, 0, 0);
-}; 
+};
 
 
 
