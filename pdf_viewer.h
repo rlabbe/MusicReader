@@ -64,7 +64,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
 
 private slots:
-    void on_page_loaded(int page_index);
+    void on_page_loaded(std::string name, int page_index);
     void on_annotation_text_finished(const QString &text);
     void on_annotation_text_cancelled();
 

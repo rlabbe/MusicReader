@@ -83,7 +83,6 @@ void PDFViewer::update_status_bar()
 bool PDFViewer::in_single_page_view() const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
     REQUIRES_RET(config_, true);
 
     return config_->page_view_count() == 1 || page_count() == 1;
@@ -547,14 +546,24 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 }
 
 
-void PDFViewer::on_page_loaded(int page_index)
+void PDFViewer::on_page_loaded(std::string name, int page_index)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    if (name != document_->filename())
+        return;
 
     int page_num = current_page();
-    int count = page_count();
 
+    if (in_single_page_view()) {
+        if (page_index != page_num)
+            return;
+    } else {
+        if (page_index != page_num && page_index != page_num + 1)
+            return;
+    }
+
+    TRACE_FUNCTION;
+    int count = page_count();
     if (in_single_page_view() || count == 1) {
         if (page_num == page_index) {
             PrefetchEntry entry = make_single_page_entry(page_num);
@@ -617,7 +626,6 @@ void PDFViewer::update_image(const QString &message)
         }
         painter.end();
     }
-
 
     label_->setPixmap(scaled_pixmap);
     adjust_initial_subwindow_size();

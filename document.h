@@ -75,7 +75,7 @@ public:
     void prioritize();
 
 signals:
-    void page_loaded(int page_index);
+    void page_loaded(std::string name, int page_index);
     void document_loaded(std::string name, int page);
     void bookmarks_loaded();
 
