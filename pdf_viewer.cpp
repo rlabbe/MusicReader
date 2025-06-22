@@ -343,8 +343,8 @@ void PDFViewer::prefetch_async(int page_num)
             return; // Already prefetched, matching mode
 
         PrefetchEntry entry = is_double
-            ? make_double_page_entry(page_num)
-            : make_single_page_entry(page_num);
+            ? make_double_page_entry(page_num, false)
+            : make_single_page_entry(page_num, false);
 
         if (entry.rendered.isNull())
             return;
@@ -368,7 +368,7 @@ void PDFViewer::clear_prefetch()
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
+PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num, bool is_current_page) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -377,10 +377,10 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
         return PrefetchEntry(page_num, false, false, 0);
 
     PrefetchEntry entry(page_num, true, config_->zoom_to_content(), config_->border_margin());
-    entry.p1 = PixmapPage(document_->get_page(page_num));
+    entry.p1 = PixmapPage(document_->get_page(page_num, is_current_page));
 
     if (page_num < document_->page_count())
-        entry.p2 = document_->get_page(page_num + 1);
+        entry.p2 = document_->get_page(page_num + 1, false);
     else
         copy_blank_image(entry.p1, entry.p2);
 
@@ -391,7 +391,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num) const
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
+PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num, bool is_current_page) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -402,7 +402,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 
     PrefetchEntry entry(page_num, false, config_->zoom_to_content(), config_->border_margin());
 
-    entry.p1 = document_->get_page(page_num);
+    entry.p1 = document_->get_page(page_num, is_current_page);
     if (!entry.p1.is_empty()) {
         if (config_->zoom_to_content())
             entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
@@ -424,8 +424,8 @@ void PDFViewer::get_page(int page_num)
 
     const bool is_double = in_double_page_view();
     PrefetchEntry entry = is_double
-        ? make_double_page_entry(page_num)
-        : make_single_page_entry(page_num);
+        ? make_double_page_entry(page_num, true)
+        : make_single_page_entry(page_num, true);
 
     page_ = PixmapPage(entry.rendered, page_num, is_double);
 
@@ -446,74 +446,6 @@ void PDFViewer::get_page(int page_num)
 }
 
 
-PixmapPage PDFViewer::get_single_page(int page_num)
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-    if (!document_) return PixmapPage();
-
-    PixmapPage page = document_->get_page(page_num);
-    if (!page.is_empty())
-        aspect_ratio_ = double(page.width()) / page.height();
-
-    return page;
-}
-
-
-PixmapPage PDFViewer::get_double_page(int page_num)
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    if (!document_ || !config_)
-        return PixmapPage();
-
-    const bool zoom = config_->zoom_to_content();
-    const int margin = config_->border_margin();
-    const bool last_page = (page_num == page_count());
-
-    PixmapPage p1 = document_->get_page(page_num);
-    PixmapPage p2;
-    if (!last_page)
-        p2 = document_->get_page(page_num + 1);
-    else
-        // ensure the last page has a valid blank image
-        // so it is rendered correctly in double page mode
-        copy_blank_image(p1, p2);
-
-    if (p1.is_empty() || p2.is_empty()) {
-        return Page(page_num); // Empty page to show "Loading..."
-    }
-
-    // Determine cropped dimensions if zooming to content
-    QRect p1_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p1.width(), p1.height());
-    QRect p2_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p2.width(), p2.height());
-
-    // New dimensions including space for the separator line
-    int line_width = 8;
-    int combined_width = p1_crop.width() + p2_crop.width() + line_width;
-    int max_height = std::max(p1_crop.height(), p2_crop.height());
-
-    aspect_ratio_ = static_cast<double>(combined_width) / max_height;
-
-    // Create the combined QPixmap
-    QPixmap combined_image(combined_width, max_height);
-    QColor back_color = 0xffffff;
-
-    combined_image.fill(back_color);
-
-    // Center each cropped page within the available height
-    int p1_offset = (max_height - p1_crop.height()) / 2;
-    int p2_offset = (max_height - p2_crop.height()) / 2;
-
-    // Draw cropped pages directly
-    QPainter painter(&combined_image);
-    painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
-    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
-    painter.end();
-
-    return PixmapPage(combined_image, page_num, true); //true for double page
-}
 
 QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
 {
@@ -549,6 +481,7 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 void PDFViewer::on_page_loaded(std::string name, int page_index)
 {
     SAFE_METHOD;
+
     if (name != document_->filename())
         return;
 
@@ -566,13 +499,13 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     int count = page_count();
     if (in_single_page_view() || count == 1) {
         if (page_num == page_index) {
-            PrefetchEntry entry = make_single_page_entry(page_num);
+            PrefetchEntry entry = make_single_page_entry(page_num, page_num == page_index);
             page_ = PixmapPage(entry.rendered, page_num, false);
             update_image();
         }
     } else {
         if (page_num == page_index || page_num + 1 == page_index) {
-            PrefetchEntry entry = make_double_page_entry(page_num);
+            PrefetchEntry entry = make_double_page_entry(page_num, page_num == page_index);
             page_ = PixmapPage(entry.rendered, page_num, true);
             update_image();
         }

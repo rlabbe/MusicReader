@@ -37,7 +37,7 @@ public:
     int page_count() const { return static_cast<int>(pages_.size()); }
     int dpi() const { return dpi_; }
 
-    Page get_page(int page_num) const;
+    Page get_page(int page_num, bool is_current) const;
     bool save();
     bool is_modified() const { return modified_; }
 
@@ -72,7 +72,7 @@ public:
 
     // call when tab has focus, so loading is prioritized, preferably BEFORE
     // get_page is called.
-    void prioritize();
+    void prioritize() const;
 
 signals:
     void page_loaded(std::string name, int page_index);

@@ -122,8 +122,8 @@ private:
     void prefetch_async(int page_num);
     QPixmap compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const;
     void clear_prefetch();
-    PrefetchEntry make_double_page_entry(int page_num) const;
-    PrefetchEntry make_single_page_entry(int page_num) const;
+    PrefetchEntry make_double_page_entry(int page_num, bool is_current_page) const;
+    PrefetchEntry make_single_page_entry(int page_num, bool is_current_page) const;
 
     void init_ui(int page);
     PixmapPage get_single_page(int page_num);

@@ -44,12 +44,14 @@ Document::~Document()
 }
 
 
-Page Document::get_page(int page_num) const
+Page Document::get_page(int page_num, bool is_current) const
 {
 	SAFE_METHOD;
-	TRACE_FUNCTION;
+	TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
 
-	current_page_ = page_num;  // Update current page
+	if (is_current)
+		current_page_ = page_num;
+
 	auto count = page_count();
 
 	if (page_num < 1 || page_num > count) {
@@ -60,18 +62,22 @@ Page Document::get_page(int page_num) const
 		else
 			page_num = 1;
 	}
-	bool need_to_request = false;
-	{
-		std::lock_guard lock(read_mutex_);
-		if (pages_[page_num - 1].is_empty())
-			need_to_request = true;
+	if (is_current) {
+		bool need_to_request = false;
+		{
+			std::lock_guard lock(read_mutex_);
+			if (pages_[page_num - 1].is_empty())
+				need_to_request = true;
+		}
+		if (need_to_request)
+			prioritize();
 	}
 
 	return pages_[page_num - 1];
 }
 
 
-void Document::prioritize()
+void Document::prioritize() const
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
@@ -169,6 +175,7 @@ std::vector<int> get_page_load_order(int start_page, int total_pages)
 	return load_order;
 }
 
+
 std::vector<int> Document::get_pending_pages() const
 {
 	std::lock_guard<std::mutex> lock(read_mutex_);
@@ -215,7 +222,7 @@ std::vector<int> Document::get_pending_pages() const
 void Document::load_page(int page_num)
 {
 	SAFE_METHOD;
-	TRACE_FUNCTION;
+	TRACE_FUNCTION_MSG("file: {} page: {}", filename_.string(), page_num);
 
 	if (kill_loading_ || page_num < 1 || page_num > page_count())
 		return;
@@ -233,7 +240,7 @@ void Document::load_page(int page_num)
 	QImage img;
 	fz_try(ctx)
 	{
-	img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
+		img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
 	}
 	fz_catch(ctx)
 	{
@@ -249,7 +256,7 @@ void Document::load_page(int page_num)
 	//std::this_thread::sleep_for(std::chrono::milliseconds(15000));
 
 	{
-		std::lock_guard lock(read_mutex_); 
+		std::lock_guard lock(read_mutex_);
 		pages_[page_num - 1] = Page(img, page_num, false);
 	}
 
@@ -687,8 +694,8 @@ Annotation *Document::find_annotation(const AnnotationHandle &handle)
 bool Document::add_annotation(const Annotation &annotation)
 {
 	SAFE_METHOD;
-	TRACE_FUNCTION;	
-	
+	TRACE_FUNCTION;
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 	annotations_.push_back(annotation);
 	modified_ = true;
@@ -722,7 +729,7 @@ bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::s
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
-	
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	auto *annotation = find_annotation(handle);
@@ -741,7 +748,7 @@ bool Document::move_annotation(const AnnotationHandle &handle, float new_x, floa
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
-	
+
 	std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
 	auto *annotation = find_annotation(handle);
@@ -762,7 +769,7 @@ void Document::reload_page(int page_num)
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
-	
+
 	if (page_num < 1 || page_num > page_count()) return;
 
 	auto [ctx, doc] = open_fitz(filename_.string());
@@ -794,7 +801,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
-	
+
 	std::vector<Annotation> annotations;
 	if (!ctx || !doc) return annotations;
 

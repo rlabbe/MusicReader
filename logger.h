@@ -112,15 +112,42 @@ struct function_tracer {
     const char *file_name;
     const char *func_name;
     int line_num;
-    __forceinline function_tracer(const char* file, const char *name, int line) 
+    __forceinline function_tracer(const char *file, const char *name, int line)
         : file_name(file), func_name(name), line_num(line)
     {
-        logger::trace("Enter {} {}:{}", file_name, func_name, line_num);
+        if (logger::trace_enabled())
+            logger::trace("Enter {} {}:{}", file_name, func_name, line_num);
     }
     __forceinline ~function_tracer()
     {
-        logger::trace("Exit {} {}:{}", file_name, func_name, line_num);
+        if (logger::trace_enabled())
+            logger::trace("Exit {} {}:{}", file_name, func_name, line_num);
+    }
+};
+
+struct function_tracer_msg {
+    const char *file_name;
+    const char *func_name;
+    int line_num;
+    std::string message;
+    bool enabled;
+
+    template<typename... Args>
+    __forceinline function_tracer_msg(const char *file, const char *name, int line, std::format_string<Args...> fmt, Args&&... args)
+        : file_name(file), func_name(name), line_num(line), enabled(logger::trace_enabled())
+    {
+        if (enabled) {
+            message = std::format(fmt, std::forward<Args>(args)...);
+            logger::trace("Enter {} {}:{} {}", file_name, func_name, line_num, message);
+        }
+    }
+
+    __forceinline ~function_tracer_msg()
+    {
+        if (enabled)
+            logger::trace("Exit {} {}:{} {}", file_name, func_name, line_num, message);
     }
 };
 
 #define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __func__, __LINE__)
+#define TRACE_FUNCTION_MSG(...) function_tracer_msg _trace_guard_##__LINE__(__FILE__, __func__, __LINE__, __VA_ARGS__)

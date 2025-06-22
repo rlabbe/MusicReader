@@ -102,66 +102,6 @@ void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
 	submit_next_jobs();
 }
 
-void DocumentLoadManager::set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs)
-{
-	std::lock_guard<std::recursive_mutex> lock(mutex_);
-
-	if (document_priority_order_ == ordered_docs) {
-		logger::debug("no priority change");
-		return;
-	}
-
-	std::ostringstream oss;
-	oss << "PRIORITY_ORDER_CHANGED: ";
-	for (const auto &doc : ordered_docs)
-		oss << doc.stem().string() << " ";
-	logger::debug(oss.str());
-
-	// Keep the first document as highest priority
-	std::filesystem::path highest_priority = ordered_docs[0];
-
-	// Create new priority order: first document, then others sorted by pending pages
-	std::vector<std::filesystem::path> new_order;
-	new_order.push_back(highest_priority);
-
-	// Collect remaining documents with their pending page counts
-	std::vector<std::pair<std::filesystem::path, int>> remaining_docs;
-	for (size_t i = 1; i < ordered_docs.size(); ++i) {
-		const auto &path = ordered_docs[i];
-
-		// Find the document and get its pending page count
-		auto doc_it = std::find_if(documents_.begin(), documents_.end(),
-								  [&path](const auto &doc) {
-			return doc && std::filesystem::path(doc->filename()) == path;
-		});
-
-		if (doc_it != documents_.end()) {
-			int pending_count = static_cast<int>((*doc_it)->get_pending_pages().size());
-			remaining_docs.emplace_back(path, pending_count);
-		}
-	}
-
-	// Sort remaining by pending page count (ascending - fewer pages first)
-	std::sort(remaining_docs.begin(), remaining_docs.end(),
-			  [](const auto &a, const auto &b) {
-		return a.second < b.second;
-	});
-
-	// Add sorted documents to new order
-	for (const auto &[path, count] : remaining_docs) {
-		new_order.push_back(path);
-	}
-
-	document_priority_order_ = std::move(new_order);
-
-	if (group_changes_)
-		return;
-
-	cancel_all_active_jobs_async();
-	populate_job_queue();
-	reorder_jobs();
-	submit_next_jobs();
-}
 
 void DocumentLoadManager::stop_loading()
 {
@@ -170,6 +110,7 @@ void DocumentLoadManager::stop_loading()
 	job_queue_.clear();
 	cancel_all_active_jobs_async();
 }
+
 
 void DocumentLoadManager::populate_job_queue()
 {
@@ -250,6 +191,8 @@ void DocumentLoadManager::reorder_jobs()
 
 void DocumentLoadManager::submit_next_jobs()
 {
+	TRACE_FUNCTION;
+
 	cleanup_finished_futures();
 
 	while (active_jobs_ < max_concurrent_jobs_ && !job_queue_.empty()) {
@@ -279,14 +222,85 @@ void DocumentLoadManager::submit_next_jobs()
 	}
 }
 
+void DocumentLoadManager::set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs)
+{
+	std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+	if (document_priority_order_ == ordered_docs) {
+		logger::debug("no priority change");
+		return;
+	}
+
+	if (group_changes_) {
+		logger::debug("group changes active - skipping priority change");
+		return;
+	}
+
+	std::ostringstream oss;
+	oss << "PRIORITY_ORDER_CHANGED: ";
+	for (const auto &doc : ordered_docs)
+		oss << doc.stem().string() << " ";
+	logger::debug(oss.str());
+
+	// Keep the first document as highest priority
+	std::filesystem::path highest_priority = ordered_docs[0];
+
+	// Create new priority order: first document, then others sorted by pending pages
+	std::vector<std::filesystem::path> new_order;
+	new_order.push_back(highest_priority);
+
+	// Collect remaining documents with their pending page counts
+	std::vector<std::pair<std::filesystem::path, int>> remaining_docs;
+	for (size_t i = 1; i < ordered_docs.size(); ++i) {
+		const auto &path = ordered_docs[i];
+
+		// Find the document and get its pending page count
+		auto doc_it = std::find_if(documents_.begin(), documents_.end(),
+								  [&path](const auto &doc) {
+			return doc && std::filesystem::path(doc->filename()) == path;
+		});
+
+		if (doc_it != documents_.end()) {
+			int pending_count = static_cast<int>((*doc_it)->get_pending_pages().size());
+			remaining_docs.emplace_back(path, pending_count);
+		}
+	}
+
+	// Sort remaining by pending page count (ascending - fewer pages first)
+	std::sort(remaining_docs.begin(), remaining_docs.end(),
+			  [](const auto &a, const auto &b) {
+		return a.second < b.second;
+	});
+
+	// Add sorted documents to new order
+	for (const auto &[path, count] : remaining_docs) {
+		new_order.push_back(path);
+	}
+
+	document_priority_order_ = std::move(new_order);
+
+	if (group_changes_)
+		return;
+
+	cancel_all_active_jobs_async();
+	populate_job_queue();
+	reorder_jobs();
+	submit_next_jobs();
+}
+
 void DocumentLoadManager::prioritize_page(const Document &doc)
 {
+	if (group_changes_)
+		return;
+
 	prioritize_page(doc.filename());
 }
 
-
 void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
 {
+	if (group_changes_)
+		return;
+
 	// If cancellation is in progress, just remember the filename and return immediately
 	if (cancellation_in_progress_) {
 		std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -306,6 +320,7 @@ void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
 
 void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &filename)
 {
+
 	final_processing_ = true;
 	std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -316,7 +331,7 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
 		return;
 	}
 
-	if (document_priority_order_.size() <= 1) {
+	if (document_priority_order_.empty()) {
 		final_processing_ = false;
 		return;
 	}
@@ -330,17 +345,17 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
 		return;
 	}
 
+	TRACE_FUNCTION_MSG("filename: {}", filename.string());
+
+
 	auto doc = *doc_it;
 	auto priority_it = std::find(document_priority_order_.begin(), document_priority_order_.end(), filename);
-	if (priority_it == document_priority_order_.begin()) {
-		final_processing_ = false;
-		return;
+	if (priority_it != document_priority_order_.begin()) {
+		if (priority_it != document_priority_order_.end())
+			document_priority_order_.erase(priority_it);
+
+		document_priority_order_.insert(document_priority_order_.begin(), filename);
 	}
-
-	if (priority_it != document_priority_order_.end())
-		document_priority_order_.erase(priority_it);
-
-	document_priority_order_.insert(document_priority_order_.begin(), filename);
 
 	cancel_all_active_jobs_async();
 
@@ -351,8 +366,17 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
 
 	std::vector<int> pending = doc->get_pending_pages();
 	if (!pending.empty()) {
-		for (int page : pending)
-			job_queue_.emplace_back(doc, page, filename);
+		auto insert_pos = job_queue_.begin();
+		for (int page : pending) {
+			insert_pos = job_queue_.emplace(insert_pos, doc, page, filename);
+			++insert_pos;
+		}
+	}
+	if (!job_queue_.empty()) {
+		PageJob &job = job_queue_.front();
+		logger::trace("first job in queue: file: {} page: {}", job.doc_path.string(), job.page_num);
+	} else {
+		logger::trace("job queue is empty");
 	}
 	submit_next_jobs();
 
@@ -377,6 +401,8 @@ void DocumentLoadManager::cancel_all_active_jobs_async()
 {
 	if (cancellation_in_progress_)
 		return;
+
+	TRACE_FUNCTION;
 
 	cancellation_in_progress_ = true;
 

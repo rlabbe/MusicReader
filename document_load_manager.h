@@ -113,7 +113,7 @@ private:
     mutable std::recursive_mutex mutex_;
     int max_concurrent_jobs_;
     int active_jobs_;
-    bool group_changes_ = false;
+    std::atomic<bool> group_changes_ = false;
 
     // Non-blocking prioritization support
     std::atomic<bool> cancellation_in_progress_{ false };

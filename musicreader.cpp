@@ -41,9 +41,9 @@ MusicReader::MusicReader(QWidget *parent)
 	, load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)
-	logger::initialize(true, &config_);
+	logger::initialize(true, config_);
 #else
-	logger::initialize(true, &config_);
+	logger::initialize(true, config_);
 #endif
 
 	update_logging_level();

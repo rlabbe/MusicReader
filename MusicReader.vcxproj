@@ -128,7 +128,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
       <BufferSecurityCheck>false</BufferSecurityCheck>
