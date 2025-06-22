@@ -1,4 +1,5 @@
 #include "fitz_utils.h"
+#include <mutex>
 #include <format>
 #include "utils.h"
 
@@ -9,7 +10,28 @@
 #include "logger.h"
 #pragma warning(disable : 4611) // disable warning about _setjump not working with c++ destructors
 
+// Global MuPDF locking setup
+static std::mutex mupdf_mutexes[FZ_LOCK_MAX];
 
+void lock_mutex(void *user, int lock)
+{
+    static_cast<std::mutex *>(user)[lock].lock();
+}
+
+void unlock_mutex(void *user, int lock)
+{
+    static_cast<std::mutex *>(user)[lock].unlock();
+}
+
+fz_locks_context get_locks_context()
+{
+    static fz_locks_context locks = {
+        .user = mupdf_mutexes,
+        .lock = lock_mutex,
+        .unlock = unlock_mutex
+    };
+    return locks;
+}
 
 inline PixmapData render_page_seh(fz_context *ctx, fz_document *doc, int page_num, int dpi, std::atomic<bool> &quit_now)
 {
@@ -53,7 +75,8 @@ inline void close_fitz(fz_context *ctx, fz_document *doc)
 
 inline std::pair<fz_context *, fz_document *> open_fitz(const std::filesystem::path &filename)
 {
-    fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_locks_context locks = get_locks_context();
+    fz_context *ctx = fz_new_context(nullptr, &locks, FZ_STORE_DEFAULT);
     if (!ctx)
         return { nullptr, nullptr };
     fz_try(ctx)

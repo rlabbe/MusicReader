@@ -23,8 +23,14 @@ DocumentLoadManager::DocumentLoadManager(int max_threads)
 DocumentLoadManager::~DocumentLoadManager()
 {
 	stop_loading();
-	if (instance_ == this)
-		instance_ = nullptr;
+
+	// Wait for all active futures to actually finish
+	for (auto &future : active_futures_) {
+		if (!future.isFinished()) {
+			future.waitForFinished();
+		}
+	}
+	instance_ = nullptr;
 }
 
 void DocumentLoadManager::add_document(std::shared_ptr<Document> doc)

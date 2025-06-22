@@ -38,7 +38,7 @@ constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
 MusicReader::MusicReader(QWidget *parent)
 	: QMainWindow(parent)
-	, load_manager_(std::thread::hardware_concurrency())
+	, load_manager_(std::min(8, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)
 	logger::initialize(true, &config_);
@@ -116,20 +116,22 @@ void MusicReader::setup_UI()
 	exit_button_ = new FullscreenExitButton(this);
 	qApp->installEventFilter(this);
 
-	QTimer *autosave_timer = new QTimer(this);
-	// cast to void just to avoid warning that we are discarding the return value. ugh.
-	connect(autosave_timer, &QTimer::timeout, this, [this]() {
-		(void)QtConcurrent::run([this]() {
-			for (int i = 0; i < tab_widget_->count(); ++i) {
-				auto doc = document_at(i);
-				if (doc) {
-					doc->save();
+	if (config_.save_cadence_secs() > 0) {
+		QTimer *autosave_timer = new QTimer(this);
+		// cast to void just to avoid warning that we are discarding the return value. ugh.
+		connect(autosave_timer, &QTimer::timeout, this, [this]() {
+			(void)QtConcurrent::run([this]() {
+				for (int i = 0; i < tab_widget_->count(); ++i) {
+					auto doc = document_at(i);
+					if (doc) {
+						doc->save();
+					}
 				}
-			}
+			});
 		});
-	});
 
-	autosave_timer->start(config_.save_cadence_secs() * 1000);
+		autosave_timer->start(config_.save_cadence_secs() * 1000);
+	}
 
 	if (config_.restore_documents())
 		QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
@@ -1408,15 +1410,15 @@ void MusicReader::update_logging_level()
 	SAFE_METHOD;
 	TRACE_FUNCTION;
 	switch (config_.log_level()) {
-		case LogLevel::Diagnostic:
-			logger::enable_debug_logging(true);
-			break;
-		case LogLevel::Trace:
-			logger::enable_trace_logging(true);
-			break;
-		default:
-			logger::enable_debug_logging(false);
-			break;
+	case LogLevel::Diagnostic:
+		logger::enable_debug_logging(true);
+		break;
+	case LogLevel::Trace:
+		logger::enable_trace_logging(true);
+		break;
+	default:
+		logger::enable_debug_logging(false);
+		break;
 	}
 }
 
