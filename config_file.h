@@ -212,7 +212,7 @@ public:
 
 private:
     nlohmann::json to_json() const;
-    bool dev_mode_ = true;
+    bool dev_mode_ = false;
 
     // Private member variables
     std::filesystem::path filename_;

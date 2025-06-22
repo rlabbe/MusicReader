@@ -237,6 +237,9 @@ void ConfigFile::read(bool reset_on_error)
 	else
 		logger::error("Invalid or missing 'show_status_bar'");
 
+	if (j.contains("dev_mode") && j["dev_mode"].is_boolean())
+		dev_mode_ = j["dev_mode"].get<bool>();
+
 	if (j.contains("show_toolbar") && j["show_toolbar"].is_boolean())
 		show_toolbar_ = j["show_toolbar"].get<bool>();
 	else
@@ -491,6 +494,7 @@ json ConfigFile::to_json() const
 	j["restore_documents"] = restore_documents_;
 	j["zoom_to_content"] = zoom_to_content_;
 	j["show_status_bar"] = show_status_bar_;
+	j["dev_mode"] = dev_mode_;
 	j["show_toolbar"] = show_toolbar_;
 	j["show_menu"] = show_menu_;
 	j["horiz_tabs"] = horiz_tabs_;
@@ -690,6 +694,7 @@ void ConfigFile::set_defaults()
 	restore_documents_ = true;
 	zoom_to_content_ = true;
 	show_status_bar_ = true;
+	dev_mode_ = true;
 	show_toolbar_ = true;
 	show_menu_ = true;
 	horiz_tabs_ = false;
@@ -723,6 +728,7 @@ std::string ConfigFile::repr() const
 	j["restore_documents"] = restore_documents_;
 	j["zoom_to_content"] = zoom_to_content_;
 	j["show_status_bar"] = show_status_bar_;
+	j["dev_mode"] = dev_mode_;
 	j["show_toolbar"] = show_toolbar_;
 	j["show_menu"] = show_menu_;
 	j["horiz_tabs"] = horiz_tabs_;
