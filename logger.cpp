@@ -81,7 +81,7 @@ void logger::configure_logger(const std::string &filename, size_t max_size_kb, b
 	}
 }
 
-void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
+void logger::initialize(bool log_to_console, ConfigFile &cf, size_t max_size_kb)
 {
 	log_file_path_ = get_persistent_config_path("MusicReader.log");
 	std::cout << "opening log file: " << log_file_path_ << std::endl;
@@ -91,7 +91,7 @@ void logger::initialize(bool log_to_console, ConfigFile *cf, size_t max_size_kb)
 
 	configure_logger(log_file_path_, max_size_kb, log_to_console);
 	logged_error_ = false;
-	config_file_ = cf;
+	config_file_ = &cf;
 }
 
 void logger::shutdown()
@@ -157,7 +157,7 @@ void logger::error(const std::u8string &message)
 
 void logger::debug(const std::string &message)
 {
-	if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Diagnostic))
+	if (logger_ && config_file_->log_level() == LogLevel::Diagnostic)
 		logger_->debug(message);
 }
 
@@ -169,8 +169,8 @@ void logger::debug(const std::u8string &message)
 
 void logger::trace(const std::string &message)
 {
-	if (logger_ && (!config_file_ || config_file_->log_level() == LogLevel::Trace))
-		logger_->trace(message);
+	if (logger_ && config_file_->log_level() == LogLevel::Trace)
+		logger_->debug(message);
 }
 
 void logger::trace(const std::u8string &message)
@@ -197,9 +197,9 @@ void logger::enable_trace_logging(bool enable)
 {
 	if (!logger_)
 		return;
-	logger_->set_level(enable ? spdlog::level::trace : spdlog::level::info);
+	logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
 	for (auto &sink : logger_->sinks())
-		sink->set_level(enable ? spdlog::level::trace : spdlog::level::info);
+		sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
 
 	trace_enabled_ = true;
 	debug_enabled_ = false;
