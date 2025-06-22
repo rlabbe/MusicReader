@@ -272,7 +272,9 @@ void MusicReader::reset_cursor_timer()
 void MusicReader::closeEvent(QCloseEvent *event)
 {
 	SAFE_METHOD;
+
 	load_manager_.stop_loading();
+	DevStatusDialog::close_if_open();
 	save_window_state_to_config();
 	save_config();
 
@@ -1448,17 +1450,7 @@ void MusicReader::open_dev_status_dialog()
 	SAFE_METHOD;
 	TRACE_FUNCTION;
 
-	if (!dev_status_dialog_) {
-		dev_status_dialog_ = new DevStatusDialog(config_, this);
-		// Connect to destroyed signal to clear our pointer
-		connect(dev_status_dialog_, &QObject::destroyed, this, [this]() {
-			dev_status_dialog_ = nullptr;
-		});
-	}
-
-	dev_status_dialog_->show();
-	dev_status_dialog_->raise();
-	dev_status_dialog_->activateWindow();
+	DevStatusDialog::show(config_, this);
 }
 
 

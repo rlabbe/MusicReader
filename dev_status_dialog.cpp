@@ -19,13 +19,34 @@
 
 QString format_page_ranges(const std::vector<int> &pages);
 
+DevStatusDialog *DevStatusDialog::instance_ = nullptr;
+
+void DevStatusDialog::show(ConfigFile &config, QWidget *parent)
+{
+    if (!instance_) {
+        instance_ = new DevStatusDialog(config, parent);
+    }
+    instance_->QDialog::show();
+    instance_->raise();
+    instance_->activateWindow();
+}
+
+void DevStatusDialog::close_if_open()
+{
+    if (instance_) {
+        instance_->close();
+    }
+}
+
 DevStatusDialog::DevStatusDialog(ConfigFile &config, QWidget *parent)
-    : QDialog(nullptr) // nullptr so we don't center in app but remember where we were last time. 
+    : QDialog(nullptr)
     , config_(config)
     , parent_widget_(parent)
 {
     setWindowTitle("Developer Status");
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+    setAttribute(Qt::WA_DeleteOnClose);
+    instance_ = this;
 
     setup_ui();
 
@@ -49,6 +70,8 @@ DevStatusDialog::DevStatusDialog(ConfigFile &config, QWidget *parent)
 
 DevStatusDialog::~DevStatusDialog()
 {
+    instance_ = nullptr;
+
     if (cpu_query_)
         PdhCloseQuery(reinterpret_cast<PDH_HQUERY>(cpu_query_));
 }

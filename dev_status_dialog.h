@@ -8,7 +8,8 @@ class DevStatusDialog : public QDialog {
     Q_OBJECT
 
 public:
-    DevStatusDialog(ConfigFile &config, QWidget *parent);
+    static void show(ConfigFile &config, QWidget *parent);
+    static void close_if_open();
     ~DevStatusDialog();
 
 protected:
@@ -19,6 +20,8 @@ private slots:
     void update_status();
 
 private:
+    DevStatusDialog(ConfigFile &config, QWidget *parent);
+
     struct SystemStats {
         size_t memory_usage_bytes;
         size_t total_memory_bytes;
@@ -39,5 +42,6 @@ private:
     bool cpu_initialized_ = false;
     QWidget *parent_widget_ = nullptr;
 
+    static DevStatusDialog *instance_;
     static constexpr int UPDATE_INTERVAL_MS = 1000;
 };

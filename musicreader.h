@@ -14,7 +14,6 @@ class PDFViewer;
 class StatusBar;
 class FastFileSearchDialog;
 class FullscreenExitButton;
-class DevStatusDialog;
 
 class MusicReader : public QMainWindow {
     Q_OBJECT
@@ -194,7 +193,6 @@ private:
     std::map<std::string, QKeySequence> shortcuts_;
 
     FastFileSearchDialog *fast_search_dialog_ = nullptr;
-    DevStatusDialog *dev_status_dialog_ = nullptr;
 
     // Mouse hiding related members
     QTimer *mouse_hide_timer_ = nullptr;
