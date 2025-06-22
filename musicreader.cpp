@@ -4,7 +4,6 @@
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
 #pragma warning(pop)
-#define NOMINMAX
 #include <windows.h>
 #include <psapi.h>
 #include <iostream>
@@ -31,6 +30,8 @@
 #include "file_viewer.h"
 #include "requires.h"
 #include "imslp_search_dialog.h"
+#include "dev_status_dialog.h"
+
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -482,6 +483,13 @@ void MusicReader::create_view_menu(auto *menu_bar)
 	statusbar_menu_action_->setChecked(config_.show_status_bar());
 	connect(statusbar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_statusbar_visibility);
 	view_menu->addAction(statusbar_menu_action_);
+
+	if (config_.in_dev_mode()) {
+		view_menu->addSeparator();
+		auto *dev_action = new QAction("Show &Developer Status Dialog...", this);
+		connect(dev_action, &QAction::triggered, this, &MusicReader::open_dev_status_dialog);
+		view_menu->addAction(dev_action);
+	}
 
 	/*action = new QAction("&Light Theme", this);
 	action->setCheckable(true);
@@ -1174,11 +1182,17 @@ void MusicReader::update_title(int index)
 		setWindowTitle("MusicReader");
 	}
 }
+
+
 void MusicReader::keyPressEvent(QKeyEvent *event)
 {
 	SAFE_METHOD;
 	TRACE_FUNCTION;
 
+	// Rest of existing keyPressEvent code...
+	if (event->key() == Qt::Key_F11) {
+		// ... existing code
+	}
 	if (event->key() == Qt::Key_F11) {
 		if (isFullScreen()) {
 			status_bar_->setVisible(config_.show_status_bar());
@@ -1425,6 +1439,26 @@ void MusicReader::restore_window_state()
 		}
 	}
 }
+
+
+void MusicReader::open_dev_status_dialog()
+{
+	SAFE_METHOD;
+	TRACE_FUNCTION;
+
+	if (!dev_status_dialog_) {
+		dev_status_dialog_ = new DevStatusDialog(config_, this);
+		// Connect to destroyed signal to clear our pointer
+		connect(dev_status_dialog_, &QObject::destroyed, this, [this]() {
+			dev_status_dialog_ = nullptr;
+		});
+	}
+
+	dev_status_dialog_->show();
+	dev_status_dialog_->raise();
+	dev_status_dialog_->activateWindow();
+}
+
 
 void MusicReader::open_imslp_search_dialog()
 {
@@ -1748,7 +1782,7 @@ void MusicReader::open_fast_search_dialog()
 
 	// Save dialog geometry
 	QRect geometry = fast_search_dialog_->geometry();
-	std::vector<int> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
+	std::array<int, 4> size = { geometry.x(), geometry.y(), geometry.width(), geometry.height() };
 
 	{
 		ConfigFileGroupSave group_saver(config_);

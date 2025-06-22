@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <optional>
 #include <filesystem>
 #include "json.hpp"
@@ -70,7 +71,8 @@ private:
 
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
-    std::vector<int> app_size_{ 10, 10, 640, 480 };
+    std::array<int, 4> app_size_{ 10, 10, 640, 480 };
+    std::array<int, 4> dev_dialog_size_{ 0, 0, 0, 0 };
     ToolbarLocation toolbar_location_ = ToolbarLocation::Left;
     PageLocation page_location_ = PageLocation::Center;
     int page_view_count_ = 2;
@@ -81,7 +83,7 @@ private:
     int dpi_ = 300;
     bool allow_oversize_ = true;
     Theme theme_ = Theme::Dark;
-    std::vector<int> fast_search_dialog_size_ = { 100, 100, 480, 320 };
+    std::array<int, 4> fast_search_dialog_size_ = { 100, 100, 480, 320 };
     int border_margin_ = 10;
     std::filesystem::path music_directory_ = ".";
     LogLevel log_level_ = LogLevel::Normal;
@@ -124,13 +126,20 @@ public:
     void set_open_documents(const std::vector<OpenDocument> &value);
     void add_new_document(const std::filesystem::path &filepath, int page, int page_count);
 
+    bool in_dev_mode() const { return dev_mode_;}
+	void set_dev_mode(bool value) { dev_mode_ = value; }
 
     const std::vector<std::filesystem::path> &recent_documents() const { return recent_documents_; }
     void set_recent_documents(const std::vector<std::filesystem::path> &value) { recent_documents_ = value; save(); }
 
     // [x, y, sx, sy]
-    const std::vector<int> &app_size() const { return app_size_; }
-    void set_app_size(const std::vector<int> &value) { app_size_ = value; save(); }
+    const std::array<int, 4> &app_size() const { return app_size_; }
+    void set_app_size(const std::array<int, 4> &value) { app_size_ = value; save(); }
+
+    // [x, y, sx, sy]
+    const std::array<int, 4> &dev_dialog_size() const { return dev_dialog_size_; }
+    void set_dev_size(const std::array<int, 4> &value) { dev_dialog_size_ = value; save(); }
+
 
     // Top, Bottom, Left, Right
     ToolbarLocation toolbar_location() const { return toolbar_location_; }
@@ -167,8 +176,8 @@ public:
     void set_theme(Theme value) { theme_ = value; save(); }
 
     // [x, y, sx, sy]
-    const std::vector<int> &fast_search_dialog_size() const { return fast_search_dialog_size_; }
-    void set_fast_search_dialog_size(const std::vector<int> &value) { fast_search_dialog_size_ = value; save(); }
+    const std::array<int, 4> &fast_search_dialog_size() const { return fast_search_dialog_size_; }
+    void set_fast_search_dialog_size(const std::array<int, 4> &value) { fast_search_dialog_size_ = value; save(); }
 
     int border_margin() const { return border_margin_; }
     void set_border_margin(int value) { border_margin_ = value; save(); }
@@ -203,13 +212,14 @@ public:
 
 private:
     nlohmann::json to_json() const;
+    bool dev_mode_ = true;
 
     // Private member variables
     std::filesystem::path filename_;
     bool save_operation_enabled_ = true;
 
     // Helper functions for validation
-    bool valid_window_rect(const std::vector<int> &vec) const;
+    bool valid_window_rect(const std::array<int, 4> &vec) const;
     void remove_duplicate_documents();
     std::vector<std::filesystem::path> remove_duplicates(const std::vector<std::filesystem::path> &docs) const;
     bool remove_missing_documents();

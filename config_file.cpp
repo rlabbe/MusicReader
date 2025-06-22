@@ -189,7 +189,7 @@ ConfigFile::ConfigFile(bool reset_on_error)
 // Method to read configuration from file with improved error handling
 void ConfigFile::read(bool reset_on_error)
 {
-	bool valid = false; // Flag to indicate successful parsing
+	bool valid_file = false; // Flag to indicate successful parsing
 	json j;
 
 	//std::cout << "Reading config file: " << filename_.string() << std::endl;
@@ -322,23 +322,41 @@ void ConfigFile::read(bool reset_on_error)
 		logger::error("Invalid or missing 'recent_documents'");
 
 
+	app_size_ = { 0, 0, 640, 480 };
 	if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
-		bool app_size_valid = true;
-		app_size_.clear();
-		for (const auto &size : j["app_size"]) {
-			if (size.is_number_integer()) {
-				app_size_.push_back(size.get<int>());
-			} else {
-				app_size_valid = false;
-				break;
-			}
+		bool valid = true;
+		std::array<int, 4> size = {};
+		for (int i = 0; valid && i < 4; ++i) {
+			auto x = j["app_size"][i];
+			if (x.is_number_integer())
+				size[i] = x.get<int>();
+			 else 
+				valid = false;
 		}
-		if (!app_size_valid) {
-			logger::error("Invalid entries in 'app_size'");
-			app_size_ = { 0, 0, 640, 480 };
-		}
+		if (valid)
+			app_size_ = size;
+		else
+			logger::error("Invalid entries in 'app_size'");	
 	} else
-		logger::error("Invalid or missing 'app_size'");
+		logger::info("Invalid or missing 'app_size'");
+
+	dev_dialog_size_ = { 0, 0, 0, 0 };
+	if (j.contains("dev_dialog_size") && j["dev_dialog_size"].is_array() && j["dev_dialog_size"].size() == 4) {
+		bool valid = true;
+		std::array<int, 4> size = {};
+		for (int i = 0; valid && i < 4; ++i) {
+			auto x = j["dev_dialog_size"][i];
+			if (x.is_number_integer())
+				size[i] = x.get<int>();
+			else
+				valid = false;
+		}
+		if (valid)
+			dev_dialog_size_ = size;
+		else
+			logger::error("Invalid entries in 'dev_dialog_size_'");
+	} else
+		logger::info("Invalid or missing 'dev_dialog_size_'");
 
 	if (j.contains("toolbar_location") && j["toolbar_location"].is_number_integer()) {
 		int toolbar_int = j["toolbar_location"].get<int>();
@@ -412,25 +430,24 @@ void ConfigFile::read(bool reset_on_error)
 	} else
 		logger::error("Invalid or missing 'theme'");
 
-	// fast_search_dialog_size
-	if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() && j["fast_search_dialog_size"].size() == 4) {
-		bool fs_size_valid = true;
-		fast_search_dialog_size_.clear();
-		for (const auto &size : j["fast_search_dialog_size"]) {
-			if (size.is_number_integer()) {
-				fast_search_dialog_size_.push_back(size.get<int>());
-			} else {
-				fs_size_valid = false;
-				break;
-			}
-		}
-		if (!fs_size_valid) {
-			logger::error("Invalid entries in 'fast_search_dialog_size'");
-			fast_search_dialog_size_ = { 100, 100, 480, 320 };
-		}
-	} else
-		logger::error("Invalid or missing 'fast_search_dialog_size'");
 
+	fast_search_dialog_size_ = { 100, 100, 480, 320 };
+	if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() && j["fast_search_dialog_size"].size() == 4) {
+		bool valid = true;
+		std::array<int, 4> size = {};
+		for (int i = 0; valid && i < 4; ++i) {
+			auto x = j["fast_search_dialog_size"][i];
+			if (x.is_number_integer())
+				size[i] = x.get<int>();
+			else
+				valid = false;
+		}
+		if (valid)
+			fast_search_dialog_size_ = size;
+		else
+			logger::error("Invalid entries in 'fast_search_dialog_size'");
+	} else
+		logger::info("Invalid or missing 'fast_search_dialog_size'");
 
 	if (j.contains("border_margin") && j["border_margin"].is_number_integer())
 		border_margin_ = j["border_margin"].get<int>();
@@ -456,10 +473,10 @@ void ConfigFile::read(bool reset_on_error)
 		open_tab_ = 0;
 
 	// If all parsing succeeded
-	valid = true;
+	valid_file = true;
 
 CLEANUP:
-	if (!valid && reset_on_error) {
+	if (!valid_file && reset_on_error) {
 		set_defaults();
 		save();
 	}
@@ -494,6 +511,7 @@ json ConfigFile::to_json() const
 		j["recent_documents"].push_back(std::string(reinterpret_cast<const char *>(path.u8string().c_str())));
 
 	j["app_size"] = app_size_;
+	j["dev_dialog_size"] = dev_dialog_size_;
 	j["toolbar_location"] = static_cast<int>(toolbar_location_);
 	j["page_location"] = static_cast<int>(page_location_);
 	j["page_view_count"] = page_view_count_;
@@ -679,6 +697,8 @@ void ConfigFile::set_defaults()
 	open_documents_.clear();
 	recent_documents_.clear();
 	app_size_ = { 10, 10, 640, 480 };
+	dev_dialog_size_ = { 0, 0, 0, 0};
+
 	toolbar_location_ = ToolbarLocation::Left;
 	page_location_ = PageLocation::Center;
 	page_view_count_ = 2;
@@ -725,6 +745,7 @@ std::string ConfigFile::repr() const
 	}
 
 	j["app_size"] = app_size_;
+	j["dev_dialog_size"] = dev_dialog_size_;
 	j["toolbar_location"] = (int)(toolbar_location_);
 	j["page_location"] = (int)(page_location_);
 	j["page_view_count"] = page_view_count_;
@@ -755,9 +776,8 @@ void ConfigFile::filenames_to_os_convention()
 }
 
 // Helper functions for validation
-bool ConfigFile::valid_window_rect(const std::vector<int> &vec) const
+bool ConfigFile::valid_window_rect(const std::array<int, 4> &vec) const
 {
-	if (vec.size() != 4) return false;
 	// First two can be -1 or >=0
 	if (vec[0] < -1 || vec[1] < -1) return false;
 	// Last two must be >0

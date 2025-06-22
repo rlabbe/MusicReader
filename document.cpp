@@ -1,4 +1,3 @@
-#define NOMINMAX
 #include "document.h"
 #include <QGuiApplication>
 #include <QScreen>

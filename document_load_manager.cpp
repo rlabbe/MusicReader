@@ -380,3 +380,66 @@ void DocumentLoadManager::cleanup_finished_futures()
 
 	active_jobs_ = static_cast<int>(active_futures_.size());
 }
+
+
+DocumentLoadManager::LoadingSummary DocumentLoadManager::get_loading_summary() const
+{
+	// Quick check for empty state - minimize lock time
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+		if (job_queue_.empty() && active_jobs_ == 0) {
+			LoadingSummary summary;
+			summary.total_active_jobs = 0;
+			summary.total_queued_jobs = 0;
+			return summary;
+		}
+	}
+
+	// Copy data under lock - minimize lock time
+	std::vector<PageJob> job_queue_copy;
+	std::vector<std::shared_ptr<Document>> documents_copy;
+	int active_jobs_copy;
+
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+		job_queue_copy = job_queue_;
+		documents_copy = documents_;
+		active_jobs_copy = active_jobs_;
+	}
+
+	// Process data without lock
+	LoadingSummary summary;
+	summary.total_active_jobs = active_jobs_copy;
+	summary.total_queued_jobs = static_cast<int>(job_queue_copy.size());
+
+	// Group pending pages by document
+	std::unordered_map<std::string, std::vector<int>> doc_pending_pages;
+
+	// Add pages from job queue
+	for (const auto &job : job_queue_copy)
+		doc_pending_pages[job.doc_path.stem().string()].push_back(job.page_num);
+
+	// Add pages from documents that might not be in queue yet
+	for (const auto &doc : documents_copy) {
+		if (!doc) continue;
+
+		auto doc_name = std::filesystem::path(doc->filename()).stem().string();
+		auto pending = doc->get_pending_pages();
+
+		// Merge with existing pages from job queue
+		auto &existing_pages = doc_pending_pages[doc_name];
+		for (int page : pending)
+			if (std::find(existing_pages.begin(), existing_pages.end(), page) == existing_pages.end())
+				existing_pages.push_back(page);
+
+		// Sort the pages
+		std::sort(existing_pages.begin(), existing_pages.end());
+	}
+
+	// Convert to summary format
+	for (const auto &[doc_name, pages] : doc_pending_pages)
+		if (!pages.empty())
+			summary.documents.push_back({ doc_name, pages });
+
+	return summary;
+}

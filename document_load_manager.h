@@ -78,6 +78,21 @@ public:
 
     static DocumentLoadManager *instance();
 
+
+	// For debugging and monitoring
+    struct DocumentLoadInfo {
+        std::string name;
+        std::vector<int> pending_pages;
+    };
+
+    struct LoadingSummary {
+        std::vector<DocumentLoadInfo> documents;
+        int total_active_jobs;
+        int total_queued_jobs;
+    };
+
+    LoadingSummary get_loading_summary() const;
+
 private slots:
     void on_job_completed();
 
@@ -95,7 +110,7 @@ private:
     std::vector<std::shared_ptr<Document>> documents_;
     std::vector<QFuture<void>> active_futures_;
 
-    std::recursive_mutex mutex_;
+    mutable std::recursive_mutex mutex_;
     int max_concurrent_jobs_;
     int active_jobs_;
     bool group_changes_ = false;

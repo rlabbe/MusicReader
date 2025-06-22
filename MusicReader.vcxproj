@@ -103,7 +103,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -123,7 +123,7 @@
       <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -151,7 +151,7 @@
       <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -210,6 +210,7 @@
     <ClCompile Include="annotation.cpp" />
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
+    <ClCompile Include="dev_status_dialog.cpp" />
     <ClCompile Include="document_load_manager.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fitz_utils.cpp" />
@@ -251,6 +252,7 @@
     <ClInclude Include="config_file.h" />
     <QtMoc Include="directory_watcher.h" />
     <QtMoc Include="document_load_manager.h" />
+    <QtMoc Include="dev_status_dialog.h" />
     <ClInclude Include="document_helpers.h" />
     <ClInclude Include="exception_logger.h" />
     <QtMoc Include="status_bar.h" />

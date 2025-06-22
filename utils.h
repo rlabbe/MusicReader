@@ -1,8 +1,7 @@
 #pragma once
-#define NOMINMAX 
+
 #include <windows.h>
 #include <string>
-
 
 
 inline std::string wide_to_utf8(const std::wstring &wstr)

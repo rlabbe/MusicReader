@@ -88,6 +88,9 @@
     <ClCompile Include="document_load_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dev_status_dialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -130,6 +133,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="document_load_manager.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="dev_status_dialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
