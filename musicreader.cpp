@@ -27,6 +27,7 @@
 #include "utils.h"
 #include "fullscreen_exit_button.h"
 #include "vertical_tabs_widget.h"
+#include "horizontal_tabs_widget.h"
 #include "file_viewer.h"
 #include "requires.h"
 #include "imslp_search_dialog.h"

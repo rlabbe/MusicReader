@@ -262,6 +262,7 @@
     <ClInclude Include="fitz_utils.h" />
     <QtMoc Include="in_place_annotation_editor.h" />
     <ClInclude Include="font_info.h" />
+    <QtMoc Include="horizontal_tabs_widget.h" />
     <ClInclude Include="imslp_client.h" />
     <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
@@ -270,7 +271,7 @@
     <ClInclude Include="requires.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />
-    <QtMoc Include="vertical_tabs_widget.h" />
+    <ClInclude Include="vertical_tabs_widget.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
     <QtMoc Include="document.h" />
