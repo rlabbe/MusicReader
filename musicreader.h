@@ -42,6 +42,7 @@ public slots:
     void copy_log_to_clipboard();
     void goto_page_dialog();
     void on_annotation_mode_changed(bool enabled);
+    void on_tab_moved(int from, int to);
 
 private:
     std::shared_ptr<Document> document_at(int index) const;

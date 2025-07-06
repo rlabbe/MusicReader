@@ -270,7 +270,7 @@
     <ClInclude Include="requires.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />
-    <ClInclude Include="vertical_tabs_widget.h" />
+    <QtMoc Include="vertical_tabs_widget.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
     <QtMoc Include="document.h" />

@@ -41,7 +41,7 @@ MusicReader::MusicReader(QWidget *parent)
     , load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)
-    logger::initialize(true, config_);
+    logger::initialize(true, config_, true, 1024);
 #else
     logger::initialize(true, config_, true, 1024);
 #endif
@@ -77,6 +77,10 @@ void MusicReader::setup_UI()
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_changed);
     connect(tab_widget_, &QTabWidget::customContextMenuRequested, this, &MusicReader::show_context_menu);
+
+    // repaint the tab bar when a tab is moved, plus save the new order to config
+    auto *tabBar = tab_widget_->tabBar();
+    connect(tabBar, &QTabBar::tabMoved, this, &MusicReader::on_tab_moved);
 
     connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
         auto i = doc_is_open(name);
@@ -1126,6 +1130,18 @@ void MusicReader::save_open_documents_to_config()
     config_.set_open_documents(open_documents);
 }
 
+void MusicReader::on_tab_moved(int from, int to)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    Q_UNUSED(from);
+    Q_UNUSED(to);
+
+
+
+    save_open_documents_to_config();
+}
 
 void MusicReader::on_tab_changed()
 {
@@ -1147,6 +1163,8 @@ void MusicReader::on_tab_changed()
         }
     }
 }
+
+
 
 void MusicReader::on_close_tab(int index)
 {

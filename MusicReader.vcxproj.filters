@@ -138,6 +138,9 @@
     <QtMoc Include="dev_status_dialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="vertical_tabs_widget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bookmark.h">
@@ -171,9 +174,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="vertical_tabs_widget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fitz_utils.h">
