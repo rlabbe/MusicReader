@@ -262,6 +262,7 @@ void ConfigFile::read(bool reset_on_error)
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
+        int default_tab_order = 0;
         for (const auto &doc : j["open_documents"]) {
             if (doc.contains("filename") && doc["filename"].is_string() &&
                 doc.contains("page") && doc["page"].is_number_integer() &&
@@ -277,6 +278,12 @@ void ConfigFile::read(bool reset_on_error)
                     od.access_order = doc["access_order"].get<int>();
                 else
                     od.access_order = -1;  // Mark as needs assignment
+
+                // Handle tab_order for backward compatibility
+                if (doc.contains("tab_order") && doc["tab_order"].is_number_integer())
+                    od.tab_order = doc["tab_order"].get<int>();
+                else
+                    od.tab_order = default_tab_order++;  // Use array position if missing
 
                 open_documents_.push_back(od);
             } else {
@@ -303,6 +310,27 @@ void ConfigFile::read(bool reset_on_error)
                 ++max_order;
                 doc.access_order = max_order;
                 used_orders.insert(max_order);
+            }
+        }
+
+        // Fix any missing or duplicate tab_order values
+        std::set<int> used_tab_orders;
+        int max_tab_order = -1;
+
+        // First pass: collect valid tab orders
+        for (const auto &doc : open_documents_) {
+            if (doc.tab_order >= 0) {
+                used_tab_orders.insert(doc.tab_order);
+                max_tab_order = std::max(max_tab_order, doc.tab_order);
+            }
+        }
+
+        // Second pass: assign unique tab orders to missing/invalid ones
+        for (auto &doc : open_documents_) {
+            if (doc.tab_order < 0 || used_tab_orders.count(doc.tab_order) > 1) {
+                ++max_tab_order;
+                doc.tab_order = max_tab_order;
+                used_tab_orders.insert(max_tab_order);
             }
         }
     } else {
@@ -507,6 +535,7 @@ json ConfigFile::to_json() const
         doc_json["page"] = doc.page;
         doc_json["page_count"] = doc.page_count;
         doc_json["access_order"] = doc.access_order;
+        doc_json["tab_order"] = doc.tab_order;
         j["open_documents"].push_back(doc_json);
     }
 
@@ -581,6 +610,15 @@ bool ConfigFile::validate() const
     if (!(page_location_ == PageLocation::Left || page_location_ == PageLocation::Center)) return false;
     if (!valid_window_rect(app_size_)) return false;
     if (!valid_window_rect(fast_search_dialog_size_)) return false;
+
+    // Validate tab_order values are unique and start from 0
+    std::set<int> tab_orders;
+    for (const auto &doc : open_documents_) {
+        if (doc.tab_order < 0) return false;
+        if (tab_orders.count(doc.tab_order)) return false; // Duplicate
+        tab_orders.insert(doc.tab_order);
+    }
+
     return true;
 }
 
@@ -669,6 +707,16 @@ void ConfigFile::set_open_documents(const std::vector<OpenDocument> &value)
         open_documents_[i].access_order = static_cast<int>(i + 1);
     }
 
+    // Ensure tab_order values are valid and consecutive
+    std::sort(open_documents_.begin(), open_documents_.end(),
+              [](const OpenDocument &a, const OpenDocument &b) {
+        return a.tab_order < b.tab_order;
+    });
+
+    for (size_t i = 0; i < open_documents_.size(); ++i) {
+        open_documents_[i].tab_order = static_cast<int>(i);
+    }
+
     save();
 }
 
@@ -679,8 +727,14 @@ void ConfigFile::add_new_document(const std::filesystem::path &filepath, int pag
     for (auto &doc : open_documents_)
         ++doc.access_order;
 
-    // Add new document with access_order = 1
-    open_documents_.push_back({ filepath, page, page_count, 1 });
+    // Find the highest tab_order
+    int max_tab_order = -1;
+    for (const auto &doc : open_documents_) {
+        max_tab_order = std::max(max_tab_order, doc.tab_order);
+    }
+
+    // Add new document with access_order = 1 and tab_order at the end
+    open_documents_.push_back({ filepath, page, page_count, 1, max_tab_order + 1 });
 
     save();
 }
@@ -741,6 +795,8 @@ std::string ConfigFile::repr() const
         doc_json["filename"] = doc.filename.string();
         doc_json["page"] = doc.page;
         doc_json["page_count"] = doc.page_count;
+        doc_json["access_order"] = doc.access_order;
+        doc_json["tab_order"] = doc.tab_order;
         j["open_documents"].push_back(doc_json);
     }
 

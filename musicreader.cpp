@@ -1108,13 +1108,15 @@ void MusicReader::save_open_documents_to_config()
 
             auto name = doc->filename();
 
+            // Find existing document to preserve access_order
             for (const auto &existing_doc : config_.open_documents()) {
                 if (existing_doc.filename == name) {
                     open_documents.push_back({
                         name,
                         pdf_viewer->current_page(),
                         doc->page_count(),
-                        existing_doc.access_order
+                        existing_doc.access_order,
+                        index  // tab_order = current tab position
                     });
                     break;
                 }
@@ -1855,11 +1857,20 @@ void MusicReader::restore_open_documents()
 
     {
         DocumentLoadManagerGuard guard;
+
+        // Sort documents by tab_order to restore correct tab positions
+        auto sorted_docs = docs_info;
+        std::sort(sorted_docs.begin(), sorted_docs.end(),
+                  [](const OpenDocument &a, const OpenDocument &b) {
+            return a.tab_order < b.tab_order;
+        });
+
         std::vector<PDFViewer *> viewers;
         std::vector<std::shared_ptr<Document>> documents;
 
-        for (auto doc_info : docs_info) {
-            logger::debug("restoring document {} at page {}", doc_info.filename.string(), doc_info.page);
+        for (auto doc_info : sorted_docs) {
+            logger::debug("restoring document {} at page {} with tab_order {}",
+                         doc_info.filename.string(), doc_info.page, doc_info.tab_order);
             auto doc = open_pdf_document(doc_info.filename, doc_info.page);
             if (!doc) {
                 logger::info("Failed to re-open document: {}", doc_info.filename.string());
@@ -1888,7 +1899,28 @@ void MusicReader::restore_open_documents()
             return;
         }
 
-        tab_widget_->setCurrentIndex(tab_to_focus);
+        // Focus on the tab that was active when saved, but ensure it's valid
+        if (tab_to_focus >= 0 && tab_to_focus < tab_widget_->count()) {
+            tab_widget_->setCurrentIndex(tab_to_focus);
+        } else {
+            // If saved tab index is invalid, focus on most recently accessed document
+            auto most_recent = std::min_element(docs_info.begin(), docs_info.end(),
+                                               [](const OpenDocument &a, const OpenDocument &b) {
+                return a.access_order < b.access_order;
+            });
+            if (most_recent != docs_info.end()) {
+                // Find this document's tab index
+                for (int i = 0; i < tab_widget_->count(); ++i) {
+                    auto viewer = tab_widget_->widget(i)->findChild<PDFViewer *>();
+                    if (viewer && viewer->document()->filename() == most_recent->filename) {
+                        tab_widget_->setCurrentIndex(i);
+                        break;
+                    }
+                }
+            } else {
+                tab_widget_->setCurrentIndex(0);
+            }
+        }
         QApplication::processEvents();
     }
 

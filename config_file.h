@@ -41,6 +41,7 @@ struct OpenDocument {
     int page;
     int page_count;
     int access_order;  // 1 = most recent, higher numbers = older
+    int tab_order;     // 0 = leftmost tab, higher numbers = further right
 
     // get filename as a string, cant use filename.string() because it's not 
     // UTF-8 in Windows.
@@ -126,8 +127,8 @@ public:
     void set_open_documents(const std::vector<OpenDocument> &value);
     void add_new_document(const std::filesystem::path &filepath, int page, int page_count);
 
-    bool in_dev_mode() const { return dev_mode_;}
-	void set_dev_mode(bool value) { dev_mode_ = value; }
+    bool in_dev_mode() const { return dev_mode_; }
+    void set_dev_mode(bool value) { dev_mode_ = value; }
 
     const std::vector<std::filesystem::path> &recent_documents() const { return recent_documents_; }
     void set_recent_documents(const std::vector<std::filesystem::path> &value) { recent_documents_ = value; save(); }
