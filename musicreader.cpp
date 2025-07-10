@@ -2093,7 +2093,6 @@ void MusicReader::on_annotation_mode_changed(bool enabled)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    std::cout << "MusicReader::on_annotation_mode_changed\n";
     text_annotation_mode_ = enabled;
     text_annotation_action_->setChecked(enabled);
 }

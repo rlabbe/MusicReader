@@ -157,7 +157,6 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_Delete && has_selection_) {
         // Delete selected annotation
         if (document_->remove_annotation(selected_annotation_)) {
-            std::cout << "Deleted annotation: " << static_cast<int>(selected_annotation_) << std::endl;
             clear_selection();
         }
         event->accept();
@@ -167,7 +166,6 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_Escape && has_selection_) {
         // Clear selection on Escape
         clear_selection();
-        std::cout << "Cleared selection with Escape" << std::endl;
         event->accept();
         return;
     }
@@ -282,11 +280,9 @@ void PDFViewer::init_ui(int page)
     QShortcut *delete_shortcut = new QShortcut(QKeySequence::Delete, this);
     delete_shortcut->setContext(Qt::WidgetShortcut); // Only when this widget has focus
     connect(delete_shortcut, &QShortcut::activated, this, [this]() {
-        std::cout << "here\n";
         if (has_selection_ && document_) {
 
             if (document_->remove_annotation(selected_annotation_)) {
-                std::cout << "Deleted annotation: " << static_cast<int>(selected_annotation_) << std::endl;
                 clear_selection();
             }
         }
@@ -532,7 +528,6 @@ void PDFViewer::update_image(const QString &message)
     }
 
     REQUIRES(document_);
-
     QSize max_size;
     if (config_->allow_oversize())
         max_size = label_->size();
@@ -644,20 +639,17 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
         return;
     } else if (event->button() == Qt::LeftButton) {
         // Handle annotation selection
-        std::cout << "Mouse click at screen pos: (" << event->pos().x() << ", " << event->pos().y() << ")" << std::endl;
 
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);
         if (clicked_annotation) {
             // Clicked on an annotation - select it
             select_annotation(clicked_annotation);
-            std::cout << "Selected annotation: " << static_cast<int>(clicked_annotation) << std::endl;
             event->accept();
             return;
         } else {
             // Clicked elsewhere - clear selection
             if (has_selection_) {
                 clear_selection();
-                std::cout << "Cleared selection" << std::endl;
             }
         }
     }
@@ -677,27 +669,14 @@ void PDFViewer::on_annotation_text_finished(const QString &text)
                             static_cast<float>(size.width()), static_cast<float>(size.height()),  // Back to pixels
                             annotation_font_);
 
-        // ROUND TRIP LOGGING - ANNOTATION CREATION
-        std::cout << "\n=== ANNOTATION CREATION ===" << std::endl;
-        std::cout << "Text: '" << text.toStdString() << "'" << std::endl;
-        std::cout << "Calculated size: " << size.width() << " x " << size.height() << " pixels" << std::endl;
-        std::cout << "Font: " << annotation_font_.family.toStdString() << " " << annotation_font_.size << "pt" << std::endl;
-        std::cout << "Creating annotation at: page=" << last_click_target_.page_num << " x=" << last_click_target_.points_x << " y=" << last_click_target_.points_y << std::endl;
-        std::cout << "Annotation dimensions: w=" << size.width() << " h=" << size.height() << std::endl;
-
-
         // In on_annotation_text_finished(), replace the existing debug with:
-        QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
-        QFontMetrics fm(font);
-        int fm_width = fm.horizontalAdvance(text);
-        int fm_height = fm.height();
-        int calculated_width = fm_width + 4;
-        int calculated_height = fm_height + 4;
+       // QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
+        //QFontMetrics fm(font);
+        //int fm_width = fm.horizontalAdvance(text);
+        //int fm_height = fm.height();
+        //int calculated_width = fm_width + 4;
+        //int calculated_height = fm_height + 4;
 
-        std::cout << "Text: '" << text.toStdString() << "' (length=" << text.length() << ")" << std::endl;
-        std::cout << "QFontMetrics: width=" << fm_width << " height=" << fm_height << std::endl;
-        std::cout << "Calculated size: " << calculated_width << " x " << calculated_height << std::endl;
-        std::cout << "QTextDocument size: " << size.width() << " x " << size.height() << std::endl;        // end debugging code
         document_->add_annotation(annotation);
     }
 
@@ -705,7 +684,6 @@ void PDFViewer::on_annotation_text_finished(const QString &text)
 
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
-    std::cout << "Annotation text finished: " << text.toStdString() << std::endl;
     emit annotation_mode_changed(false);
 }
 
@@ -714,7 +692,6 @@ void PDFViewer::on_annotation_text_cancelled()
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
     emit annotation_mode_changed(false);
-    std::cout << "Annotation cancelled" << std::endl;
 }
 
 
