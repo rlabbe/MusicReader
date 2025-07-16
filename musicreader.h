@@ -44,6 +44,12 @@ public slots:
     void on_annotation_mode_changed(bool enabled);
     void on_tab_moved(int from, int to);
 
+private slots:
+    void on_application_state_changed(Qt::ApplicationState state);
+    void on_screen_geometry_changed(const QRect &geometry);
+    void on_screen_dpi_changed(qreal dpi);
+    void force_redraw_all_viewers();
+
 private:
     std::shared_ptr<Document> document_at(int index) const;
     PDFViewer *current_tab() const;
@@ -145,19 +151,25 @@ private:
     // Check if the given document is open in a tab, returning either the tab index or None
     std::optional<int> doc_is_open(std::filesystem::path name);
 
-    QToolBar *main_toolbar_ = nullptr;
-    StatusBar *status_bar_ = nullptr;
-    QSplitter *splitter_ = nullptr;
-    BookmarkPanel *bookmark_panel_ = nullptr;
-    QTabWidget *tab_widget_ = nullptr;
-
-private:
-
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
 
     void keyPressEvent(QKeyEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+    // Mouse hide methods
+    void setup_mouse_hiding();
+    void reset_cursor_timer();
+    bool handle_mouse_movement(QObject *watched, QEvent *event);
+
+    void update_document_priority_order();
+
+
+    QToolBar *main_toolbar_ = nullptr;
+    StatusBar *status_bar_ = nullptr;
+    QSplitter *splitter_ = nullptr;
+    BookmarkPanel *bookmark_panel_ = nullptr;
+    QTabWidget *tab_widget_ = nullptr;
 
     QMenu *open_recent_menu_ = nullptr;
     QMenu *edit_menu_ = nullptr;
@@ -198,13 +210,6 @@ private:
     // Mouse hiding related members
     QTimer *mouse_hide_timer_ = nullptr;
     bool cursor_hidden_ = false;
-
-    // Mouse hide methods
-    void setup_mouse_hiding();
-    void reset_cursor_timer();
-    bool handle_mouse_movement(QObject *watched, QEvent *event);
-
-    void update_document_priority_order();
 
     // ensure the fast file search dialog is created
     std::mutex fast_search_mutex_;

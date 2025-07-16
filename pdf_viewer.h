@@ -45,6 +45,7 @@ public:
     void page_down();
     void change_page(int step);
     void update_status_bar();
+    void force_redraw();
 
     std::shared_ptr<Document> document() const { return document_; }
     void replace_document(std::shared_ptr<Document> document, int page);

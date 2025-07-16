@@ -805,3 +805,19 @@ void PDFViewer::clear_selection()
     has_selection_ = false;
     update_image(); // Refresh to hide selection
 }
+
+
+void PDFViewer::force_redraw()
+{
+    // Clear any cached pixmaps and force regeneration
+    clear_prefetch();
+
+    // Force the label to update its pixmap
+    if (label_) {
+        label_->clear();
+        label_->repaint();
+    }
+
+    // Regenerate current page
+    get_page(current_page());
+}

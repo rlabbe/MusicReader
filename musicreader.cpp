@@ -148,6 +148,26 @@ void MusicReader::setup_UI()
     initialize_fast_search();
 
     setAcceptDrops(true);
+
+    // handle screen changes
+    connect(qApp, &QGuiApplication::applicationStateChanged,
+                this, &MusicReader::on_application_state_changed);
+
+    // Monitor screen changes
+    for (QScreen *screen : QGuiApplication::screens()) {
+        connect(screen, &QScreen::geometryChanged,
+                this, &MusicReader::on_screen_geometry_changed);
+        connect(screen, &QScreen::logicalDotsPerInchChanged,
+                this, &MusicReader::on_screen_dpi_changed);
+    }
+
+    // Handle new screens being added
+    connect(qApp, &QGuiApplication::screenAdded, this, [this](QScreen *screen) {
+        connect(screen, &QScreen::geometryChanged,
+                this, &MusicReader::on_screen_geometry_changed);
+        connect(screen, &QScreen::logicalDotsPerInchChanged,
+                this, &MusicReader::on_screen_dpi_changed);
+    });
 }
 
 void MusicReader::dragEnterEvent(QDragEnterEvent *event)
@@ -2109,4 +2129,36 @@ void MusicReader::toggle_text_annotation_mode()
     auto viewer = current_viewer();
     if (viewer)
         viewer->set_text_annotation_mode(text_annotation_mode_);
+}
+
+
+void MusicReader::on_application_state_changed(Qt::ApplicationState state)
+{
+    if (state == Qt::ApplicationActive) {
+        // System likely woke from sleep
+        QTimer::singleShot(100, this, [this]() {
+            force_redraw_all_viewers();
+        });
+    }
+}
+
+void MusicReader::on_screen_geometry_changed(const QRect &geometry)
+{
+    Q_UNUSED(geometry);
+    force_redraw_all_viewers();
+}
+
+void MusicReader::on_screen_dpi_changed(qreal dpi)
+{
+    Q_UNUSED(dpi);
+    force_redraw_all_viewers();
+}
+
+void MusicReader::force_redraw_all_viewers()
+{
+    for (int i = 0; i < tab_widget_->count(); ++i) {
+        PDFViewer *viewer = viewer_tab(i);
+        if (viewer) 
+            viewer->force_redraw();
+    }
 }
