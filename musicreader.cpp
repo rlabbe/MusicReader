@@ -801,6 +801,8 @@ void MusicReader::reload_document()
     if (!viewer || !doc) return;
 
     int page_num = viewer->current_page();
+    doc->kill_load();
+    load_manager_.remove_document(doc->filename());
 
     open_pdf_in_tab(doc->filename(), page_num, viewer);
 }
