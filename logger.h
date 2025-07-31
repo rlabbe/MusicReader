@@ -116,12 +116,12 @@ struct function_tracer {
         : file_name(file), func_name(name), line_num(line)
     {
         if (logger::trace_enabled())
-            logger::trace("Enter {} {}:{}", file_name, func_name, line_num);
+            logger::trace("Enter {}:{} {}", file_name, line_num, func_name);
     }
     __forceinline ~function_tracer()
     {
         if (logger::trace_enabled())
-            logger::trace("Exit {} {}:{}", file_name, func_name, line_num);
+            logger::trace("Exit {}:{} {}", file_name, line_num, func_name);
     }
 };
 
@@ -149,7 +149,7 @@ struct function_tracer_msg {
     }
 };
 
-// Trace functions in logger when in diagnostic mode
+// Trace functions in logger when in trace mode
 // 
 // use:
 // Put at top of function, or wherever you want to trace, optionally adding a message
