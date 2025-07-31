@@ -189,7 +189,8 @@
       <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <PostBuildEvent>
-      <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <QtMoc>
       <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
