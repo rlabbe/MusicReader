@@ -138,16 +138,28 @@ struct function_tracer_msg {
     {
         if (enabled) {
             message = std::format(fmt, std::forward<Args>(args)...);
-            logger::trace("Enter {} {}:{} {}", file_name, func_name, line_num, message);
+            logger::trace("Enter {}:{} {} {}", file_name, line_num, func_name, message);
         }
     }
 
     __forceinline ~function_tracer_msg()
     {
         if (enabled)
-            logger::trace("Exit {} {}:{} {}", file_name, func_name, line_num, message);
+            logger::trace("Exit {}:{} {} {}", file_name, line_num, func_name, message);
     }
 };
 
+// Trace functions in logger when in diagnostic mode
+// 
+// use:
+// Put at top of function, or wherever you want to trace, optionally adding a message
+// 
+//     void foo() {
+//         TRACE_FUNCTION;
+//         ...
+//
+//      void voo() {
+//          TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
+  
 #define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __func__, __LINE__)
 #define TRACE_FUNCTION_MSG(...) function_tracer_msg _trace_guard_##__LINE__(__FILE__, __func__, __LINE__, __VA_ARGS__)
