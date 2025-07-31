@@ -12,6 +12,7 @@ class BookmarkPanel;
 class Document;
 class PDFViewer;
 class StatusBar;
+class FileViewer;
 class FastFileSearchDialog;
 class FullscreenExitButton;
 
@@ -218,6 +219,8 @@ private:
 
     bool restoring_documents_ = false;
     DocumentLoadManager load_manager_;
+
+    FileViewer *m_logViewer = nullptr;
 
 signals:
     void fastSearchInitialized();

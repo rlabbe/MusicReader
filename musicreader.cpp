@@ -265,6 +265,7 @@ void MusicReader::setup_mouse_hiding()
     mouse_hide_timer_->setSingleShot(true);
     connect(mouse_hide_timer_, &QTimer::timeout, this, [this]() {
         // Only hide cursor if we're over a document
+        TRACE_FUNCTION;
         PDFViewer *current = current_viewer();
         if (current) {
             QRect viewerRect = current->rect();
@@ -765,9 +766,13 @@ void MusicReader::show_log_file()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-
-    auto viewer = new FileViewer(logger::log_file_path(), this);
-    viewer->show();
+    if (!m_logViewer) {
+        m_logViewer = new FileViewer(logger::log_file_path(), this);
+        connect(m_logViewer, &QObject::destroyed, this, [this]() { m_logViewer = nullptr; });
+    }
+    m_logViewer->show();
+    m_logViewer->raise();
+    m_logViewer->activateWindow();
 }
 
 
@@ -2136,28 +2141,43 @@ void MusicReader::toggle_text_annotation_mode()
 
 void MusicReader::on_application_state_changed(Qt::ApplicationState state)
 {
-    if (state == Qt::ApplicationActive) {
+    static bool was_suspended = false;
+    TRACE_FUNCTION;
+
+    if (state == Qt::ApplicationSuspended) {
+        // Application is being suspended
+        was_suspended = true;
+        logger::debug("Application suspended");
+        return;
+    }
+
+    TRACE_FUNCTION_MSG("state: {}", (int)state);
+    if (was_suspended && (state & Qt::ApplicationActive)) {
         // System likely woke from sleep
         QTimer::singleShot(100, this, [this]() {
             force_redraw_all_viewers();
         });
     }
+    was_suspended = false;
 }
 
 void MusicReader::on_screen_geometry_changed(const QRect &geometry)
 {
     Q_UNUSED(geometry);
+    TRACE_FUNCTION;
     force_redraw_all_viewers();
 }
 
 void MusicReader::on_screen_dpi_changed(qreal dpi)
 {
     Q_UNUSED(dpi);
+    TRACE_FUNCTION;
     force_redraw_all_viewers();
 }
 
 void MusicReader::force_redraw_all_viewers()
 {
+    TRACE_FUNCTION;
     for (int i = 0; i < tab_widget_->count(); ++i) {
         PDFViewer *viewer = viewer_tab(i);
         if (viewer) 

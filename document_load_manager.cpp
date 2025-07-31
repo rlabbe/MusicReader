@@ -122,6 +122,9 @@ void DocumentLoadManager::populate_job_queue()
         if (!doc) continue;
 
         auto pending_pages = doc->get_pending_pages();
+        if (pending_pages.size() == 0) 
+            continue;
+
         auto doc_path = std::filesystem::path(doc->filename());
 
         std::ostringstream oss;
