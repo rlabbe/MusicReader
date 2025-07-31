@@ -4,6 +4,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fstream>
+#include <regex>
 #include <filesystem>
 #include <iostream>
 #include "config_file.h"
@@ -234,3 +235,69 @@ std::string logger::get_log_content()
 
     return "";
 }
+
+std::string strip_extra_call_info(const std::string &funcsig)
+{
+    // Handle lambdas specially - they contain <lambda_N> in the signature
+    if (funcsig.find("<lambda_") != std::string::npos) {
+        size_t lambda_start = funcsig.find("::");
+        if (lambda_start != std::string::npos) {
+            lambda_start += 2;
+            size_t paren_pos = funcsig.find('(', lambda_start);
+            if (paren_pos != std::string::npos) {
+                std::string lambda_part = funcsig.substr(lambda_start, paren_pos - lambda_start);
+                return lambda_part + "()";
+            }
+        }
+    }
+
+    size_t paren_pos = funcsig.find('(');
+    if (paren_pos == std::string::npos)
+        return funcsig;
+
+    // Look for class scope (::) in the function signature
+    size_t scope_pos = funcsig.rfind("::", paren_pos);
+
+    if (scope_pos != std::string::npos) {
+        // Found class scope - extract function name after ::
+        size_t func_start = scope_pos + 2;
+        std::string func_part = funcsig.substr(func_start, paren_pos - func_start);
+
+        // Strip template parameters
+        size_t template_start = func_part.find('<');
+        if (template_start != std::string::npos)
+            func_part = func_part.substr(0, template_start);
+
+        std::string result = func_part + "()";
+        return result;
+    } else {
+        // No class scope - find last space before function name
+        std::string before_paren = funcsig.substr(0, paren_pos);
+        size_t last_space = before_paren.rfind(' ');
+
+        if (last_space != std::string::npos) {
+            std::string func_part = before_paren.substr(last_space + 1);
+
+            // Strip template parameters
+            size_t template_start = func_part.find('<');
+            if (template_start != std::string::npos)
+                func_part = func_part.substr(0, template_start);
+
+            return func_part + "()";
+        }
+    }
+
+    return funcsig;
+}
+
+
+
+
+
+
+
+
+
+
+
+

@@ -2,7 +2,9 @@
 
 #include <string>
 #include <format>
+#include <iostream>
 
+#pragma warning(disable : 4390) // empty ; control statement
 class ConfigFile;
 
 struct logger {
@@ -107,6 +109,11 @@ inline static void logger::trace(std::format_string<Args...> fmt, Args&&... args
 }
 
 
+// __FUNCSIG__ generates something like:
+//     auto __cdecl MusicReader::setup_mouse_hiding::<lambda_1>::operator ()(void) const
+// and we just want the name, however, we don't use __FUNC__ because
+// if inside a lambda it doesn't give you the outer function name.
+std::string strip_extra_call_info(const std::string &funcsig);
 
 struct function_tracer {
     const char *file_name;
@@ -115,13 +122,13 @@ struct function_tracer {
     __forceinline function_tracer(const char *file, const char *name, int line)
         : file_name(file), func_name(name), line_num(line)
     {
-        if (logger::trace_enabled())
-            logger::trace("Enter {}:{} {}", file_name, line_num, func_name);
+        if (logger::trace_enabled()) 
+            logger::trace("Enter {}:{} {}", file_name, line_num, strip_extra_call_info(func_name));
     }
     __forceinline ~function_tracer()
     {
         if (logger::trace_enabled())
-            logger::trace("Exit {}:{} {}", file_name, line_num, func_name);
+            logger::trace("Exit {}:{} {}", file_name, line_num, strip_extra_call_info(func_name));
     }
 };
 
@@ -138,14 +145,14 @@ struct function_tracer_msg {
     {
         if (enabled) {
             message = std::format(fmt, std::forward<Args>(args)...);
-            logger::trace("Enter {}:{} {} {}", file_name, line_num, func_name, message);
+            logger::trace("Enter {}:{} {} {}", file_name, line_num, strip_extra_call_info(func_name), message);
         }
     }
 
     __forceinline ~function_tracer_msg()
     {
         if (enabled)
-            logger::trace("Exit {}:{} {} {}", file_name, line_num, func_name, message);
+            logger::trace("Exit {}:{} {} {}", file_name, line_num, strip_extra_call_info(func_name), message);
     }
 };
 
@@ -161,5 +168,5 @@ struct function_tracer_msg {
 //      void voo() {
 //          TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
   
-#define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __func__, __LINE__)
-#define TRACE_FUNCTION_MSG(...) function_tracer_msg _trace_guard_##__LINE__(__FILE__, __func__, __LINE__, __VA_ARGS__)
+#define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__ , __LINE__)
+#define TRACE_FUNCTION_MSG(...) function_tracer_msg _trace_guard_##__LINE__(__FILE__, __FUNCSIG__ , __LINE__, __VA_ARGS__)

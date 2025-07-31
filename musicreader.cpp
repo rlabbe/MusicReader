@@ -2142,7 +2142,6 @@ void MusicReader::toggle_text_annotation_mode()
 void MusicReader::on_application_state_changed(Qt::ApplicationState state)
 {
     static bool was_suspended = false;
-    TRACE_FUNCTION;
 
     if (state == Qt::ApplicationSuspended) {
         // Application is being suspended
