@@ -512,7 +512,7 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
 void PDFViewer::update_image(const QString &message)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("{} {} page:{}", document_->filename(), message.toStdString(), page_.page_num);
     REQUIRES(label_);
     REQUIRES(config_);
 

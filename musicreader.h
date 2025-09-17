@@ -222,6 +222,8 @@ private:
 
     FileViewer *m_logViewer = nullptr;
 
+    bool was_suspended = false;
+
 signals:
     void fastSearchInitialized();
 

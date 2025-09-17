@@ -194,8 +194,6 @@ void DocumentLoadManager::reorder_jobs()
 
 void DocumentLoadManager::submit_next_jobs()
 {
-    TRACE_FUNCTION;
-
     cleanup_finished_futures();
 
     while (active_jobs_ < max_concurrent_jobs_ && !job_queue_.empty()) {

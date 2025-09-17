@@ -150,8 +150,8 @@ void MusicReader::setup_UI()
     setAcceptDrops(true);
 
     // handle screen changes
-    connect(qApp, &QGuiApplication::applicationStateChanged,
-                this, &MusicReader::on_application_state_changed);
+    //connect(qApp, &QGuiApplication::applicationStateChanged,
+    //            this, &MusicReader::on_application_state_changed);
 
     // Monitor screen changes
     for (QScreen *screen : QGuiApplication::screens()) {
@@ -782,13 +782,28 @@ bool MusicReader::nativeEvent(const QByteArray &eventType, void *message, qintpt
 
 #ifdef Q_OS_WIN
 
-    if (!config_.show_menu()) {
-        MSG *msg = static_cast<MSG *>(message);
+    MSG *msg = static_cast<MSG *>(message);
 
+    if (!config_.show_menu()) {
         if (msg->message == WM_SYSCOMMAND && (msg->wParam & 0xFFF0) == SC_MOUSEMENU) {
             show_titlebar_menu();
             *result = 0;
             return true; // Prevents Windows from showing its own menu
+        }
+    }
+
+    if (msg->message == WM_POWERBROADCAST) {
+        if (msg->wParam == PBT_APMSUSPEND) {
+            was_suspended = true;
+            logger::debug("System going to sleep");
+        } else if (msg->wParam == PBT_APMRESUMEAUTOMATIC || msg->wParam == PBT_APMRESUMESUSPEND) {
+            if (was_suspended) {
+                QTimer::singleShot(500, this, [this]() {
+                    force_redraw_all_viewers();
+                });
+                was_suspended = false;
+            }
+            logger::debug("System resumed from sleep");
         }
     }
 #endif
@@ -1033,7 +1048,7 @@ void MusicReader::toggle_page_step()
 PDFViewer *MusicReader::current_tab() const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     if (!tab_widget_) return nullptr;
 
@@ -1052,7 +1067,7 @@ PDFViewer *MusicReader::current_tab() const
 std::shared_ptr<Document> MusicReader::current_document(const std::string &log_msg) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     PDFViewer *tab = current_tab();
     if (tab) return tab->document();
@@ -1087,7 +1102,7 @@ std::string MusicReader::current_document_name() const
 std::shared_ptr<Document> MusicReader::document_at(int index) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     PDFViewer *tab = viewer_tab(index);
     return tab ? tab->document() : nullptr;
@@ -1097,7 +1112,7 @@ std::shared_ptr<Document> MusicReader::document_at(int index) const
 PDFViewer *MusicReader::viewer_tab(int index) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     try {
         QWidget *tab = tab_widget_->widget(index);
@@ -1305,7 +1320,7 @@ void MusicReader::on_page_down()
 PDFViewer *MusicReader::current_viewer(const std::string &log_err) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     // TODO may not be correct. not sure there is some weird logic in the python
     // to detect the type of the object, may just have been do to earlier code that
@@ -1375,7 +1390,7 @@ QIcon MusicReader::create_double_icon()
 std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     for (int i = 0; i < tab_widget_->count(); ++i) {
         auto widget = viewer_tab(i);
@@ -1458,7 +1473,8 @@ void MusicReader::open_config_dialog()
 void MusicReader::update_logging_level()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    // turning on tracing here can conflict with the below as trace uses the function_tracer class
+    //TRACE_FUNCTION;
     switch (config_.log_level()) {
     case LogLevel::Diagnostic:
         logger::enable_debug_logging(true);
@@ -1717,7 +1733,7 @@ void MusicReader::create_status_bar()
 void MusicReader::update_memory_usage()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    //TRACE_FUNCTION;
 
     auto format_memory = [](size_t bytes) -> std::string {
         static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
@@ -2139,10 +2155,20 @@ void MusicReader::toggle_text_annotation_mode()
 }
 
 
+static inline std::string to_string(Qt::ApplicationState state)
+{
+
+    switch (state) {
+    case Qt::ApplicationSuspended: return "Suspended";
+    case Qt::ApplicationHidden: return "Hidden";
+    case Qt::ApplicationInactive: return "Inactive";
+    case Qt::ApplicationActive: return "Active";
+    default: return "Unknown";
+    }
+}
+
 void MusicReader::on_application_state_changed(Qt::ApplicationState state)
 {
-    static bool was_suspended = false;
-
     if (state == Qt::ApplicationSuspended) {
         // Application is being suspended
         was_suspended = true;
@@ -2150,7 +2176,7 @@ void MusicReader::on_application_state_changed(Qt::ApplicationState state)
         return;
     }
 
-    TRACE_FUNCTION_MSG("state: {}", (int)state);
+    TRACE_FUNCTION_MSG("state: {} was_suspended: {}", to_string(state), was_suspended);
     if (was_suspended && (state & Qt::ApplicationActive)) {
         // System likely woke from sleep
         QTimer::singleShot(100, this, [this]() {
@@ -2179,7 +2205,7 @@ void MusicReader::force_redraw_all_viewers()
     TRACE_FUNCTION;
     for (int i = 0; i < tab_widget_->count(); ++i) {
         PDFViewer *viewer = viewer_tab(i);
-        if (viewer) 
+        if (viewer)
             viewer->force_redraw();
     }
 }

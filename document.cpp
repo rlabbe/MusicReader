@@ -567,7 +567,6 @@ BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::v
 bool Document::save()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
 
     // Don't allow save if we're being destroyed or not modified
     if (being_destroyed_ || !modified_) return false;
@@ -579,6 +578,7 @@ bool Document::save()
 
         is_saving_ = true;
     }
+    TRACE_FUNCTION;
 
     std::vector<Bookmark> bookmarks_copy;
     std::vector<Annotation> annotations_copy;
@@ -833,7 +833,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
                     if (rect && contents) {
                         // PDF rect format: [x0, y0, x1, y1] = [left, bottom, right, top]
                         float x0 = pdf_array_get_real(ctx, rect, 0);  // left
-                        float y0 = pdf_array_get_real(ctx, rect, 1);  // bottom  
+                        float y0 = pdf_array_get_real(ctx, rect, 1);  // bottom
                         float x1 = pdf_array_get_real(ctx, rect, 2);  // right
                         float y1 = pdf_array_get_real(ctx, rect, 3);  // top
 
@@ -986,7 +986,7 @@ bool Document::save_annotations_to_pdf()
 
             fz_rect rect;
             rect.x0 = annotation.x_;                                          // left
-            rect.y0 = page_height - annotation.y_;                           // bottom = page_height - y_from_top  
+            rect.y0 = page_height - annotation.y_;                           // bottom = page_height - y_from_top
             rect.x1 = annotation.x_ + annotation.width_;                      // right
             rect.y1 = page_height - annotation.y_ + annotation.height_;      // top = bottom + height
 
