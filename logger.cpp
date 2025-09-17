@@ -76,7 +76,7 @@ void logger::configure_logger(const std::string &filename, size_t max_size_kb, b
         logger_->set_level(spdlog::level::info);
         set_high_precision(logger_, false);
         logger_->flush_on(spdlog::level::debug);
-        spdlog::flush_every(std::chrono::seconds(10));
+        spdlog::flush_every(std::chrono::seconds(5));
     } catch (const std::exception &ex) {
         std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
     }
@@ -207,6 +207,10 @@ void logger::enable_trace_logging(bool enable)
     trace_enabled_ = true;
     debug_enabled_ = false;
     set_high_precision(logger_, true);
+    if (enable)
+        logger_->flush_on(spdlog::level::trace);
+    else
+        logger_->flush_on(spdlog::level::debug);
 
 }
 
@@ -238,7 +242,7 @@ std::string logger::get_log_content()
 
 std::string strip_extra_call_info(const std::string &funcsig)
 {
-    // Handle lambdas specially - they contain <lambda_N> in the signature
+    // Handle lambdas specially
     if (funcsig.find("<lambda_") != std::string::npos) {
         size_t lambda_start = funcsig.find("::");
         if (lambda_start != std::string::npos) {
@@ -255,34 +259,39 @@ std::string strip_extra_call_info(const std::string &funcsig)
     if (paren_pos == std::string::npos)
         return funcsig;
 
-    // Look for class scope (::) in the function signature
-    size_t scope_pos = funcsig.rfind("::", paren_pos);
+    // Find the function name by working backwards from the paren
+    // Skip any calling convention (__cdecl, __stdcall, etc.)
+    std::string before_paren = funcsig.substr(0, paren_pos);
+
+    // Look for actual class scope (not template parameters)
+    // Find all :: occurrences and check if they're inside template brackets
+    size_t scope_pos = std::string::npos;
+    int bracket_depth = 0;
+
+    for (auto i = before_paren.length() - 1; i >= 1; --i) {
+        if (before_paren[i] == '>')
+            bracket_depth++;
+        else if (before_paren[i] == '<')
+            bracket_depth--;
+        else if (bracket_depth == 0 && before_paren[i] == ':' && before_paren[i - 1] == ':') {
+            scope_pos = i - 1;
+            break;
+        }
+    }
 
     if (scope_pos != std::string::npos) {
         // Found class scope - extract function name after ::
         size_t func_start = scope_pos + 2;
-        std::string func_part = funcsig.substr(func_start, paren_pos - func_start);
-
-        // Strip template parameters
-        size_t template_start = func_part.find('<');
-        if (template_start != std::string::npos)
-            func_part = func_part.substr(0, template_start);
-
-        std::string result = func_part + "()";
-        return result;
+        std::string func_part = before_paren.substr(func_start);
+        size_t space_pos = func_part.rfind(' ');
+        if (space_pos != std::string::npos)
+            func_part = func_part.substr(space_pos + 1);
+        return func_part + "()";
     } else {
         // No class scope - find last space before function name
-        std::string before_paren = funcsig.substr(0, paren_pos);
         size_t last_space = before_paren.rfind(' ');
-
         if (last_space != std::string::npos) {
             std::string func_part = before_paren.substr(last_space + 1);
-
-            // Strip template parameters
-            size_t template_start = func_part.find('<');
-            if (template_start != std::string::npos)
-                func_part = func_part.substr(0, template_start);
-
             return func_part + "()";
         }
     }
@@ -291,9 +300,10 @@ std::string strip_extra_call_info(const std::string &funcsig)
 }
 
 
-
-
-
+std::atomic<int> indent_level_;
+int indent_level() { return indent_level_; }
+void increase_indent() { indent_level_ += 2; }
+void decrease_indent() { if (indent_level_ >0) indent_level_ -= 2; }
 
 
 

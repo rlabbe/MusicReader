@@ -3,6 +3,7 @@
 #include <string>
 #include <format>
 #include <iostream>
+#include <atomic>
 
 #pragma warning(disable : 4390) // empty ; control statement
 class ConfigFile;
@@ -23,7 +24,7 @@ struct logger {
 
     static std::string get_log_content();
 
-    // Returns true if an error has been logged since startup 
+    // Returns true if an error has been logged since startup
     static bool logged_error();
 
     static void enable_debug_logging(bool enable);
@@ -115,20 +116,33 @@ inline static void logger::trace(std::format_string<Args...> fmt, Args&&... args
 // if inside a lambda it doesn't give you the outer function name.
 std::string strip_extra_call_info(const std::string &funcsig);
 
+
+int indent_level();
+void increase_indent();
+void decrease_indent();
+
 struct function_tracer {
+    // the alignas is needed because otherwise you get a link warning about this being
+    // aligned differently in different translation units (although all use 4, so stupid warning)
     const char *file_name;
     const char *func_name;
     int line_num;
     __forceinline function_tracer(const char *file, const char *name, int line)
         : file_name(file), func_name(name), line_num(line)
     {
-        if (logger::trace_enabled()) 
-            logger::trace("Enter {}:{} {}", file_name, line_num, strip_extra_call_info(func_name));
+        if (logger::trace_enabled()) {
+            std::string indent(indent_level(), ' ');
+            logger::trace("{}Enter {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
+            increase_indent();
+        }
     }
     __forceinline ~function_tracer()
     {
-        if (logger::trace_enabled())
-            logger::trace("Exit {}:{} {}", file_name, line_num, strip_extra_call_info(func_name));
+        if (logger::trace_enabled()) {
+            decrease_indent();
+            std::string indent(indent_level(), ' ');
+            logger::trace("{}Exit {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
+        }
     }
 };
 
@@ -144,29 +158,34 @@ struct function_tracer_msg {
         : file_name(file), func_name(name), line_num(line), enabled(logger::trace_enabled())
     {
         if (enabled) {
+            std::string indent(indent_level(), ' ');
             message = std::format(fmt, std::forward<Args>(args)...);
-            logger::trace("Enter {}:{} {} {}", file_name, line_num, strip_extra_call_info(func_name), message);
+            logger::trace("{}Enter {}:{} {} {}", indent, file_name, line_num, strip_extra_call_info(func_name), message);
+            increase_indent();
         }
     }
 
     __forceinline ~function_tracer_msg()
     {
-        if (enabled)
-            logger::trace("Exit {}:{} {} {}", file_name, line_num, strip_extra_call_info(func_name), message);
+        if (enabled) {
+            decrease_indent();
+            std::string indent(indent_level(), ' ');
+            logger::trace("{}Exit {}:{} {} {}", indent, file_name, line_num, strip_extra_call_info(func_name), message);
+        }
     }
 };
 
 // Trace functions in logger when in trace mode
-// 
+//
 // use:
 // Put at top of function, or wherever you want to trace, optionally adding a message
-// 
+//
 //     void foo() {
 //         TRACE_FUNCTION;
 //         ...
 //
 //      void voo() {
 //          TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
-  
+
 #define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__ , __LINE__)
 #define TRACE_FUNCTION_MSG(...) function_tracer_msg _trace_guard_##__LINE__(__FILE__, __FUNCSIG__ , __LINE__, __VA_ARGS__)
