@@ -893,12 +893,12 @@ void MusicReader::create_toolbar()
 
     {
         QAction *action = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), "", this);
-        action->setToolTip("Search for file...");
+        action->setToolTip("Search for file... (F)");
         connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
         toolbar_->addAction(action);
 
         action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
-        action->setToolTip("Open File...");
+        action->setToolTip("Open File...(O)");
         connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
         toolbar_->addAction(action);
     }
@@ -938,6 +938,14 @@ void MusicReader::create_toolbar()
     shortcut = new QShortcut(Qt::Key_S, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
+
+    shortcut = new QShortcut(Qt::Key_O, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() { open_file_dialog(); });
+
+    shortcut = new QShortcut(QKeySequence(Qt::Key_F), this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_fast_search_dialog);
 
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
