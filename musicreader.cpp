@@ -891,38 +891,37 @@ void MusicReader::create_toolbar()
     }
     addToolBar(area, toolbar_);
 
-    QAction *action = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), "", this);
-    action->setToolTip("Search for file...");
-    connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
-    toolbar_->addAction(action);
+    {
+        QAction *action = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), "", this);
+        action->setToolTip("Search for file...");
+        connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
+        toolbar_->addAction(action);
 
-    action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
-    action->setToolTip("Open File...");
-    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
-
-    toolbar_->addAction(action);
+        action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
+        action->setToolTip("Open File...");
+        connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+        toolbar_->addAction(action);
+    }
 
     single_icon_ = style()->standardIcon(QStyle::SP_FileIcon);
     double_icon_ = create_double_icon();
 
     if (in_single_page_mode())
-        action = new QAction(single_icon_, "", this);
+        view_toggle_action_ = new QAction(single_icon_, "", this);
     else
-        action = new QAction(double_icon_, "", this);
+        view_toggle_action_ = new QAction(double_icon_, "", this);
 
-    action->setToolTip("View one/two pages (1/2)");
-    connect(action, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
-    toolbar_->addAction(action);
-    view_toggle_action_ = action;
+    view_toggle_action_->setToolTip("View one/two pages (1/2)");
+    connect(view_toggle_action_, &QAction::triggered, this, &MusicReader::on_toggle_view_mode);
+    toolbar_->addAction(view_toggle_action_);
 
     page_by_1_icon_ = QIcon(":/MusicReader/images/page_by_1.ico");
     page_by_2_icon_ = QIcon(":/MusicReader/images/page_by_2.ico");
 
-    action = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
-    action->setToolTip("Page Step (S)");
-    toolbar_->addAction(action);
-    page_step_action_ = action;
+    page_step_action_ = new QAction(config_.page_step_size() == 1 ? page_by_1_icon_ : page_by_2_icon_, "", this);
+    connect(page_step_action_, &QAction::triggered, this, &MusicReader::toggle_page_step);
+    page_step_action_->setToolTip("Page Step (S)");
+    toolbar_->addAction(page_step_action_);
 
     auto shortcut = new QShortcut(Qt::Key_1, this);
     shortcut->setContext(Qt::WindowShortcut);
@@ -938,26 +937,25 @@ void MusicReader::create_toolbar()
 
     shortcut = new QShortcut(Qt::Key_S, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_step);
-
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
 
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
-    action = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
-    action->setToolTip("Toggle zoom to content (Z)");
-    toolbar_->addAction(action);
-    zoom_in_out_action_ = action;
+    zoom_in_out_action_ = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
+    connect(zoom_in_out_action_, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
+    zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
+    toolbar_->addAction(zoom_in_out_action_);
 
     shortcut = new QShortcut(Qt::Key_Z, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
 
-    action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
-    action->setToolTip("Settings");
-    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
-    toolbar_->addAction(action);
+    {
+        auto *action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
+        action->setToolTip("Settings");
+        connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+        toolbar_->addAction(action);
+    }
 
     // Add this after the settings button and before the margin action:
     /* // not ready for prime time yet!
