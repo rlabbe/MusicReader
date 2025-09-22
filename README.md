@@ -16,7 +16,7 @@ I wanted to solve the following problems:
 
 ## Better Page Turns
 
-We all have sheet music where the 8 bar menuet of a suite starts at the bottom of the right page, requiring a page turn. This is annoying, especially if you are playing a piece that fits on 2 pages. MusicReader has a 2 page mode that shows left/right pages side by side. However, there is an option that page up/down moves only 1 page at a time - move that minuet's start to the left, and now you can see the entire piece on one screen, no page turn required.
+We all have sheet music where the 16 bar menuet of a suite starts at the bottom of the right page, requiring a page turn. This is annoying, especially if you are playing a piece that fits on 2 pages. MusicReader has a 2 page mode that shows left/right pages side by side. However, there is an option that page up/down moves only 1 page at a time - move that minuet's start to the left, and now you can see the entire piece on one screen, no page turn required.
 
 ## IMSLP Integration
 
