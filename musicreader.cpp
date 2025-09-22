@@ -670,7 +670,7 @@ void MusicReader::show_about_dialog()
     info->setTextFormat(Qt::RichText);
     info->setText("PDF music reader application with IMSLP integration.<br><br>"
                "This application is free and open source software.<br><br>"
-               "<b>License:</b> MIT License<br><br>"
+               "<b>License:</b> GNU Affero General Public License v3.0 (AGPL V3)<br><br>"
                "<b>Third-party libraries and data:</b>"
                "<ul>"
                "<li>Qt Framework - &copy; The Qt Company Ltd. Licensed under LGPL v3<br>https://www.qt.io/<br></li>"
