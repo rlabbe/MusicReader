@@ -468,6 +468,8 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
     QPainter painter(&combined_image);
     painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
     painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
+    painter.setPen(QPen(Qt::black, line_width));
+    painter.drawLine(p1_crop.width() + line_width / 2, 0, p1_crop.width() + line_width / 2, max_height);
     painter.end();
 
     return combined_image;
