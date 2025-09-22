@@ -36,9 +36,8 @@ public:
         if (total_pages > 0) {
             page_combo_box_->blockSignals(true);
             page_combo_box_->clear();
-            for (int i = 0; i < total_pages; ++i) {
-                page_combo_box_->addItem(QString::number(i + 1) + "/" + QString::number(total_pages));
-            }
+            for (int i = 0; i < total_pages; ++i)
+                page_combo_box_->addItem(QString::number(i + 1));
             page_combo_box_->setCurrentIndex(current_page - 1);
             page_combo_box_->adjustSize();
             page_combo_box_->blockSignals(false);
