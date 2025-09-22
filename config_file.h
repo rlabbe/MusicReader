@@ -43,7 +43,7 @@ struct OpenDocument {
     int access_order;  // 1 = most recent, higher numbers = older
     int tab_order;     // 0 = leftmost tab, higher numbers = further right
 
-    // get filename as a string, cant use filename.string() because it's not 
+    // get filename as a string, cant use filename.string() because it's not
     // UTF-8 in Windows.
     /*inline std::string u8filename() const
     {
@@ -60,31 +60,31 @@ struct OpenDocument {
 class ConfigFile {
 private:
     int file_version_;
-    bool restore_window_position_ = true;
-    bool restore_documents_ = true;
-    bool zoom_to_content_ = false;
-    bool show_status_bar_ = true;
-    bool show_toolbar_ = true;
-    bool show_menu_ = true;
-    bool horiz_tabs_ = false;
-    bool allow_file_delete_ = false;
+    bool restore_window_position_;
+    bool restore_documents_;
+    bool zoom_to_content_;
+    bool show_status_bar_;
+    bool show_toolbar_;
+    bool show_menu_;
+    bool horiz_tabs_;
+    bool allow_file_delete_;
 
 
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;
-    std::array<int, 4> app_size_{ 10, 10, 640, 480 };
-    std::array<int, 4> dev_dialog_size_{ 0, 0, 0, 0 };
-    ToolbarLocation toolbar_location_ = ToolbarLocation::Left;
-    PageLocation page_location_ = PageLocation::Center;
-    int page_view_count_ = 2;
-    int page_step_size_ = 2; // when in 2 page view, this is the number of pages to step on page up/down.
-    int open_tab_ = -1;
+    std::array<int, 4> app_size_;
+    std::array<int, 4> dev_dialog_size_;
+    ToolbarLocation toolbar_location_;
+    PageLocation page_location_;
+    int page_view_count_;
+    int page_step_size_; // when in 2 page view, this is the number of pages to step on page up/down.
+    int open_tab_;
     int max_recent_documents_ = 20;
     int save_cadence_secs_ = 15;
     int dpi_ = 300;
     bool allow_oversize_ = true;
     Theme theme_ = Theme::Dark;
-    std::array<int, 4> fast_search_dialog_size_ = { 100, 100, 480, 320 };
+    std::array<int, 4> fast_search_dialog_size_;
     int border_margin_ = 10;
     std::filesystem::path music_directory_ = ".";
     LogLevel log_level_ = LogLevel::Normal;

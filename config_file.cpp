@@ -181,6 +181,7 @@ ConfigFile::ConfigFile(bool reset_on_error)
     : filename_(get_persistent_config_path("MusicReader.config")),
     save_operation_enabled_(true)
 {
+    set_defaults();
     read(reset_on_error);
 }
 
@@ -353,7 +354,7 @@ void ConfigFile::read(bool reset_on_error)
         logger::error("Invalid or missing 'recent_documents'");
 
 
-    app_size_ = { 0, 0, 640, 480 };
+    app_size_ = { 0, 0, 1280, 1024 };
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
         bool valid = true;
         std::array<int, 4> size = {};
@@ -748,30 +749,30 @@ void ConfigFile::set_defaults()
     restore_documents_ = true;
     zoom_to_content_ = true;
     show_status_bar_ = true;
-    dev_mode_ = true;
     show_toolbar_ = true;
     show_menu_ = true;
-    horiz_tabs_ = false;
+    horiz_tabs_ = true;
     allow_file_delete_ = false;
     open_documents_.clear();
     recent_documents_.clear();
-    app_size_ = { 10, 10, 640, 480 };
+    app_size_ = { 10, 10, 1280, 1024 };
     dev_dialog_size_ = { 0, 0, 0, 0 };
 
     toolbar_location_ = ToolbarLocation::Left;
     page_location_ = PageLocation::Center;
     page_view_count_ = 2;
     page_step_size_ = 2;
-    open_tab_ = 0;
-    max_recent_documents_ = 20;
+    open_tab_ = -1;
+    max_recent_documents_ = 50;
     save_cadence_secs_ = 15;
-    dpi_ = 300;
+    dpi_ = 360;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
-    fast_search_dialog_size_ = { 100, 100, 480, 320 };
+    fast_search_dialog_size_ = { -1, -1, 640, 480 };
     border_margin_ = 10;
     music_directory_ = ".";
     log_level_ = LogLevel::Normal;
+    dev_mode_ = false;
 }
 
 std::string ConfigFile::repr() const
