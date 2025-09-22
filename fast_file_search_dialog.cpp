@@ -175,8 +175,10 @@ void FastFileSearchDialog::init_ui(const QRect &size)
     set_title();
 
     try {
-        if (size.x() >= 0 && size.y() >= 0)
+        if (size.x() >= 0 && size.y() >= 0) {
             setGeometry(size);
+            positioned_ = true;
+        }
     } catch (...) {
         logger::warning("FastSearchDialog size not set in config file, using default size");
         resize(600, 600);
@@ -189,7 +191,7 @@ void FastFileSearchDialog::init_ui(const QRect &size)
 
 void FastFileSearchDialog::initialize_data(const std::filesystem::path &directory)
 {
-    // this must be called before the class is created. It sets up the directory 
+    // this must be called before the class is created. It sets up the directory
     // watcher to monitor the directory for changes, and reads the files in the
     // directory, if any.
     if (watcher_) {
@@ -218,6 +220,15 @@ void FastFileSearchDialog::initialize_data(const std::filesystem::path &director
 
 void FastFileSearchDialog::show_dialog()
 {
+    if (!positioned_) {
+        resize(800, 400);
+        if (parentWidget()) {
+            QRect parent_rect = parentWidget()->geometry();
+            move(parent_rect.center() - rect().center());
+        }
+        positioned_ = true;
+    }
+
     file_table_->clearSelection();
     search_field_->clear();
     search_field_->setFocus();
@@ -592,7 +603,7 @@ void FastFileSearchDialog::restore_deleted_files()
 
 void FastFileSearchDialog::reject()
 {
-    // handle esc or whatever; clear the selection (if any) so the app 
+    // handle esc or whatever; clear the selection (if any) so the app
     // doesn't try to open the file, and of course hide the dialog.
     file_table_->clearSelection();
     hide();

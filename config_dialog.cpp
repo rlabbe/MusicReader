@@ -123,7 +123,7 @@ void ConfigDialog::setup_ui()
 
     QHBoxLayout *layout_border = new QHBoxLayout;
     layout_border->addStretch();
-    form_layout->addRow("Border Margin:", layout_border);
+    form_layout->addRow("Border Margin (pixels):", layout_border);
     layout_border->addWidget(spin_border_margin_);
 
     // Max Recent Documents

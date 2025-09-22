@@ -118,4 +118,5 @@ private:
 
     static inline FastFileSearchDialog *instance_ = nullptr;
     const ConfigFile &config_;
+    bool positioned_ = false;
 };
