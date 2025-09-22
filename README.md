@@ -28,14 +28,13 @@ This isn't well supported yet, but you can edit bookmarks. If you need to make b
 
 ## File Management
 
-I don't like apps that put my files in a proprietary storage system. I also don't like navigating directories using explorer. MusicReader has a fast file search that indexes all your PDFs, and allows you to instantly  find the file you want. You can also use the standard Windows open file dialog if you prefer.
+I don't like apps that put my files in a proprietary storage system. I also don't like navigating directories using explorer. MusicReader has a fast file search that indexes all your PDFs, and allows you to instantly find the file you want. You can also use the standard Windows open file dialog if you prefer.
 
-It is blazingly fast, and lets you type incomplete names. For example, if you want to find Bach's prelude 934, but don't quite remember what it is called, you can type 'bac 934' and it will match any file that has those char
-acters in the name. So 'bac' will match 'Bach', and '934 will match 'bwv-934', 'prelude_934.pdf', etc. Search is applied to folder and file names, so sheet_music\bach\934-my-homework.pdf will match 'bach 934' as well.
+It is blazingly fast, and lets you type incomplete names. For example, if you want to find Bach's prelude 934, but don't quite remember what it is called, you can type 'bac 934' and it will match any file that has those characters in the name. So 'bac' will match 'Bach', and '934 will match 'bwv-934', 'prelude_934.pdf', etc. Search is applied to folder and file names, so sheet_music\bach\934-my-homework.pdf will match 'bach 934' as well.
 
 ## Future Plans
 
-I do want to be able to add text annotations, and to have the concept of a playlist, which would be useful for a performance. Maybe.
+I do want to be able to add text annotations, and to have the concept of a playlist, which would be useful for a performance. Support for a musical font to allow adding convience naturals, etc.
 
 ## And Nothing Else
 
