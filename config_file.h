@@ -79,15 +79,15 @@ private:
     int page_view_count_;
     int page_step_size_; // when in 2 page view, this is the number of pages to step on page up/down.
     int open_tab_;
-    int max_recent_documents_ = 20;
-    int save_cadence_secs_ = 15;
-    int dpi_ = 300;
-    bool allow_oversize_ = true;
-    Theme theme_ = Theme::Dark;
+    int max_recent_documents_;
+    int save_cadence_secs_;
+    int dpi_;
+    bool allow_oversize_;
+    Theme theme_;
     std::array<int, 4> fast_search_dialog_size_;
-    int border_margin_ = 10;
-    std::filesystem::path music_directory_ = ".";
-    LogLevel log_level_ = LogLevel::Normal;
+    int border_margin_;
+    std::filesystem::path music_directory_;
+    LogLevel log_level_;
 
 public:
 
