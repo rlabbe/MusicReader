@@ -234,6 +234,9 @@ void FastFileSearchDialog::show_dialog()
     search_field_->setFocus();
 
     show();
+
+    if (config_.music_directory().empty())
+        on_select_directory();
     exec();
 }
 
@@ -344,7 +347,7 @@ void FastFileSearchDialog::update_files()
 
 void FastFileSearchDialog::on_select_directory()
 {
-    QString new_search_path = QFileDialog::getExistingDirectory(this, "Select Search Path", QString::fromStdU16String(path_.u16string()));
+    QString new_search_path = QFileDialog::getExistingDirectory(this, "Select Sheet Music Directory", QString::fromStdU16String(path_.u16string()));
     if (!new_search_path.isEmpty()) {
         directory_changed(std::filesystem::path(new_search_path.toStdU16String()), this);
     }
@@ -654,6 +657,8 @@ bool FastFileSearchDialog::eventFilter(QObject *object, QEvent *event)
 
 QStringList FastFileSearchDialog::find_files(const std::filesystem::path &path, QString &file_ending)
 {
+    if (path.empty()) return {};
+
     QStringList file_paths;
     QDirIterator it(QString::fromStdU16String(path.u16string()), QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {

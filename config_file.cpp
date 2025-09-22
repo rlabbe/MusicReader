@@ -768,9 +768,9 @@ void ConfigFile::set_defaults()
     dpi_ = 360;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
-    fast_search_dialog_size_ = { -1, -1, 640, 480 };
+    fast_search_dialog_size_ = { -1, -1, 640, 800 };
     border_margin_ = 10;
-    music_directory_ = ".";
+    music_directory_ = "";
     log_level_ = LogLevel::Normal;
     dev_mode_ = false;
 }
