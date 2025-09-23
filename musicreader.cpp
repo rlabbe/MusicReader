@@ -2259,8 +2259,7 @@ void MusicReader::check_first_run_tour()
 
         config_.set_tour_has_run(true);  // Mark as shown regardless of choice
 
-        if (msgBox.exec() == QMessageBox::Yes) {
+        if (msgBox.exec() == QMessageBox::Yes) 
             open_tour_dialog();
-        }
     }
 }

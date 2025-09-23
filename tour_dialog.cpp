@@ -1,6 +1,8 @@
 #include "tour_dialog.h"
 #include "logger.h"
 #include <fstream>
+#include <filesystem>
+
 
 TourDialog::TourDialog(QWidget *parent)
     : QDialog(parent)

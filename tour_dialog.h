@@ -2,7 +2,6 @@
 
 #include <QtWidgets>
 #include <vector>
-#include <filesystem>
 
 
 // displays a series of images with next/previous buttons to guide the user
