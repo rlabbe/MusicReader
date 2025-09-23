@@ -67,7 +67,7 @@ private:
     void closeEvent(QCloseEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
-    // called after config file changed, update all the UI to reflect 
+    // called after config file changed, update all the UI to reflect
     // the current settings vis-a-vis status bar, etc.
     void on_config_saved();
 
@@ -87,6 +87,9 @@ private:
     void create_edit_menu(auto *);
     void create_view_menu(auto *);
     void create_imslp_menu(auto *menu_bar);
+
+    void open_tour_dialog();
+    void check_first_run_tour();
 
     void create_toolbar();
     void create_status_bar();

@@ -290,6 +290,7 @@
     <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
+    <ClCompile Include="tour_dialog.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
     <QtMoc Include="musicreader.h" />
@@ -343,6 +344,7 @@
     <ClInclude Include="qt_utils.h" />
     <ClInclude Include="requires.h" />
     <ClInclude Include="resource.h" />
+    <QtMoc Include="tour_dialog.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="vertical_tabs_widget.h" />
     <ClInclude Include="wait_cursor.h" />

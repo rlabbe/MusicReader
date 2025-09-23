@@ -91,6 +91,9 @@
     <ClCompile Include="dev_status_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tour_dialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -139,6 +142,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="horizontal_tabs_widget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="tour_dialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

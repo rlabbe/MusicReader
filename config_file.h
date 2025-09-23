@@ -68,6 +68,7 @@ private:
     bool show_menu_;
     bool horiz_tabs_;
     bool allow_file_delete_;
+    bool tour_has_run_;
 
 
     std::vector<OpenDocument> open_documents_;
@@ -189,6 +190,8 @@ public:
     LogLevel log_level() const { return log_level_; }
     void set_log_level(LogLevel value) { log_level_ = value; save(); }
 
+    bool tour_has_run() const { return tour_has_run_; }
+    void set_tour_has_run(bool value) { tour_has_run_ = value; save(); }
 
     // Method to read configuration from file
     void read(bool reset_on_error = true);

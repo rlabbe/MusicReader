@@ -32,6 +32,7 @@
 #include "requires.h"
 #include "imslp_search_dialog.h"
 #include "dev_status_dialog.h"
+#include "tour_dialog.h"
 
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
@@ -167,6 +168,11 @@ void MusicReader::setup_UI()
                 this, &MusicReader::on_screen_geometry_changed);
         connect(screen, &QScreen::logicalDotsPerInchChanged,
                 this, &MusicReader::on_screen_dpi_changed);
+    });
+
+    // Show tour prompt for first-time users
+    QTimer::singleShot(500, this, [this]() {
+        check_first_run_tour();
     });
 }
 
@@ -543,6 +549,12 @@ void MusicReader::create_view_menu(auto *menu_bar)
     goto_action->setShortcut(QKeySequence("Ctrl+G"));
     connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
     view_menu->addAction(goto_action);
+
+    view_menu->addSeparator();
+
+    QAction *tour_action = new QAction("&Tour...", this);
+    connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
+    view_menu->addAction(tour_action);
 
 }
 
@@ -2213,5 +2225,42 @@ void MusicReader::force_redraw_all_viewers()
         PDFViewer *viewer = viewer_tab(i);
         if (viewer)
             viewer->force_redraw();
+    }
+}
+
+void MusicReader::open_tour_dialog()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    try {
+        TourDialog dialog(this);
+        dialog.exec();
+    } catch (const std::exception &e) {
+        logger::error("Failed to open tour dialog: " + std::string(e.what()));
+        display_error_message("Failed to open tour dialog: " + std::string(e.what()));
+    }
+}
+
+
+void MusicReader::check_first_run_tour()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (!config_.tour_has_run()) {
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Welcome to MusicReader");
+        msgBox.setText("Would you like to take a quick tour of MusicReader's features?");
+        msgBox.setInformativeText("You can always access the tour later through the menu View | Tour...");
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::Yes);
+
+        config_.set_tour_has_run(true);  // Mark as shown regardless of choice
+
+        if (msgBox.exec() == QMessageBox::Yes) {
+            open_tour_dialog();
+        }
     }
 }
