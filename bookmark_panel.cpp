@@ -578,6 +578,7 @@ void BookmarkPanel::select_page(int page_num)
 {
     SAFE_METHOD;
 
+    if (tracking_paused_) return;
     if (!follow_page_checkbox_->isChecked()) return;
     auto doc = document();
     if (!doc) return;

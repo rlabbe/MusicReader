@@ -46,6 +46,11 @@ public slots:
     // Moves selected bookmarks up one level (out of their parent)
     void unindent_selected_bookmarks();
 
+    // there are operations that cause a lot of signals about page changes to be emitted
+    // rapidly, and we don't want to track those as they are momentary/internal.
+    void pause_tracking() { tracking_paused_ = true; }
+    void resume_tracking() { tracking_paused_ = false; }
+
 
 private:
 
@@ -97,4 +102,6 @@ private:
     QPushButton *indent_button_ = nullptr;
     QPushButton *unindent_button_ = nullptr;
     QCheckBox *follow_page_checkbox_ = nullptr;
+
+    bool tracking_paused_ = false;
 };

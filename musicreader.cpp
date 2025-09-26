@@ -1014,6 +1014,11 @@ void MusicReader::on_toggle_view_mode()
 
     ConfigFileGroupSave group_saver(config_);
 
+    // This method will trigger a bunch of signals to select the current page, causing
+    // the bookmark panel's selection to jump around if tracking page changes, so
+    // turn if off while we update everything, then turn it on and select the current page.
+    bookmark_panel_->pause_tracking();
+
     // Toggle between single and double page view mode
     config_.set_page_view_count((config_.page_view_count() == 1) ? 2 : 1);
 
@@ -1021,6 +1026,11 @@ void MusicReader::on_toggle_view_mode()
     view_toggle_action_->setIcon(config_.page_view_count() == 1 ? single_icon_ : double_icon_);
 
     refresh_all_documents();
+    bookmark_panel_->resume_tracking();
+
+    // Trigger bookmark selection once after transition is complete
+    if (auto viewer = current_viewer())
+        bookmark_panel_->select_page(viewer->current_page());
 }
 
 
@@ -2259,7 +2269,7 @@ void MusicReader::check_first_run_tour()
 
         config_.set_tour_has_run(true);  // Mark as shown regardless of choice
 
-        if (msgBox.exec() == QMessageBox::Yes) 
+        if (msgBox.exec() == QMessageBox::Yes)
             open_tour_dialog();
     }
 }
