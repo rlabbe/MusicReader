@@ -82,17 +82,17 @@ protected:
 
 class VerticalTabsWidget : public QTabWidget {
 public:
-	explicit VerticalTabsWidget(QWidget *parent = nullptr) : QTabWidget(parent)
-	{
-		setTabBar(new VerticalTabBar(this));
-		setTabPosition(QTabWidget::West);
-	}
+    explicit VerticalTabsWidget(QWidget *parent = nullptr) : QTabWidget(parent)
+    {
+        setTabBar(new VerticalTabBar(this));
+        setTabPosition(QTabWidget::West);
+    }
 
-	void wheelEvent(QWheelEvent *event) override
-	{
-		// Do nothing - ignore wheel events
-		event->ignore();
-	}
+    void wheelEvent(QWheelEvent *event) override
+    {
+        // Do nothing - ignore wheel events
+        event->ignore();
+    }
 };
 
 

@@ -33,6 +33,7 @@
 #include "imslp_search_dialog.h"
 #include "dev_status_dialog.h"
 #include "tour_dialog.h"
+#include "wait_cursor.h"
 
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
@@ -496,10 +497,18 @@ void MusicReader::create_view_menu(auto *menu_bar)
     QMenu *view_menu = menu_bar->addMenu("&View");
 
     bookmark_menu_action_ = new QAction("Show Bookmarks", this);
+    bookmark_menu_action_->setShortcut(Qt::Key_B);
     bookmark_menu_action_->setCheckable(true);
     bookmark_menu_action_->setChecked(true);
     connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
     view_menu->addAction(bookmark_menu_action_);
+
+    tabs_menu_action_ = new QAction("Show Document &Tabs", this);
+    tabs_menu_action_->setShortcut(Qt::Key_T);
+    tabs_menu_action_->setCheckable(true);
+    tabs_menu_action_->setChecked(tabs_visible_);
+    connect(tabs_menu_action_, &QAction::triggered, this, &MusicReader::toggle_tab_visibility);
+    view_menu->addAction(tabs_menu_action_);
 
     menubar_menu_action_ = new QAction("&Menu Bar", this);
     menubar_menu_action_->setCheckable(true);
@@ -959,6 +968,10 @@ void MusicReader::create_toolbar()
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::open_fast_search_dialog);
 
+    shortcut = new QShortcut(Qt::Key_T, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_tab_visibility);
+
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
     zoom_in_out_action_ = new QAction(config_.zoom_to_content() ? zoomout_icon_ : zoomin_icon_, "", this);
@@ -1040,6 +1053,23 @@ bool MusicReader::in_single_page_mode() const
 
     return config_.page_view_count() == 1;
 }
+
+
+void MusicReader::toggle_tab_visibility()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    WaitCursor wc;
+    tabs_visible_ = !tabs_visible_;
+
+    if (tab_widget_)
+        tab_widget_->tabBar()->setVisible(tabs_visible_);
+
+    if (tabs_menu_action_)
+        tabs_menu_action_->setChecked(tabs_visible_);
+}
+
 
 void MusicReader::toggle_page_zoom()
 {

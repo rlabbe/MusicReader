@@ -168,6 +168,8 @@ private:
 
     void update_document_priority_order();
 
+    void toggle_tab_visibility();
+
 
     QToolBar *main_toolbar_ = nullptr;
     StatusBar *status_bar_ = nullptr;
@@ -191,6 +193,7 @@ private:
     QAction *statusbar_menu_action_ = nullptr;
     QAction *toolbar_menu_action_ = nullptr;
     QAction *menubar_menu_action_ = nullptr;
+    QAction *tabs_menu_action_ = nullptr;
 
     QAction *text_annotation_action_ = nullptr;
     bool text_annotation_mode_ = false;
@@ -205,6 +208,9 @@ private:
     QTimer *timer_ = nullptr;
     FullscreenExitButton *exit_button_ = nullptr;
     bool has_full_menu_bar_ = true;
+
+    // we can show/hide the tabs with T key
+    bool tabs_visible_ = true;
 
     ConfigFile config_;
     std::map<std::string, QKeySequence> shortcuts_;
