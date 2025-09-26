@@ -67,7 +67,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>$(QtInstall)</QtInstall>
-    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets</QtModules>
+    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'" Label="QtSettings">
@@ -163,7 +163,9 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin
-xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation $(MSBuildProjectDirectory)\bin\documentation</Command>
+xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.png $(MSBuildProjectDirectory)\bin\documentation
+xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.dat $(MSBuildProjectDirectory)\bin\documentation
+xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuildProjectDirectory)\bin\documentation</Command>
     </PostBuildEvent>
     <QtMoc>
       <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
