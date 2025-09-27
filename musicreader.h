@@ -87,6 +87,7 @@ private:
     void create_edit_menu(auto *);
     void create_view_menu(auto *);
     void create_imslp_menu(auto *menu_bar);
+    void create_global_shortcuts();
 
     void open_tour_dialog();
     void check_first_run_tour();

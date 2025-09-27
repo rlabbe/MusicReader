@@ -140,6 +140,9 @@ void MusicReader::setup_UI()
         autosave_timer->start(config_.save_cadence_secs() * 1000);
     }
 
+    create_global_shortcuts();
+
+
     if (config_.restore_documents())
         QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
 
@@ -176,6 +179,94 @@ void MusicReader::setup_UI()
         check_first_run_tour();
     });
 }
+
+void MusicReader::create_global_shortcuts()
+{
+    // Make global keyboard shortcuts within the app
+    // not all are set here. Ones that have a menu item need to set the
+    // shortcut there, then make it global by calling addAction(some_menu_action_);
+
+    QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
+
+    shortcut = new QShortcut(QKeySequence("PageUp"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
+
+    shortcut = new QShortcut(Qt::Key_B, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
+
+    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
+
+    shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
+
+    shortcut = new QShortcut(Qt::Key_1, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        set_page_view_count(1);
+    });
+
+    shortcut = new QShortcut(Qt::Key_2, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        set_page_view_count(2);
+    });
+
+    shortcut = new QShortcut(Qt::Key_S, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
+
+    shortcut = new QShortcut(Qt::Key_O, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() { open_file_dialog(); });
+
+    shortcut = new QShortcut(QKeySequence(Qt::Key_F), this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_fast_search_dialog);
+
+    shortcut = new QShortcut(Qt::Key_Z, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
+
+
+    shortcut = new QShortcut(Qt::Key_Space, this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this]() {
+        auto viewer = current_viewer();
+        if (viewer) viewer->page_down();
+    });
+
+    shortcut = new QShortcut(QKeySequence("F5"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::reload_document);
+
+    shortcut = new QShortcut(QKeySequence("F2"), this);
+    shortcut->setContext(Qt::ApplicationShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
+
+    // Add this after the settings button and before the margin action:
+    /* // not ready for prime time yet!
+    action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
+    action->setToolTip("Text annotation mode (T)");
+    action->setCheckable(true);
+    connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
+    toolbar_->addAction(action);
+    text_annotation_action_ = action;
+
+    // Add T shortcut
+    shortcut = new QShortcut(Qt::Key_T, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
+    */
+
+}
+
 
 void MusicReader::dragEnterEvent(QDragEnterEvent *event)
 {
@@ -504,11 +595,14 @@ void MusicReader::create_view_menu(auto *menu_bar)
     view_menu->addAction(bookmark_menu_action_);
 
     tabs_menu_action_ = new QAction("Show Document &Tabs", this);
-    tabs_menu_action_->setShortcut(Qt::Key_T);
+    tabs_menu_action_->setShortcut(QKeySequence("Shift+T"));
     tabs_menu_action_->setCheckable(true);
     tabs_menu_action_->setChecked(tabs_visible_);
     connect(tabs_menu_action_, &QAction::triggered, this, &MusicReader::toggle_tab_visibility);
     view_menu->addAction(tabs_menu_action_);
+
+    // make it global so it works even when this window doesn't have focus
+    addAction(tabs_menu_action_);
 
     menubar_menu_action_ = new QAction("&Menu Bar", this);
     menubar_menu_action_->setCheckable(true);
@@ -602,46 +696,10 @@ void MusicReader::create_menus()
             color: gray;
         })");
 
-    // Make global keyboard shortcuts within the app
-    QShortcut *shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::add_bookmark);
-
-    shortcut = new QShortcut(QKeySequence("PageUp"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_up);
-
-    shortcut = new QShortcut(Qt::Key_B, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
-
-    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
-
-    shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
-
-
-    shortcut = new QShortcut(Qt::Key_Space, this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
-        auto viewer = current_viewer();
-        if (viewer) viewer->page_down();
-    });
-
-    shortcut = new QShortcut(QKeySequence("F5"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::reload_document);
-
-    shortcut = new QShortcut(QKeySequence("F2"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::edit_document);
-
     if (!config_.show_menu())
         menu_bar->hide();
 }
+
 
 void MusicReader::create_help_menu(auto *menu_bar)
 {
@@ -944,33 +1002,6 @@ void MusicReader::create_toolbar()
     page_step_action_->setToolTip("Page Step (S)");
     toolbar_->addAction(page_step_action_);
 
-    auto shortcut = new QShortcut(Qt::Key_1, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
-        set_page_view_count(1);
-    });
-
-    shortcut = new QShortcut(Qt::Key_2, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
-        set_page_view_count(2);
-    });
-
-    shortcut = new QShortcut(Qt::Key_S, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
-
-    shortcut = new QShortcut(Qt::Key_O, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() { open_file_dialog(); });
-
-    shortcut = new QShortcut(QKeySequence(Qt::Key_F), this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_fast_search_dialog);
-
-    shortcut = new QShortcut(Qt::Key_T, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_tab_visibility);
 
     zoomin_icon_ = QIcon(":/MusicReader/images/zoomin.ico");
     zoomout_icon_ = QIcon(":/MusicReader/images/zoomout.ico");
@@ -979,31 +1010,12 @@ void MusicReader::create_toolbar()
     zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(zoom_in_out_action_);
 
-    shortcut = new QShortcut(Qt::Key_Z, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
-
     {
         auto *action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
         action->setToolTip("Settings");
         connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
         toolbar_->addAction(action);
     }
-
-    // Add this after the settings button and before the margin action:
-    /* // not ready for prime time yet!
-    action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
-    action->setToolTip("Text annotation mode (T)");
-    action->setCheckable(true);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
-    toolbar_->addAction(action);
-    text_annotation_action_ = action;
-
-    // Add T shortcut
-    shortcut = new QShortcut(Qt::Key_T, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
-    */
 }
 
 void MusicReader::set_page_view_count(int count)
