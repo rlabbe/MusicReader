@@ -595,7 +595,7 @@ void MusicReader::create_view_menu(auto *menu_bar)
     view_menu->addAction(bookmark_menu_action_);
 
     tabs_menu_action_ = new QAction("Show Document &Tabs", this);
-    tabs_menu_action_->setShortcut(QKeySequence("Shift+T"));
+    tabs_menu_action_->setShortcut(Qt::Key_T);
     tabs_menu_action_->setCheckable(true);
     tabs_menu_action_->setChecked(tabs_visible_);
     connect(tabs_menu_action_, &QAction::triggered, this, &MusicReader::toggle_tab_visibility);
