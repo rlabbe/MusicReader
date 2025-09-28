@@ -1,7 +1,7 @@
 #include "border.h"
-
-
 #include <iostream>
+
+#pragma optimize("", off)
 
 Border find_content_edges(const QImage &img, int black_pixel_threshold)
 {
@@ -117,9 +117,11 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         counts.pop_back();
     }
 
-    //img.save("img.bmp");
-    //grayscale.save("grayscale.bmp");
-    //binary.save("binary.bmp");
+    return Border{ .top = top, .bottom = bottom, .left = left, .right = right };
+
+    /* doesn't seem right - it was intented to not zoom in to tiny pages, like
+    * in some of Glass' hand written scores, but more often than not it causes
+    * pages that have lots of blank space at the bottom to not zoom at all.
 
     // Don't allow "too" small
     double max_shrink_ratio = 0.20;
@@ -128,8 +130,9 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
     double my_width = right - left;
     double my_height = bottom - top;
 
+
     if (my_width >= max_width && my_height >= max_height)
-        return Border{ .top = top, .bottom = bottom, .left = left, .right = right };
+            return Border{ .top = top, .bottom = bottom, .left = left, .right = right };
     else
-        return Border{ .top = 0, .bottom = height, .left = 0, .right = width };
+        return Border{ .top = 0, .bottom = height, .left = 0, .right = width };*/
 }
