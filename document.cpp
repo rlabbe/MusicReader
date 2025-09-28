@@ -13,7 +13,8 @@
 #pragma warning(pop)
 #include "document_helpers.h"
 #include "exception_logger.h"
-
+#include <fstream>
+#include <qmessagebox.h>
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
@@ -1039,4 +1040,175 @@ bool Document::save_annotations_to_pdf()
 
     close_fitz(ctx, doc);
     return success;
+}
+
+
+
+// Add to document.h in the public section:
+bool set_bookmarks_from_txt_file();
+
+// Add to document.cpp (also need #include <QMessageBox>):
+bool Document::set_bookmarks_from_txt_file()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    // Generate txt filename from pdf filename
+    auto txt_path = filename_;
+    txt_path.replace_extension(".txt");
+
+    if (!std::filesystem::exists(txt_path)) {
+        std::string error_msg = std::format("Bookmark file does not exist: {}", txt_path.string());
+        logger::error(error_msg);
+        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+        return false;
+    }
+
+    std::ifstream file(txt_path);
+    if (!file.is_open()) {
+        std::string error_msg = std::format("Failed to open bookmark file: {}", txt_path.string());
+        logger::error(error_msg);
+        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+        return false;
+    }
+
+    std::vector<std::tuple<int, int, std::string>> parsed_bookmarks; // level, page, title
+    std::vector<int> indent_stack;
+    std::string line;
+    int line_num = 0;
+    int prev_page = 0;
+
+    while (std::getline(file, line)) {
+        ++line_num;
+
+        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos)
+            continue;
+
+        // Calculate indent level
+        std::string stripped = line;
+        stripped.erase(0, stripped.find_first_not_of(" \t"));
+        int indent_level = static_cast<int>(line.length() - stripped.length());
+
+        // Parse page number and text
+        std::istringstream iss(stripped);
+        std::string page_str, title;
+        if (!(iss >> page_str)) {
+            std::string error_msg = std::format("Line {}: Invalid format - expected 'page_number text'", line_num);
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        int page_num;
+        try {
+            page_num = std::stoi(page_str);
+        } catch (const std::exception &) {
+            std::string error_msg = std::format("Line {}: Invalid page number '{}'", line_num, page_str);
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        if (page_num < 1) {
+            std::string error_msg = std::format("Line {}: Page number must be positive, got {}", line_num, page_num);
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        if (page_num < prev_page) {
+            std::string error_msg = std::format("Line {}: Page numbers must be in order, got {} after {}", line_num, page_num, prev_page);
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        if (page_num > page_count()) {
+            std::string error_msg = std::format("Line {}: Page {} does not exist (PDF has {} pages)", line_num, page_num, page_count());
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        prev_page = page_num;
+
+        // Get remaining text as title
+        std::string remaining;
+        std::getline(iss, remaining);
+        title = remaining;
+        if (!title.empty() && title[0] == ' ')
+            title = title.substr(1); // Remove leading space
+
+        if (title.empty()) {
+            std::string error_msg = std::format("Line {}: Missing bookmark title", line_num);
+            logger::error(error_msg);
+            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+            return false;
+        }
+
+        // Determine hierarchy level based on indentation
+        int level;
+        if (indent_level == 0) {
+            level = 1;
+            indent_stack.clear();
+            indent_stack.push_back(indent_level);
+        } else {
+            // Find appropriate level in stack
+            while (!indent_stack.empty() && indent_level <= indent_stack.back())
+                indent_stack.pop_back();
+
+            indent_stack.push_back(indent_level);
+            level = static_cast<int>(indent_stack.size());
+        }
+
+        parsed_bookmarks.emplace_back(level, page_num, title);
+    }
+
+    file.close();
+
+    if (parsed_bookmarks.empty()) {
+        std::string error_msg = std::format("No valid bookmarks found in {}", txt_path.string());
+        logger::error(error_msg);
+        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+        return false;
+    }
+
+    // All parsing and validation passed, now update bookmarks
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    undo_stack_.push_back(bookmarks_);
+    bookmarks_.clear();
+
+    std::vector<Bookmark *> bookmark_level_stack; // Track parent at each level
+
+    for (const auto &[level, page_num, title] : parsed_bookmarks) {
+        Bookmark bookmark(title, page_num);
+
+        // Adjust stack size to current level
+        if (level <= static_cast<int>(bookmark_level_stack.size())) {
+            bookmark_level_stack.resize(level - 1);
+        }
+
+        if (level == 1) {
+            // Top level bookmark
+            bookmarks_.push_back(bookmark);
+            bookmark_level_stack.clear();
+            bookmark_level_stack.push_back(&bookmarks_.back());
+        } else {
+            // Child bookmark - add to parent at level-1
+            Bookmark *parent = bookmark_level_stack.back();
+            parent->add_child(bookmark);
+
+            // Update the newly added child's parent handle
+            auto &new_child = parent->children_.back();
+            new_child.parent_handle_ = parent->handle_;
+
+            bookmark_level_stack.push_back(&new_child);
+        }
+    }
+
+    modified_ = true;
+    emit bookmarks_loaded();
+    logger::info("Successfully loaded {} bookmarks from {}", parsed_bookmarks.size(), txt_path.string());
+    return true;
 }

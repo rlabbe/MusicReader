@@ -370,9 +370,9 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num, bool is
     TRACE_FUNCTION;
 
     if (!config_ || !document_)
-        return PrefetchEntry(page_num, false, false, 0);
+        return PrefetchEntry(page_num, false, 0);
 
-    PrefetchEntry entry(page_num, true, config_->zoom_to_content(), config_->border_margin());
+    PrefetchEntry entry(page_num, true, config_->border_margin());
     entry.p1 = PixmapPage(document_->get_page(page_num, is_current_page));
 
     if (page_num < document_->page_count())
@@ -393,10 +393,10 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num, bool is
     TRACE_FUNCTION;
 
     if (!config_ || !document_)
-        return PrefetchEntry(page_num, false, false, 0);
+        return PrefetchEntry(page_num, false, 0);
 
 
-    PrefetchEntry entry(page_num, false, config_->zoom_to_content(), config_->border_margin());
+    PrefetchEntry entry(page_num, false, config_->border_margin());
 
     entry.p1 = document_->get_page(page_num, is_current_page);
     if (!entry.p1.is_empty()) {
@@ -602,7 +602,6 @@ bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) co
 
     return page_num == target_page_num &&
         double_page == (config.page_view_count() == 2) &&
-        zoom_to_content == config.zoom_to_content() &&
         border_margin == config.border_margin() &&
         !rendered.isNull();
 }

@@ -57,6 +57,9 @@ public:
     std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title, int page_num);
     std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title, int page_num, const BookmarkHandle &parent_handle);
 
+    // looks for a file named filename.txt in current directory, uses it to set bookmarks
+    bool set_bookmarks_from_txt_file();
+
     std::vector<Bookmark> &bookmarks() { return bookmarks_; }
     std::vector<Annotation> &annotations() { return annotations_; }
 

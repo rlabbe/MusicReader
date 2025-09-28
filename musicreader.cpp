@@ -572,6 +572,16 @@ void MusicReader::create_edit_menu(auto *menu_bar)
     edit_menu_->addAction(redo_action_);
     addAction(redo_action_);
 
+    edit_menu_->addSeparator();
+
+    QAction *set_bookmarks_action = new QAction("Set bookmarks from txt file", this);
+    connect(set_bookmarks_action, &QAction::triggered, this, [this]() {
+        auto doc = current_document();
+        if (doc && doc->set_bookmarks_from_txt_file())
+                update_bookmarks_for_doc();
+    });
+    edit_menu_->addAction(set_bookmarks_action);
+
     connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
         auto doc = current_document();
         undo_action_->setEnabled(doc && doc->can_undo());
@@ -1088,6 +1098,8 @@ void MusicReader::toggle_page_zoom()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    bookmark_panel_->pause_tracking();
+
     // Toggle zoom setting and save config
     config_.set_zoom_to_content(!config_.zoom_to_content());
     config_.save();
@@ -1097,6 +1109,7 @@ void MusicReader::toggle_page_zoom()
     zoom_in_out_action_->setIcon(icon);
 
     refresh_all_documents();
+    bookmark_panel_->resume_tracking();
 }
 
 

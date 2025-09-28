@@ -21,7 +21,7 @@ public:
 
     // When document is created it isn't opened yet. So,
     // create this class, call document->load_document(), and when it is
-    // complete call get_page(page_num, true). 
+    // complete call get_page(page_num, true).
     PDFViewer(std::shared_ptr<Document> document,
               ConfigFile *config,
               int page,
@@ -89,10 +89,9 @@ private:
     struct PrefetchEntry {
 
         PrefetchEntry() = default;
-        PrefetchEntry(int page_num, bool double_page, bool zoom, int margin)
+        PrefetchEntry(int page_num, bool double_page, int margin)
             : page_num(page_num)
             , double_page(double_page)
-            , zoom_to_content(zoom)
             , border_margin(margin)
         {
         }
@@ -101,7 +100,7 @@ private:
 
         // render settings
         bool double_page = false;
-        bool zoom_to_content = false;
+        //bool zoom_to_content = false;
         int border_margin = 0;
 
         PixmapPage p1;
@@ -156,7 +155,7 @@ private:
 
     // set to true if calling code to set the scrollbar
     // programatically so we don't request a page (the
-    // caller will be doing that). Checked in 
+    // caller will be doing that). Checked in
     // on_scrollbar_value_changed().
     bool manual_scrollbar_change_ = false;
 };
