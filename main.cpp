@@ -3,7 +3,7 @@
 #include "logger.h"
 #include <iostream>
 
-#pragma warning(disable: 4611) 
+#pragma warning(disable: 4611)
 #pragma warning(push,1)
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
@@ -53,6 +53,7 @@ void test_imslp_client()
 int main(int argc, char *argv[])
 {
     //test_imslp_client();
+    // test_strip_extra_call_info(); // in logger.h
 
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
@@ -63,6 +64,7 @@ int main(int argc, char *argv[])
 
         MusicReader w;
         w.show();
+
 
         for (int i = 1; i < argc; ++i)
             w.open_pdf_in_tab(argv[i], 1);

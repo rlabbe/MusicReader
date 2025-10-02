@@ -114,8 +114,8 @@ inline static void logger::trace(std::format_string<Args...> fmt, Args&&... args
 //     auto __cdecl MusicReader::setup_mouse_hiding::<lambda_1>::operator ()(void) const
 // and we just want the name, however, we don't use __FUNC__ because
 // if inside a lambda it doesn't give you the outer function name.
-std::string strip_extra_call_info(const std::string &funcsig);
-
+std::string strip_extra_call_info(const std::string &funcsig, bool log=false);
+void test_strip_extra_call_info();
 
 int indent_level();
 void increase_indent();

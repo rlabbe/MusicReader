@@ -5,6 +5,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fstream>
 #include <regex>
+#include <unordered_set>
 #include <filesystem>
 #include <iostream>
 #include "config_file.h"
@@ -89,7 +90,7 @@ void logger::initialize(bool log_to_console, ConfigFile &cf, bool append, size_t
     log_file_path_ = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file_path_ << std::endl;
 
-    if(!append)
+    if (!append)
         std::filesystem::remove(log_file_path_);
 
     configure_logger(log_file_path_, max_size_kb, log_to_console);
@@ -240,70 +241,128 @@ std::string logger::get_log_content()
     return "";
 }
 
-std::string strip_extra_call_info(const std::string &funcsig)
+#pragma optimize("", off)
+std::unordered_set<std::string> func_names;
+void test_strip_extra_call_info()
 {
-    // Handle lambdas specially
+    struct TestCase {
+        std::string input;
+        std::string expected;
+    };
+
+    std::vector<TestCase> tests = {
+        {"void __cdecl MusicReader::setup_UI(void)", "setup_UI()"},
+        {"void __cdecl MusicReader::create_bookmark_panel(void)", "create_bookmark_panel()"},
+        {"void __cdecl MusicReader::create_file_menu<class QMenuBar>(class QMenuBar *)", "create_file_menu()"},
+        {"void __cdecl MusicReader::create_edit_menu<class QMenuBar>(class QMenuBar *)", "create_edit_menu()"},
+        {"void __cdecl MusicReader::create_imslp_menu<class QMenuBar>(class QMenuBar *)", "create_imslp_menu()"},
+        {"void __cdecl MusicReader::create_view_menu<class QMenuBar>(class QMenuBar *)", "create_view_menu()"},
+        {"void __cdecl MusicReader::create_help_menu<class QMenuBar>(class QMenuBar *)", "create_help_menu()"},
+        {"class QIcon __cdecl MusicReader::create_double_icon(void)", "create_double_icon()"},
+        {"bool __cdecl MusicReader::in_single_page_mode(void) const", "in_single_page_mode()"},
+        {"class std::shared_ptr<class Document> __cdecl MusicReader::open_pdf_document(const class std::filesystem::path &,int)", "open_pdf_document()"},
+        {"class std::vector<class Annotation,class std::allocator<class Annotation> > __cdecl Document::load_annotations_from_pdf(struct fz_context *,struct fz_document *)", "load_annotations_from_pdf()"},
+        {"enum Qt::AlignmentFlag __cdecl PDFViewer::page_alignment(void) const", "page_alignment()"},
+        {"struct PDFViewer::PrefetchEntry __cdecl PDFViewer::make_single_page_entry(int,bool) const", "make_single_page_entry()"},
+        {"struct Page __cdecl Document::get_page(int,bool) const", "get_page()"},
+        {"void __cdecl PDFViewer::update_image(const class QString &)", "update_image()"},
+        {"void __cdecl PDFViewer::on_page_loaded(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,int)", "on_page_loaded()"},
+        {"auto __cdecl MusicReader::setup_mouse_hiding::<lambda_1>::operator ()(void) const", "setup_mouse_hiding::<lambda_1>::operator ()"},
+        {"class std::vector<int,class std::allocator<int> > __cdecl get_page_load_order(int,int)", "get_page_load_order()"},
+        {"void __cdecl DocumentLoadManager::prioritize_page_internal(const class std::filesystem::path &)", "prioritize_page_internal()"},
+    };
+
+    int passed = 0;
+    int failed = 0;
+    std::ofstream f;
+    f.open("c:\\tmp\\funcsigtest.txt");
+
+    for (const auto &test : tests) {
+        std::string result = strip_extra_call_info(test.input, false);
+        if (result == test.expected) {
+            passed++;
+        } else {
+            failed++;
+            f << "FAIL: " << test.input << "\n"
+                << "  Expected: " << test.expected << "\n"
+                << "  Got:      " << result << "\n";
+        }
+    }
+
+    f << "\nTests: " << passed << " passed, " << failed << " failed\n";
+}
+
+std::string strip_extra_call_info(const std::string &funcsig, bool log)
+{
+    std::ofstream f;
+
+    if (log) log = !func_names.contains(funcsig);
+
+    if (log) {
+        func_names.insert(funcsig);
+        f.open("c:\\tmp\\funcsig.txt", std::ios::app);
+        f << funcsig << " ";
+    }
+
     if (funcsig.find("<lambda_") != std::string::npos) {
         size_t lambda_start = funcsig.find("::");
         if (lambda_start != std::string::npos) {
             lambda_start += 2;
             size_t paren_pos = funcsig.find('(', lambda_start);
             if (paren_pos != std::string::npos) {
-                std::string lambda_part = funcsig.substr(lambda_start, paren_pos - lambda_start);
-                return lambda_part + "()";
+                std::string lambda_part = funcsig.substr(lambda_start, paren_pos - lambda_start) + "()";
+                if (log) f << lambda_part << std::endl;
+                return lambda_part;
             }
         }
     }
 
     size_t paren_pos = funcsig.find('(');
-    if (paren_pos == std::string::npos)
+    if (paren_pos == std::string::npos) {
+        if (log) f << std::endl;
         return funcsig;
+    }
 
-    // Find the function name by working backwards from the paren
-    // Skip any calling convention (__cdecl, __stdcall, etc.)
     std::string before_paren = funcsig.substr(0, paren_pos);
 
-    // Look for actual class scope (not template parameters)
-    // Find all :: occurrences and check if they're inside template brackets
-    size_t scope_pos = std::string::npos;
-    int bracket_depth = 0;
+    // Find rightmost space that's not inside angle brackets
+    size_t func_start = std::string::npos;
+    int angle_depth = 0;
 
-    for (auto i = before_paren.length() - 1; i >= 1; --i) {
+    for (size_t i = before_paren.length(); i-- > 0; ) {
         if (before_paren[i] == '>')
-            bracket_depth++;
+            angle_depth++;
         else if (before_paren[i] == '<')
-            bracket_depth--;
-        else if (bracket_depth == 0 && before_paren[i] == ':' && before_paren[i - 1] == ':') {
-            scope_pos = i - 1;
+            angle_depth--;
+        else if (angle_depth == 0 && before_paren[i] == ' ') {
+            func_start = i + 1;
             break;
         }
     }
 
-    if (scope_pos != std::string::npos) {
-        // Found class scope - extract function name after ::
-        size_t func_start = scope_pos + 2;
-        std::string func_part = before_paren.substr(func_start);
-        size_t space_pos = func_part.rfind(' ');
-        if (space_pos != std::string::npos)
-            func_part = func_part.substr(space_pos + 1);
-        return func_part + "()";
-    } else {
-        // No class scope - find last space before function name
-        size_t last_space = before_paren.rfind(' ');
-        if (last_space != std::string::npos) {
-            std::string func_part = before_paren.substr(last_space + 1);
-            return func_part + "()";
-        }
-    }
+    if (func_start == std::string::npos)
+        func_start = 0;
 
-    return funcsig;
+    std::string func_name = before_paren.substr(func_start);
+
+    // Remove template parameters
+    size_t template_start = func_name.find('<');
+    if (template_start != std::string::npos)
+        func_name = func_name.substr(0, template_start);
+
+    // Remove class scope prefix (Class::)
+    size_t scope_op = func_name.rfind("::");
+    if (scope_op != std::string::npos)
+        func_name = func_name.substr(scope_op + 2);
+
+    func_name += "()";
+    if (log) f << func_name << std::endl;
+    return func_name;
 }
-
-
 std::atomic<int> indent_level_;
 int indent_level() { return indent_level_; }
 void increase_indent() { indent_level_ += 2; }
-void decrease_indent() { if (indent_level_ >0) indent_level_ -= 2; }
+void decrease_indent() { if (indent_level_ > 0) indent_level_ -= 2; }
 
 
 
