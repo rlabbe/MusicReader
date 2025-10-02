@@ -439,6 +439,8 @@ void PDFViewer::get_page(int page_num)
 
     if (bookmark_panel_)
         bookmark_panel_->select_page(page_num);
+
+    emit page_changed(page_num);
 }
 
 

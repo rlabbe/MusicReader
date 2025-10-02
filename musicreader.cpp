@@ -1026,6 +1026,21 @@ void MusicReader::create_toolbar()
         connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
         toolbar_->addAction(action);
     }
+
+    QWidget *spacer = new QWidget();
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    toolbar_->addWidget(spacer);
+    toolbar_page_selector_ = new QComboBox();
+    toolbar_page_selector_->setEditable(false);
+    toolbar_page_selector_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    toolbar_page_selector_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    toolbar_page_selector_->setMinimumContentsLength(1);
+    toolbar_->addWidget(toolbar_page_selector_);
+
+    connect(toolbar_page_selector_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MusicReader::on_toolbar_page_changed);
+
+
 }
 
 void MusicReader::set_page_view_count(int count)
@@ -1276,6 +1291,8 @@ void MusicReader::on_tab_changed()
 
     update_title();
     update_bookmark_panel();
+    show_page_count();
+
     auto viewer = current_viewer();
     if (viewer) {
         viewer->update_status_bar();
@@ -1662,6 +1679,7 @@ PDFViewer *MusicReader::open_pdf_in_tab(const std::filesystem::path &filename, i
     if (!viewer) {
         QWidget *tab = new QWidget();
         viewer = new PDFViewer(doc, &config_, page, status_bar_, tab, this, bookmark_panel_);
+        connect(viewer, &PDFViewer::page_changed, this, &MusicReader::on_viewer_page_changed, Qt::UniqueConnection);
 
         QVBoxLayout *layout = new QVBoxLayout();
         layout->setContentsMargins(0, 0, 0, 0);
@@ -1853,12 +1871,29 @@ void MusicReader::show_page_count()
     PDFViewer *viewer = current_viewer();
     if (!viewer) {
         status_bar_->clear_page_count();
+        if (toolbar_page_selector_) {
+            toolbar_page_selector_->blockSignals(true);
+            toolbar_page_selector_->clear();
+            toolbar_page_selector_->adjustSize();
+            toolbar_page_selector_->blockSignals(false);
+        }
         return;
     }
 
     int total_pages = viewer->page_count();
     int current_page = viewer->current_page();
+
     status_bar_->set_page_count(current_page, total_pages);
+
+    if (toolbar_page_selector_) {
+        toolbar_page_selector_->blockSignals(true);
+        toolbar_page_selector_->clear();
+        for (int i = 0; i < total_pages; ++i)
+            toolbar_page_selector_->addItem(QString::number(i + 1));
+        toolbar_page_selector_->setCurrentIndex(current_page - 1);
+        toolbar_page_selector_->adjustSize();
+        toolbar_page_selector_->blockSignals(false);
+    }
 }
 
 void MusicReader::on_page_selected(int index)
@@ -1871,6 +1906,27 @@ void MusicReader::on_page_selected(int index)
         viewer->get_page(index + 1);  // Convert index to 1-based page number
 
     show_page_count();  // Ensure status bar reflects any adjustments
+}
+
+void MusicReader::on_toolbar_page_changed(int page)
+{
+    PDFViewer *viewer = current_viewer();
+    if (viewer)
+        viewer->get_page(page + 1);
+
+    //show_page_count();
+}
+
+void MusicReader::on_viewer_page_changed(int page_num)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (toolbar_page_selector_) {
+        toolbar_page_selector_->blockSignals(true);
+        toolbar_page_selector_->setCurrentIndex(page_num - 1);
+        toolbar_page_selector_->blockSignals(false);
+    }
 }
 
 void MusicReader::initialize_fast_search()
@@ -2025,6 +2081,7 @@ void MusicReader::restore_open_documents()
 
             QWidget *tab = new QWidget();
             PDFViewer *viewer = new PDFViewer(doc, &config_, doc_info.page, status_bar_, tab, this, bookmark_panel_);
+            connect(viewer, &PDFViewer::page_changed, this, &MusicReader::on_viewer_page_changed, Qt::UniqueConnection);
             viewers.push_back(viewer);
 
             QVBoxLayout *layout = new QVBoxLayout();

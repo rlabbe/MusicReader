@@ -50,6 +50,8 @@ private slots:
     void on_screen_geometry_changed(const QRect &geometry);
     void on_screen_dpi_changed(qreal dpi);
     void force_redraw_all_viewers();
+    void on_toolbar_page_changed(int page);
+    void on_viewer_page_changed(int page_num);
 
 private:
     std::shared_ptr<Document> document_at(int index) const;
@@ -187,6 +189,8 @@ private:
     QAction *light_theme_menu_item_ = nullptr;
     QAction *dark_theme_menu_item_ = nullptr;
     QToolBar *toolbar_ = nullptr;
+    QComboBox *toolbar_page_selector_ = nullptr;
+
     QAction *view_toggle_action_ = nullptr;
     QAction *page_step_action_ = nullptr;
     QAction *zoom_in_out_action_ = nullptr;

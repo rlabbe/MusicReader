@@ -754,7 +754,7 @@ void ConfigFile::set_defaults()
     restore_window_position_ = true;
     restore_documents_ = true;
     zoom_to_content_ = true;
-    show_status_bar_ = true;
+    show_status_bar_ = false;
     show_toolbar_ = true;
     show_menu_ = true;
     horiz_tabs_ = true;
