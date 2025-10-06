@@ -70,6 +70,9 @@ private:
     bool allow_file_delete_;
     bool tour_has_run_;
 
+    bool hide_mouse_cursor_ = false;
+    int mouse_hide_delay_secs_ = 3;
+
 
     std::vector<OpenDocument> open_documents_;
     std::vector<std::filesystem::path> recent_documents_;

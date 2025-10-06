@@ -606,6 +606,8 @@ void MusicReader::create_view_menu(auto *menu_bar)
 
     tabs_menu_action_ = new QAction("Show Document &Tabs", this);
     tabs_menu_action_->setShortcut(Qt::Key_T);
+    tabs_menu_action_->setShortcutContext(Qt::ApplicationShortcut);
+
     tabs_menu_action_->setCheckable(true);
     tabs_menu_action_->setChecked(tabs_visible_);
     connect(tabs_menu_action_, &QAction::triggered, this, &MusicReader::toggle_tab_visibility);
@@ -620,7 +622,7 @@ void MusicReader::create_view_menu(auto *menu_bar)
     connect(menubar_menu_action_, &QAction::triggered, this, &MusicReader::toggle_menu_visibility);
     view_menu->addAction(menubar_menu_action_);
 
-    toolbar_menu_action_ = new QAction("&Tool Bar", this);
+    toolbar_menu_action_ = new QAction("Tool Bar", this);
     toolbar_menu_action_->setShortcut(shortcuts_["toolbar"]);
     toolbar_menu_action_->setCheckable(true);
     toolbar_menu_action_->setChecked(true);
@@ -665,7 +667,7 @@ void MusicReader::create_view_menu(auto *menu_bar)
 
     view_menu->addSeparator();
 
-    QAction *tour_action = new QAction("&Tour...", this);
+    QAction *tour_action = new QAction("Tour...", this);
     connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
     view_menu->addAction(tour_action);
 
