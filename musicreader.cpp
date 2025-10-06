@@ -964,7 +964,7 @@ void MusicReader::add_bookmark()
     if (!bookmark_panel_)
         return;
 
-    bool visible = !bookmark_panel_->isVisible();
+    bool visible = bookmark_panel_->isVisible();
     if (!visible) {
         bookmark_panel_->setVisible(true);
         bookmark_menu_action_->setChecked(true);
