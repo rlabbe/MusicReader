@@ -1,0 +1,3 @@
+@echo off
+set /p version="Enter version number: "
+powershell -command "$src = Resolve-Path './bin'; $dest = 'MusicReader_%version%.zip'; Add-Type -A System.IO.Compression.FileSystem; if (Test-Path $dest) { Remove-Item $dest }; $zip = [System.IO.Compression.ZipFile]::Open($dest, 'Create'); Get-ChildItem -Path $src -Recurse -File | Where-Object { $_.Extension -ne '.log' -and $_.Extension -ne '.config' } | ForEach-Object { $rel = $_.FullName.Substring($src.Path.Length + 1); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $rel, 'Optimal') | Out-Null }; $zip.Dispose()"
