@@ -198,10 +198,6 @@ void MusicReader::create_global_shortcuts()
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
 
-    shortcut = new QShortcut(QKeySequence("Ctrl+B"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_bookmark_panel);
-
     shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
@@ -598,7 +594,8 @@ void MusicReader::create_view_menu(auto *menu_bar)
     QMenu *view_menu = menu_bar->addMenu("&View");
 
     bookmark_menu_action_ = new QAction("Show Bookmarks", this);
-    bookmark_menu_action_->setShortcut(Qt::Key_B);
+    bookmark_menu_action_->setShortcut(QKeySequence("Ctrl+B"));
+    bookmark_menu_action_->setShortcutContext(Qt::ApplicationShortcut);
     bookmark_menu_action_->setCheckable(true);
     bookmark_menu_action_->setChecked(true);
     connect(bookmark_menu_action_, &QAction::triggered, this, &MusicReader::toggle_bookmark_panel);
@@ -916,6 +913,9 @@ void MusicReader::reload_document()
     load_manager_.remove_document(doc->filename());
 
     open_pdf_in_tab(doc->filename(), page_num, viewer);
+
+    // Tab probably didn't change, but this ensures everything gets redrawn - page numbers, bookmarks, etc
+    on_tab_changed();
 }
 
 void MusicReader::edit_document()
@@ -961,7 +961,14 @@ void MusicReader::add_bookmark()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (bookmark_panel_)
+    if (!bookmark_panel_)
+        return;
+
+    bool visible = !bookmark_panel_->isVisible();
+    if (!visible) {
+        bookmark_panel_->setVisible(true);
+        bookmark_menu_action_->setChecked(true);
+    } else
         bookmark_panel_->add_bookmark();
 }
 
