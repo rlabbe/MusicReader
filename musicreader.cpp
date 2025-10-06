@@ -2251,10 +2251,13 @@ void MusicReader::on_config_saved()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+
+    if (bookmark_panel_) bookmark_panel_->pause_tracking();
     set_toolbar_visibility();
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
+    if (bookmark_panel_) bookmark_panel_->resume_tracking();
 }
 
 void MusicReader::copy_log_to_clipboard()
