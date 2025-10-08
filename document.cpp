@@ -93,6 +93,8 @@ void Document::initialize_document()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    modified_ = false;
+
     auto [ctx, doc] = open_fitz(filename_.string());
     if (!ctx || !doc) {
         logger::error("Failed to open document: {}", filename_.string());
@@ -113,8 +115,8 @@ void Document::initialize_document()
     fz_catch(ctx)
     {
         logger::error("MuPDF exception while loading bookmarks{}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
-        close_fitz(ctx, doc);
-        return;
+        bookmarks_.clear();
+        modified_ = true; // this will make it save the bookmarks changes at the end of this function
     }
 
     if (total_pages == 0) {
@@ -145,6 +147,11 @@ void Document::initialize_document()
     }
 
     close_fitz(ctx, doc);
+
+    // If we got an exception loading bookmarks, we want to save the document without them.
+    if (modified_)
+        save();
+
     emit bookmarks_loaded();
 }
 
