@@ -190,6 +190,7 @@ private:
     QAction *dark_theme_menu_item_ = nullptr;
     QToolBar *toolbar_ = nullptr;
     QComboBox *toolbar_page_selector_ = nullptr;
+    QLCDNumber *toolbar_clock_ = nullptr;
 
     QAction *view_toggle_action_ = nullptr;
     QAction *page_step_action_ = nullptr;

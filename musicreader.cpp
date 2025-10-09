@@ -1039,17 +1039,46 @@ void MusicReader::create_toolbar()
     QWidget *spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     toolbar_->addWidget(spacer);
+
+
     toolbar_page_selector_ = new QComboBox();
     toolbar_page_selector_->setEditable(false);
     toolbar_page_selector_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     toolbar_page_selector_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     toolbar_page_selector_->setMinimumContentsLength(1);
-    toolbar_->addWidget(toolbar_page_selector_);
+
+    QWidget *page_container = new QWidget();
+    QHBoxLayout *page_layout = new QHBoxLayout(page_container);
+    page_layout->setContentsMargins(0, 0, 0, 0);
+    page_layout->addStretch();
+    page_layout->addWidget(toolbar_page_selector_);
+    page_layout->addStretch();
+    page_container->setMaximumWidth(toolbar_page_selector_->sizeHint().width());
+    toolbar_->addWidget(page_container);
 
     connect(toolbar_page_selector_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MusicReader::on_toolbar_page_changed);
 
+    toolbar_clock_ = new QLCDNumber(5);
+    toolbar_clock_->setSegmentStyle(QLCDNumber::Flat);
+    toolbar_clock_->setFrameStyle(QFrame::NoFrame);
+    toolbar_clock_->setFixedSize(60, 20);
 
+    QWidget *clock_container = new QWidget();
+    QHBoxLayout *clock_layout = new QHBoxLayout(clock_container);
+    clock_layout->setContentsMargins(0, 0, 0, 0);
+    clock_layout->addStretch();
+    clock_layout->addWidget(toolbar_clock_);
+    clock_layout->addStretch();
+    clock_container->setMaximumWidth(toolbar_clock_->sizeHint().width());
+    toolbar_->addWidget(clock_container);
+
+    QTimer *clock_timer = new QTimer(this);
+    connect(clock_timer, &QTimer::timeout, this, [this]() {
+        toolbar_clock_->display(QTime::currentTime().toString("HH:mm"));
+    });
+    clock_timer->start(1000);
+    toolbar_clock_->display(QTime::currentTime().toString("HH:mm"));
 }
 
 void MusicReader::set_page_view_count(int count)
