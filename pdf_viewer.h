@@ -6,6 +6,8 @@
 #include "document.h"
 #include "page.h"
 #include "font_info.h"
+#include "playback_renderer.h"
+#include "playback_mode.h"
 
 class StatusBar;
 class ConfigFile;
@@ -51,6 +53,8 @@ public:
     void replace_document(std::shared_ptr<Document> document, int page);
 
     void set_text_annotation_mode(bool enabled);
+    void set_playback_mode(PlaybackMode::Mode mode);
+    PlaybackMode::Mode playback_mode() const;
 
 signals:
     void annotation_mode_changed(bool enabled);
@@ -139,6 +143,7 @@ private:
     QScrollBar *scrollbar_;
     QHBoxLayout *layout_;
     std::shared_ptr<Document> document_;
+    PlaybackRenderer renderer_;
     ConfigFile *config_;
     PixmapPage page_;
     bool drawing_margin_ = false;

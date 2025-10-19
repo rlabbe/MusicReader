@@ -293,6 +293,8 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
+    <ClCompile Include="playback_data.cpp" />
+    <ClCompile Include="playback_renderer.cpp" />
     <ClCompile Include="tour_dialog.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
@@ -344,6 +346,9 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="page.h" />
+    <ClInclude Include="playback_data.h" />
+    <ClInclude Include="playback_mode.h" />
+    <ClInclude Include="playback_renderer.h" />
     <ClInclude Include="qt_utils.h" />
     <ClInclude Include="requires.h" />
     <ClInclude Include="resource.h" />

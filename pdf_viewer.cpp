@@ -27,14 +27,13 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     , config_(config)
     , drawing_margin_(false)
     , bookmark_panel_(panel)
+    , renderer_(document)
 {
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
 
-    if (document) {
-        connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-        get_page(page);
-    }
+    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
+    get_page(page);
 
     connect(this, &PDFViewer::annotation_mode_changed, reader, &MusicReader::on_annotation_mode_changed);
 
@@ -56,8 +55,7 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
 PDFViewer::~PDFViewer()
 {
     REQUIRES(document_);
-    if (document_)
-        document_->save();
+    document_->save();
 }
 
 
@@ -76,7 +74,8 @@ void PDFViewer::update_status_bar()
         return;
     }*/
 
-    status_bar_->set_page_count(current_page(), document_->page_count());
+    std::string page_display = renderer_.current_page_display();
+    status_bar_->set_page_count(page_display, document_->page_count());
 }
 
 
@@ -101,17 +100,19 @@ void PDFViewer::page_up()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
 
-    change_page(single_page ? -1 : -2);
+
+    renderer_.prev();
+    refresh();
 }
 
 void PDFViewer::page_down()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
-    change_page(single_page ? 1 : 2);
+
+    renderer_.next();
+    refresh();
 }
 
 void PDFViewer::change_page(int step)
@@ -131,8 +132,7 @@ void PDFViewer::change_page(int step)
     scrollbar_->setValue(new_page);
     manual_scrollbar_change_ = false;
 
-    if (document_)
-        document_->prioritize();
+    document_->prioritize();
     get_page(new_page);
 }
 
@@ -398,7 +398,11 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num, bool is
 
     PrefetchEntry entry(page_num, false, config_->border_margin());
 
-    entry.p1 = document_->get_page(page_num, is_current_page);
+    // Use renderer to get the page (will apply cropping in performance mode)
+    if (is_current_page)
+        renderer_.goto_page(page_num);
+
+    entry.p1 = renderer_.get_current_page();
     if (!entry.p1.is_empty()) {
         if (config_->zoom_to_content())
             entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
@@ -814,4 +818,14 @@ void PDFViewer::force_redraw()
 {
     if (label_)
         label_->repaint();
+}
+void PDFViewer::set_playback_mode(PlaybackMode::Mode mode)
+{
+    PlaybackMode::set(mode);
+    refresh();
+}
+
+PlaybackMode::Mode PDFViewer::playback_mode() const
+{
+    return PlaybackMode::get();
 }

@@ -19,6 +19,7 @@
 #include "document.h"
 #include "bookmark_panel.h"
 #include "pdf_viewer.h"
+#include "playback_mode.h"
 #include "exception_logger.h"
 #include "status_bar.h"
 #include "config_dialog.h"
@@ -229,6 +230,10 @@ void MusicReader::create_global_shortcuts()
     shortcut = new QShortcut(Qt::Key_Z, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
+
+    shortcut = new QShortcut(Qt::Key_P, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_playback_mode);
 
 
     shortcut = new QShortcut(Qt::Key_Space, this);
@@ -1028,6 +1033,14 @@ void MusicReader::create_toolbar()
     connect(zoom_in_out_action_, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
     zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(zoom_in_out_action_);
+
+    {
+        playback_mode_action_ = new QAction(QIcon(":/MusicReader/images/playback.ico"), "", this);
+        playback_mode_action_->setToolTip("Toggle Playback Mode (P)");
+        playback_mode_action_->setCheckable(true);
+        connect(playback_mode_action_, &QAction::triggered, this, &MusicReader::toggle_playback_mode);
+        toolbar_->addAction(playback_mode_action_);
+    }
 
     {
         auto *action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
@@ -2425,4 +2438,27 @@ void MusicReader::check_first_run_tour()
         if (msgBox.exec() == QMessageBox::Yes)
             open_tour_dialog();
     }
+}
+void MusicReader::toggle_playback_mode()
+{
+    SAFE_METHOD;
+    
+    auto viewer = current_viewer("toggle_playback_mode");
+    if (!viewer)
+        return;
+    
+    // Toggle global mode
+    PlaybackMode::Mode current_mode = PlaybackMode::get();
+    PlaybackMode::Mode new_mode = (current_mode == PlaybackMode::Mode::Normal)
+        ? PlaybackMode::Mode::Performance
+        : PlaybackMode::Mode::Normal;
+    
+    viewer->set_playback_mode(new_mode);
+    
+    // Update button to reflect actual state
+    if (playback_mode_action_)
+        playback_mode_action_->setChecked(new_mode == PlaybackMode::Mode::Performance);
+    
+    logger::info("Playback mode {}", 
+                 new_mode == PlaybackMode::Mode::Performance ? "enabled" : "disabled");
 }

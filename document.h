@@ -15,6 +15,7 @@
 #include "page.h"
 #include "bookmark.h"
 #include "annotation.h"
+#include "playback_data.h"
 
 struct fz_context;
 struct fz_document;
@@ -70,6 +71,9 @@ public:
 
     void reload_page(int page_num);
 
+
+    const PlaybackData &playback_data() const { return playback_data_; }
+
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);
 
@@ -92,6 +96,7 @@ private:
     std::vector<PageInfo> page_info_;
 
     void request_page(int page_num) const;
+
 
 
     void initialize_document();
@@ -127,4 +132,6 @@ private:
     std::recursive_mutex bookmark_mutex_;
     mutable std::mutex read_mutex_;
     std::atomic<bool> kill_loading_{ false };
+
+    PlaybackData playback_data_;
 };
