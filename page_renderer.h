@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include "page.h"
-#include "playback_mode.h"
 
 class Document;
 
@@ -18,9 +17,9 @@ class Document;
 //
 // The renderer internally manages which physical page to show,
 // whether to crop it, and how to format the display string.
-class PlaybackRenderer {
+class PageRenderer {
 public:
-    PlaybackRenderer(std::shared_ptr<Document> document);
+    PageRenderer(Document* document);
 
     // Get the current page to display (may be cropped in performance mode)
     Page get_current_page() const;
@@ -30,7 +29,9 @@ public:
     void prev();
 
     // Jump to a specific physical page number (from bookmark or goto dialog)
-    void goto_page(int physical_page);
+    //
+    // not const, but PDFViewer needs to call it on a const PageRenderer& so...
+    void goto_page(int physical_page) const;
 
     // Get display string for current position (e.g., "1a", "2", "3b")
     std::string current_page_display() const;
@@ -43,11 +44,11 @@ public:
     bool can_go_prev() const;
 
 private:
-    std::shared_ptr<Document> document_;
+    Document* document_;
 
     // Current state
-    int current_physical_page_;
-    int current_segment_index_;  // Which break segment on the current page (0 = first)
+    mutable int current_physical_page_;
+    mutable int current_segment_index_;  // Which break segment on the current page (0 = first)
 
     // Helper methods for performance mode
     int segment_count(int physical_page) const;

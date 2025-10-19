@@ -140,7 +140,7 @@ private:
     void toggle_page_step();
 
     void toggle_text_annotation_mode();
-    void toggle_playback_mode();
+    void toggle_performance_mode();
 
     void on_close_tab(int index);
     void update_title(int index = 0);
@@ -203,7 +203,7 @@ private:
     QAction *tabs_menu_action_ = nullptr;
 
     QAction *text_annotation_action_ = nullptr;
-    QAction *playback_mode_action_ = nullptr;
+    QAction *performance_mode_action_ = nullptr;
     bool text_annotation_mode_ = false;
 
     QIcon single_icon_;

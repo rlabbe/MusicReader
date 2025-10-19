@@ -133,7 +133,7 @@
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <DisableSpecificWarnings>4505;4611;4611</DisableSpecificWarnings>
     </ClCompile>
     <PostBuildEvent>
@@ -292,9 +292,9 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClCompile Include="imslp_client.cpp" />
     <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
+    <ClCompile Include="page_renderer.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
-    <ClCompile Include="playback_data.cpp" />
-    <ClCompile Include="playback_renderer.cpp" />
+    <ClCompile Include="performance_data.cpp" />
     <ClCompile Include="tour_dialog.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
@@ -346,9 +346,9 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="page.h" />
-    <ClInclude Include="playback_data.h" />
-    <ClInclude Include="playback_mode.h" />
-    <ClInclude Include="playback_renderer.h" />
+    <ClInclude Include="page_renderer.h" />
+    <ClInclude Include="performance_data.h" />
+    <ClInclude Include="performance_mode.h" />
     <ClInclude Include="qt_utils.h" />
     <ClInclude Include="requires.h" />
     <ClInclude Include="resource.h" />

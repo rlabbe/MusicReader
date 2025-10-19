@@ -15,7 +15,7 @@
 #include "page.h"
 #include "bookmark.h"
 #include "annotation.h"
-#include "playback_data.h"
+#include "performance_data.h"
 
 struct fz_context;
 struct fz_document;
@@ -72,7 +72,7 @@ public:
     void reload_page(int page_num);
 
 
-    const PlaybackData &playback_data() const { return playback_data_; }
+    const PerformanceData &performance_data() const { return performance_data_; }
 
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);
@@ -133,5 +133,5 @@ private:
     mutable std::mutex read_mutex_;
     std::atomic<bool> kill_loading_{ false };
 
-    PlaybackData playback_data_;
+    PerformanceData performance_data_;
 };

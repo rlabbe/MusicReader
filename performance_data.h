@@ -21,9 +21,9 @@
 //   page: 3, position: 0.65
 //   page: 3, position: 0.85
 //   page: 7, position: 0.42
-class PlaybackData {
+class PerformanceData {
 public:
-    PlaybackData() = default;
+    PerformanceData() = default;
 
     // Load playback data from the .pbk file associated with the given PDF path.
     // Returns true if file exists and was loaded successfully, false otherwise.

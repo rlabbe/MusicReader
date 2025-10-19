@@ -1,8 +1,8 @@
 #pragma once
 
-// Global playback mode state for the application.
+// Global performance mode state for the application.
 // All renderers query this to determine how to display pages.
-class PlaybackMode {
+class PerformanceMode {
 public:
     enum class Mode {
         Normal,      // Standard page-by-page navigation

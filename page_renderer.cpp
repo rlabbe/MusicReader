@@ -1,23 +1,24 @@
-#include "playback_renderer.h"
+#include "page_renderer.h"
 #include "document.h"
-#include "playback_data.h"
+#include "performance_mode.h"
 #include <algorithm>
 
-PlaybackRenderer::PlaybackRenderer(std::shared_ptr<Document> document)
+
+PageRenderer::PageRenderer(Document* document)
     : document_(document)
     , current_physical_page_(1)
     , current_segment_index_(0)
 {
 }
 
-Page PlaybackRenderer::get_current_page() const
+Page PageRenderer::get_current_page() const
 {
     if (!document_)
         return Page(1);
 
     Page page = document_->get_page(current_physical_page_, true);
 
-    if (PlaybackMode::is_performance()) {
+    if (PerformanceMode::is_performance()) {
         int seg_count = segment_count(current_physical_page_);
         if (seg_count > 1)
             page = crop_page(page, current_physical_page_, current_segment_index_);
@@ -26,12 +27,12 @@ Page PlaybackRenderer::get_current_page() const
     return page;
 }
 
-void PlaybackRenderer::next()
+void PageRenderer::next()
 {
     if (!can_go_next())
         return;
 
-    if (PlaybackMode::get() == PlaybackMode::Mode::Normal) {
+    if (PerformanceMode::get() == PerformanceMode::Mode::Normal) {
         current_physical_page_++;
         current_segment_index_ = 0;
     } else {
@@ -47,12 +48,12 @@ void PlaybackRenderer::next()
     }
 }
 
-void PlaybackRenderer::prev()
+void PageRenderer::prev()
 {
     if (!can_go_prev())
         return;
 
-    if (PlaybackMode::get() == PlaybackMode::Mode::Normal) {
+    if (PerformanceMode::get() == PerformanceMode::Mode::Normal) {
         current_physical_page_--;
         current_segment_index_ = 0;
     } else {
@@ -68,7 +69,7 @@ void PlaybackRenderer::prev()
     }
 }
 
-void PlaybackRenderer::goto_page(int physical_page)
+void PageRenderer::goto_page(int physical_page) const
 {
     if (!document_)
         return;
@@ -81,20 +82,20 @@ void PlaybackRenderer::goto_page(int physical_page)
     current_segment_index_ = 0;
 }
 
-std::string PlaybackRenderer::current_page_display() const
+std::string PageRenderer::current_page_display() const
 {
-    if (PlaybackMode::get() == PlaybackMode::Mode::Normal)
+    if (PerformanceMode::get() == PerformanceMode::Mode::Normal)
         return std::to_string(current_physical_page_);
 
     return format_page_display(current_physical_page_, current_segment_index_);
 }
 
-int PlaybackRenderer::total_pages() const
+int PageRenderer::total_pages() const
 {
     return document_ ? document_->page_count() : 0;
 }
 
-bool PlaybackRenderer::can_go_next() const
+bool PageRenderer::can_go_next() const
 {
     if (!document_)
         return false;
@@ -103,7 +104,7 @@ bool PlaybackRenderer::can_go_next() const
     if (current_physical_page_ >= total)
         return false;
 
-    if (PlaybackMode::get() == PlaybackMode::Mode::Normal)
+    if (PerformanceMode::get() == PerformanceMode::Mode::Normal)
         return true;
 
     // Performance mode: check if on last segment of last page
@@ -114,7 +115,7 @@ bool PlaybackRenderer::can_go_next() const
     return true;
 }
 
-bool PlaybackRenderer::can_go_prev() const
+bool PageRenderer::can_go_prev() const
 {
     if (!document_)
         return false;
@@ -125,22 +126,22 @@ bool PlaybackRenderer::can_go_prev() const
     return true;
 }
 
-int PlaybackRenderer::segment_count(int physical_page) const
+int PageRenderer::segment_count(int physical_page) const
 {
-    if (!document_ || PlaybackMode::get() != PlaybackMode::Mode::Performance)
+    if (!document_ || PerformanceMode::get() != PerformanceMode::Mode::Performance)
         return 1;
 
-    const auto& breaks = document_->playback_data().get_page_breaks(physical_page);
+    const auto& breaks = document_->performance_data().get_page_breaks(physical_page);
     // Number of segments = number of breaks + 1
     return static_cast<int>(breaks.size()) + 1;
 }
 
-Page PlaybackRenderer::crop_page(const Page& page, int physical_page, int segment_index) const
+Page PageRenderer::crop_page(const Page& page, int physical_page, int segment_index) const
 {
     if (!document_)
         return page;
 
-    const auto& breaks = document_->playback_data().get_page_breaks(physical_page);
+    const auto& breaks = document_->performance_data().get_page_breaks(physical_page);
     if (breaks.empty())
         return page;
 
@@ -182,7 +183,7 @@ Page PlaybackRenderer::crop_page(const Page& page, int physical_page, int segmen
     return result;
 }
 
-std::string PlaybackRenderer::format_page_display(int physical_page, int segment_index) const
+std::string PageRenderer::format_page_display(int physical_page, int segment_index) const
 {
     int seg_count = segment_count(physical_page);
     if (seg_count == 1)

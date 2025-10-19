@@ -148,8 +148,8 @@ void Document::initialize_document()
 
     close_fitz(ctx, doc);
 
-    // Load playback data from .pbk file if it exists
-    playback_data_.load(filename_);
+    // Load performance data from .pbk file if it exists
+    performance_data_.load(filename_);
 
     // If we got an exception loading bookmarks, we want to save the document without them.
     if (modified_)
@@ -613,8 +613,8 @@ bool Document::save()
                      filename_.string(), static_cast<int>(bookmark_result));
     }
 
-    // Save playback data (independent of PDF save success)
-    playback_data_.save(filename_);
+    // Save performance data (independent of PDF save success)
+    performance_data_.save(filename_);
 
     if (!success) {
         // Restore modified state if save failed

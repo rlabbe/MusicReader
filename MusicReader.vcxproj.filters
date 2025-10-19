@@ -94,10 +94,10 @@
     <ClCompile Include="tour_dialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="playback_data.cpp">
+    <ClCompile Include="page_renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="playback_renderer.cpp">
+    <ClCompile Include="performance_data.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -212,13 +212,13 @@
     <ClInclude Include="vertical_tabs_widget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="playback_data.h">
+    <ClInclude Include="page_renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="playback_renderer.h">
+    <ClInclude Include="performance_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="playback_mode.h">
+    <ClInclude Include="performance_mode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

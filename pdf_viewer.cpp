@@ -13,7 +13,6 @@
 #include "musicreader.h"
 #include "bookmark_panel.h"
 
-
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile *config,
                      int page,
@@ -27,7 +26,7 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     , config_(config)
     , drawing_margin_(false)
     , bookmark_panel_(panel)
-    , renderer_(document)
+    , renderer_(document.get())
 {
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
@@ -36,19 +35,6 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     get_page(page);
 
     connect(this, &PDFViewer::annotation_mode_changed, reader, &MusicReader::on_annotation_mode_changed);
-
-    //TODO Qt6 might use QEvent::ApplicationPaletteChange
-    /*
-         void changeEvent(QEvent *event) override {
-        if (event->type() == QEvent::ApplicationPaletteChange) {
-            // Handle palette change here
-            QPalette newPalette = QApplication::palette();
-            // ... use newPalette ...
-        }
-        QWidget::changeEvent(event);
-    }
-
-    * */
 }
 
 
@@ -75,7 +61,7 @@ void PDFViewer::update_status_bar()
     }*/
 
     std::string page_display = renderer_.current_page_display();
-    status_bar_->set_page_count(page_display, document_->page_count());
+    //rrl status_bar_->set_page_count(page_display, document_->page_count());
 }
 
 
@@ -395,12 +381,11 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num, bool is
     if (!config_ || !document_)
         return PrefetchEntry(page_num, false, 0);
 
-
     PrefetchEntry entry(page_num, false, config_->border_margin());
 
     // Use renderer to get the page (will apply cropping in performance mode)
-    if (is_current_page)
-        renderer_.goto_page(page_num);
+    //if (is_current_page)
+    //    renderer_.goto_page(page_num);
 
     entry.p1 = renderer_.get_current_page();
     if (!entry.p1.is_empty()) {
@@ -446,7 +431,6 @@ void PDFViewer::get_page(int page_num)
 
     emit page_changed(page_num);
 }
-
 
 
 QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
@@ -613,8 +597,6 @@ bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) co
 }
 
 
-
-
 void PDFViewer::set_text_annotation_mode(bool enabled)
 {
     SAFE_METHOD;
@@ -667,6 +649,9 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
 
 void PDFViewer::on_annotation_text_finished(const QString &text)
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     if (!text.trimmed().isEmpty() && last_click_target_.page_num > 0) {
 
         QSize size = calculate_text_size(text, annotation_font_);
@@ -687,15 +672,17 @@ void PDFViewer::on_annotation_text_finished(const QString &text)
         document_->add_annotation(annotation);
     }
 
-
-
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
     emit annotation_mode_changed(false);
 }
 
+
 void PDFViewer::on_annotation_text_cancelled()
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     text_annotation_mode_ = false;
     setCursor(Qt::ArrowCursor);
     emit annotation_mode_changed(false);
@@ -704,6 +691,9 @@ void PDFViewer::on_annotation_text_cancelled()
 
 PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     if (!document_ || page_.is_empty())
         return { 0, 0.0f, 0.0f };
 
@@ -742,9 +732,11 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
 }
 
 
-
 QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation) const
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     int current_page_num = current_page();
     if (annotation.page_num_ != current_page_num) {
         return QRect(); // Empty rect for annotations not on current page
@@ -783,6 +775,9 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation)
 
 AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     if (!document_) return AnnotationHandle();
 
     QPoint click_point = event->pos();
@@ -801,6 +796,9 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
 
 void PDFViewer::select_annotation(const AnnotationHandle &handle)
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     selected_annotation_ = handle;
     has_selection_ = true;
     update_image(); // Refresh to show selection
@@ -808,6 +806,9 @@ void PDFViewer::select_annotation(const AnnotationHandle &handle)
 
 void PDFViewer::clear_selection()
 {
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
     selected_annotation_.clear();
     has_selection_ = false;
     update_image(); // Refresh to hide selection
@@ -819,13 +820,18 @@ void PDFViewer::force_redraw()
     if (label_)
         label_->repaint();
 }
-void PDFViewer::set_playback_mode(PlaybackMode::Mode mode)
+
+void PDFViewer::set_performance_mode(PerformanceMode::Mode mode)
 {
-    PlaybackMode::set(mode);
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+    PerformanceMode::set(mode);
     refresh();
 }
 
-PlaybackMode::Mode PDFViewer::playback_mode() const
+
+PerformanceMode::Mode PDFViewer::performance_mode() const
 {
-    return PlaybackMode::get();
+    SAFE_METHOD;
+    return PerformanceMode::get();
 }

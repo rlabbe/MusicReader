@@ -19,7 +19,7 @@
 #include "document.h"
 #include "bookmark_panel.h"
 #include "pdf_viewer.h"
-#include "playback_mode.h"
+#include "performance_mode.h"
 #include "exception_logger.h"
 #include "status_bar.h"
 #include "config_dialog.h"
@@ -233,7 +233,7 @@ void MusicReader::create_global_shortcuts()
 
     shortcut = new QShortcut(Qt::Key_P, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_playback_mode);
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_performance_mode);
 
 
     shortcut = new QShortcut(Qt::Key_Space, this);
@@ -579,7 +579,7 @@ void MusicReader::create_edit_menu(auto *menu_bar)
     connect(set_bookmarks_action, &QAction::triggered, this, [this]() {
         auto doc = current_document();
         if (doc && doc->set_bookmarks_from_txt_file())
-                update_bookmarks_for_doc();
+            update_bookmarks_for_doc();
     });
     edit_menu_->addAction(set_bookmarks_action);
 
@@ -1034,13 +1034,11 @@ void MusicReader::create_toolbar()
     zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(zoom_in_out_action_);
 
-    {
-        playback_mode_action_ = new QAction(QIcon(":/MusicReader/images/playback.ico"), "", this);
-        playback_mode_action_->setToolTip("Toggle Playback Mode (P)");
-        playback_mode_action_->setCheckable(true);
-        connect(playback_mode_action_, &QAction::triggered, this, &MusicReader::toggle_playback_mode);
-        toolbar_->addAction(playback_mode_action_);
-    }
+    performance_mode_action_ = new QAction(QIcon(":/MusicReader/images/playback.ico"), "", this);
+    performance_mode_action_->setToolTip("Toggle Playback Mode (P)");
+    performance_mode_action_->setCheckable(true);
+    connect(performance_mode_action_, &QAction::triggered, this, &MusicReader::toggle_performance_mode);
+    toolbar_->addAction(performance_mode_action_);
 
     {
         auto *action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
@@ -1052,7 +1050,6 @@ void MusicReader::create_toolbar()
     QWidget *spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     toolbar_->addWidget(spacer);
-
 
     toolbar_page_selector_ = new QComboBox();
     toolbar_page_selector_->setEditable(false);
@@ -2439,26 +2436,26 @@ void MusicReader::check_first_run_tour()
             open_tour_dialog();
     }
 }
-void MusicReader::toggle_playback_mode()
+
+
+void MusicReader::toggle_performance_mode()
 {
     SAFE_METHOD;
-    
-    auto viewer = current_viewer("toggle_playback_mode");
+
+    auto viewer = current_viewer();
     if (!viewer)
         return;
-    
-    // Toggle global mode
-    PlaybackMode::Mode current_mode = PlaybackMode::get();
-    PlaybackMode::Mode new_mode = (current_mode == PlaybackMode::Mode::Normal)
-        ? PlaybackMode::Mode::Performance
-        : PlaybackMode::Mode::Normal;
-    
-    viewer->set_playback_mode(new_mode);
-    
+
+    PerformanceMode::Mode current_mode = PerformanceMode::get();
+    PerformanceMode::Mode new_mode = (current_mode == PerformanceMode::Mode::Normal)
+        ? PerformanceMode::Mode::Performance
+        : PerformanceMode::Mode::Normal;
+
+    viewer->set_performance_mode(new_mode);
+
     // Update button to reflect actual state
-    if (playback_mode_action_)
-        playback_mode_action_->setChecked(new_mode == PlaybackMode::Mode::Performance);
-    
-    logger::info("Playback mode {}", 
-                 new_mode == PlaybackMode::Mode::Performance ? "enabled" : "disabled");
+    performance_mode_action_->setChecked(new_mode == PerformanceMode::Mode::Performance);
+
+    logger::info("Performance mode {}",
+                 new_mode == PerformanceMode::Mode::Performance ? "enabled" : "disabled");
 }
