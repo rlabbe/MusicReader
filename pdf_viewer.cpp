@@ -337,7 +337,7 @@ void PDFViewer::prefetch_async(int page_num)
 
         PrefetchEntry entry = is_double
             ? make_double_page_entry(page_num, false)
-            : make_single_page_entry(page_num, false);
+            : make_single_page_entry(page_num);
 
         if (entry.rendered.isNull())
             return;
@@ -384,7 +384,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num, bool is
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num, bool is_current_page) const
+PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -421,7 +421,7 @@ void PDFViewer::get_page(int page_num)
     const bool is_double = in_double_page_view();
     PrefetchEntry entry = is_double
         ? make_double_page_entry(page_num, true)
-        : make_single_page_entry(page_num, true);
+        : make_single_page_entry(page_num);
 
     page_ = PixmapPage(entry.rendered, page_num, is_double);
 
@@ -498,7 +498,7 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     int count = page_count();
     if (in_single_page_view() || count == 1) {
         if (page_num == page_index) {
-            PrefetchEntry entry = make_single_page_entry(page_num, page_num == page_index);
+            PrefetchEntry entry = make_single_page_entry(page_num);
             page_ = PixmapPage(entry.rendered, page_num, false);
             update_image();
         }
@@ -518,8 +518,6 @@ void PDFViewer::update_image(const QString &message)
     TRACE_FUNCTION_MSG("{} {} page:{}", document_->filename(), message.toStdString(), page_.page_num);
     REQUIRES(label_);
     REQUIRES(config_);
-
-    update_status_bar();
 
     if (page_.is_empty()) {
         label_->setText(message.isEmpty() ? "Loading..." : message);

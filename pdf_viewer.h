@@ -44,7 +44,14 @@ public:
         Page page = renderer_.get_current_page();
         page_ = PixmapPage(page);
         update_image();
-        update_status_bar();
+    }
+
+    void goto_physical_page(int physical_page) {
+        renderer_.goto_page(physical_page);
+        // Fetch and display the page at the new position
+        Page page = renderer_.get_current_page();
+        page_ = PixmapPage(page);
+        update_image();
     }
 
     bool in_single_page_view() const;
@@ -63,11 +70,13 @@ public:
     void replace_document(std::shared_ptr<Document> document, int page);
 
     void set_text_annotation_mode(bool enabled);
+    void set_page_break_edit_mode(bool enabled);
     void set_performance_mode(PerformanceMode::Mode mode);
     PerformanceMode::Mode performance_mode() const;
 
 signals:
     void annotation_mode_changed(bool enabled);
+    void page_break_edit_mode_changed(bool enabled);
     void page_changed(int page_num);
 
 protected:
@@ -137,7 +146,7 @@ private:
     QPixmap compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const;
     void clear_prefetch();
     PrefetchEntry make_double_page_entry(int page_num, bool is_current_page) const;
-    PrefetchEntry make_single_page_entry(int page_num, bool is_current_page) const;
+    PrefetchEntry make_single_page_entry(int page_num) const;
 
     void init_ui(int page);
     PixmapPage get_single_page(int page_num);
@@ -160,6 +169,7 @@ private:
     double aspect_ratio_ = 1.0;
     QRect margin_rect_;
     bool text_annotation_mode_ = false;
+    bool page_break_edit_mode_ = false;
     InPlaceAnnotationEditor *annotation_editor_;
     ClickTarget last_click_target_;
     FontInfo annotation_font_;

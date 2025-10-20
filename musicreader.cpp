@@ -1343,7 +1343,6 @@ void MusicReader::on_tab_changed()
 
     auto viewer = current_viewer();
     if (viewer) {
-        viewer->update_status_bar();
 
         if (!restoring_documents_) {
             auto doc = current_document();
@@ -1512,7 +1511,7 @@ void MusicReader::update_bookmarks_for_doc()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (bookmark_panel_) bookmark_panel_->populate();
+    bookmark_panel_->populate();
     update_background();
 }
 
@@ -1556,10 +1555,12 @@ void MusicReader::go_to_bookmark(int page_num)
 
     if (page_num > 0) {
         auto *viewer = current_viewer();
-        if (viewer)
-            viewer->get_page(page_num);
-        else
+        if (viewer) {
+            // Tell renderer to go to the physical page, then refresh display
+            viewer->goto_physical_page(page_num);
+        } else {
             logger::error("No viewer to navigate to bookmark");
+        }
     }
 
     // Updates Undo and Redo menu states based on stack availability
@@ -1865,7 +1866,6 @@ void MusicReader::create_status_bar()
     status_bar_ = new StatusBar();
     setStatusBar(status_bar_);
     status_bar_->setVisible(config_.show_status_bar());
-
 
     // Display initial memory usage
     update_memory_usage();
@@ -2210,11 +2210,9 @@ void MusicReader::toggle_bookmark_panel()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (bookmark_panel_) {
-        bool visible = !bookmark_panel_->isVisible();
-        bookmark_panel_->setVisible(visible);
-        bookmark_menu_action_->setChecked(visible);
-    }
+    bool visible = !bookmark_panel_->isVisible();
+    bookmark_panel_->setVisible(visible);
+    bookmark_menu_action_->setChecked(visible);
 }
 
 
@@ -2290,12 +2288,12 @@ void MusicReader::on_config_saved()
     TRACE_FUNCTION;
 
 
-    if (bookmark_panel_) bookmark_panel_->pause_tracking();
+    bookmark_panel_->pause_tracking();
     set_toolbar_visibility();
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
-    if (bookmark_panel_) bookmark_panel_->resume_tracking();
+    bookmark_panel_->resume_tracking();
 }
 
 void MusicReader::copy_log_to_clipboard()
