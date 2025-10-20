@@ -11,6 +11,7 @@ std::filesystem::path PerformanceData::get_playback_file_path(const std::filesys
     return pbk_path;
 }
 
+
 bool PerformanceData::load(const std::filesystem::path &pdf_path)
 {
     auto pbk_path = get_playback_file_path(pdf_path);
@@ -86,6 +87,7 @@ bool PerformanceData::load(const std::filesystem::path &pdf_path)
     return true;
 }
 
+
 bool PerformanceData::save(const std::filesystem::path &pdf_path) const
 {
     if (empty())
@@ -111,6 +113,7 @@ bool PerformanceData::save(const std::filesystem::path &pdf_path) const
     return true;
 }
 
+
 void PerformanceData::add_page_break(int page_num, double normalized_position)
 {
     auto &breaks = page_breaks_[page_num];
@@ -120,6 +123,7 @@ void PerformanceData::add_page_break(int page_num, double normalized_position)
         std::sort(breaks.begin(), breaks.end());
     }
 }
+
 
 void PerformanceData::remove_page_break(int page_num, double normalized_position)
 {
@@ -139,15 +143,19 @@ void PerformanceData::remove_page_break(int page_num, double normalized_position
         page_breaks_.erase(it);
 }
 
+
 void PerformanceData::remove_page_breaks(int page_num)
 {
     page_breaks_.erase(page_num);
 }
 
+
 void PerformanceData::clear()
 {
     page_breaks_.clear();
 }
+
+
 
 const std::vector<double> &PerformanceData::get_page_breaks(int page_num) const
 {
@@ -155,6 +163,7 @@ const std::vector<double> &PerformanceData::get_page_breaks(int page_num) const
     auto it = page_breaks_.find(page_num);
     return (it != page_breaks_.end()) ? it->second : empty;
 }
+
 
 bool PerformanceData::has_breaks(int page_num) const
 {

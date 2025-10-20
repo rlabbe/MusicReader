@@ -11,6 +11,7 @@ PageRenderer::PageRenderer(Document* document)
 {
 }
 
+
 Page PageRenderer::get_current_page() const
 {
     if (!document_)
@@ -26,6 +27,7 @@ Page PageRenderer::get_current_page() const
 
     return page;
 }
+
 
 void PageRenderer::next()
 {
@@ -48,6 +50,7 @@ void PageRenderer::next()
     }
 }
 
+
 void PageRenderer::prev()
 {
     if (!can_go_prev())
@@ -69,6 +72,7 @@ void PageRenderer::prev()
     }
 }
 
+
 void PageRenderer::goto_page(int physical_page) const
 {
     if (!document_)
@@ -82,6 +86,7 @@ void PageRenderer::goto_page(int physical_page) const
     current_segment_index_ = 0;
 }
 
+
 std::string PageRenderer::current_page_display() const
 {
     if (PerformanceMode::get() == PerformanceMode::Mode::Normal)
@@ -90,10 +95,12 @@ std::string PageRenderer::current_page_display() const
     return format_page_display(current_physical_page_, current_segment_index_);
 }
 
+
 int PageRenderer::total_pages() const
 {
     return document_ ? document_->page_count() : 0;
 }
+
 
 bool PageRenderer::can_go_next() const
 {
@@ -115,6 +122,7 @@ bool PageRenderer::can_go_next() const
     return true;
 }
 
+
 bool PageRenderer::can_go_prev() const
 {
     if (!document_)
@@ -126,6 +134,7 @@ bool PageRenderer::can_go_prev() const
     return true;
 }
 
+
 int PageRenderer::segment_count(int physical_page) const
 {
     if (!document_ || PerformanceMode::get() != PerformanceMode::Mode::Performance)
@@ -135,6 +144,7 @@ int PageRenderer::segment_count(int physical_page) const
     // Number of segments = number of breaks + 1
     return static_cast<int>(breaks.size()) + 1;
 }
+
 
 Page PageRenderer::crop_page(const Page& page, int physical_page, int segment_index) const
 {
@@ -182,6 +192,7 @@ Page PageRenderer::crop_page(const Page& page, int physical_page, int segment_in
     Page result(cropped, page.page_num, page.double_page);
     return result;
 }
+
 
 std::string PageRenderer::format_page_display(int physical_page, int segment_index) const
 {

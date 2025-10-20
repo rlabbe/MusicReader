@@ -82,6 +82,7 @@ void PDFViewer::refresh()
     update_scrollbar_visibility();
 }
 
+
 void PDFViewer::page_up()
 {
     SAFE_METHOD;
@@ -92,6 +93,7 @@ void PDFViewer::page_up()
     refresh();
 }
 
+
 void PDFViewer::page_down()
 {
     SAFE_METHOD;
@@ -100,6 +102,7 @@ void PDFViewer::page_down()
     renderer_.next();
     refresh();
 }
+
 
 void PDFViewer::change_page(int step)
 {
@@ -121,6 +124,7 @@ void PDFViewer::change_page(int step)
     document_->prioritize();
     get_page(new_page);
 }
+
 
 void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
 {
@@ -183,6 +187,7 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     }
 }
 
+
 void PDFViewer::wheelEvent(QWheelEvent *event)
 {
     SAFE_METHOD;
@@ -193,6 +198,7 @@ void PDFViewer::wheelEvent(QWheelEvent *event)
     else
         page_down();
 }
+
 
 bool PDFViewer::event(QEvent *event)
 {
@@ -211,6 +217,7 @@ bool PDFViewer::event(QEvent *event)
     }
     return QWidget::event(event);
 }
+
 
 void PDFViewer::resizeEvent(QResizeEvent *event)
 {
@@ -288,6 +295,7 @@ void PDFViewer::on_scrollbar_value_changed(int new_page)
     }
 }
 
+
 void PDFViewer::update_scrollbar_visibility()
 {
     SAFE_METHOD;
@@ -305,6 +313,7 @@ void PDFViewer::update_scrollbar_visibility()
 
     scrollbar_->setVisible(!all_pages_shown);
 }
+
 
 void PDFViewer::prefetch_async(int page_num)
 {
@@ -773,6 +782,7 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation)
     return QRect(screen_x, screen_y, screen_w, screen_h);
 }
 
+
 AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
 {
     SAFE_METHOD;
@@ -804,6 +814,7 @@ void PDFViewer::select_annotation(const AnnotationHandle &handle)
     update_image(); // Refresh to show selection
 }
 
+
 void PDFViewer::clear_selection()
 {
     SAFE_METHOD;
@@ -820,6 +831,7 @@ void PDFViewer::force_redraw()
     if (label_)
         label_->repaint();
 }
+
 
 void PDFViewer::set_performance_mode(PerformanceMode::Mode mode)
 {
