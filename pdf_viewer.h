@@ -38,7 +38,14 @@ public:
     int current_page() const { return page_.page_num; }
     std::vector<std::string> get_page_displays() const { return renderer_.get_all_page_displays(); }
     std::string current_page_display() const { return renderer_.current_page_display(); }
-    void goto_virtual_page(int virtual_index) { renderer_.goto_virtual_page(virtual_index); refresh(); }
+    void goto_virtual_page(int virtual_index) {
+        renderer_.goto_virtual_page(virtual_index);
+        // Fetch and display the page at the new position
+        Page page = renderer_.get_current_page();
+        page_ = PixmapPage(page);
+        update_image();
+        update_status_bar();
+    }
 
     bool in_single_page_view() const;
     bool in_double_page_view() const { return !in_single_page_view(); }

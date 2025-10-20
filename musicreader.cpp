@@ -1866,9 +1866,6 @@ void MusicReader::create_status_bar()
     setStatusBar(status_bar_);
     status_bar_->setVisible(config_.show_status_bar());
 
-    // Connect dropdown selection to page change
-    connect(status_bar_->page_combo_box_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &MusicReader::on_page_selected);
 
     // Display initial memory usage
     update_memory_usage();
@@ -1918,35 +1915,29 @@ void MusicReader::show_page_count()
 
     PDFViewer *viewer = current_viewer();
     if (!viewer) {
-        status_bar_->clear_page_count();
-        if (toolbar_page_selector_) {
-            toolbar_page_selector_->blockSignals(true);
-            toolbar_page_selector_->clear();
-            toolbar_page_selector_->adjustSize();
-            toolbar_page_selector_->blockSignals(false);
-        }
+        toolbar_page_selector_->blockSignals(true);
+        toolbar_page_selector_->clear();
+        toolbar_page_selector_->adjustSize();
+        toolbar_page_selector_->blockSignals(false);
         return;
     }
 
     auto page_displays = viewer->get_page_displays();
     auto current_display = viewer->current_page_display();
 
-    status_bar_->set_page_count(page_displays, current_display);
+    toolbar_page_selector_->blockSignals(true);
+    toolbar_page_selector_->clear();
+    for (const auto &display : page_displays)
+        toolbar_page_selector_->addItem(QString::fromStdString(display));
 
-    if (toolbar_page_selector_) {
-        toolbar_page_selector_->blockSignals(true);
-        toolbar_page_selector_->clear();
-        for (const auto& display : page_displays)
-            toolbar_page_selector_->addItem(QString::fromStdString(display));
+    int index = toolbar_page_selector_->findText(QString::fromStdString(current_display));
+    if (index >= 0)
+        toolbar_page_selector_->setCurrentIndex(index);
 
-        int index = toolbar_page_selector_->findText(QString::fromStdString(current_display));
-        if (index >= 0)
-            toolbar_page_selector_->setCurrentIndex(index);
-
-        toolbar_page_selector_->adjustSize();
-        toolbar_page_selector_->blockSignals(false);
-    }
+    toolbar_page_selector_->adjustSize();
+    toolbar_page_selector_->blockSignals(false);
 }
+
 
 void MusicReader::on_page_selected(int index)
 {
@@ -1966,10 +1957,13 @@ void MusicReader::on_page_selected(int index)
 void MusicReader::on_toolbar_page_changed(int page)
 {
     PDFViewer *viewer = current_viewer();
-    if (viewer)
-        viewer->get_page(page + 1);
+    if (!viewer)
+        return;
 
-    //show_page_count();
+    // Navigate to the selected virtual page
+    viewer->goto_virtual_page(page);
+
+    show_page_count();
 }
 
 void MusicReader::on_viewer_page_changed(int page_num)
@@ -1977,11 +1971,9 @@ void MusicReader::on_viewer_page_changed(int page_num)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (toolbar_page_selector_) {
-        toolbar_page_selector_->blockSignals(true);
-        toolbar_page_selector_->setCurrentIndex(page_num - 1);
-        toolbar_page_selector_->blockSignals(false);
-    }
+    toolbar_page_selector_->blockSignals(true);
+    toolbar_page_selector_->setCurrentIndex(page_num - 1);
+    toolbar_page_selector_->blockSignals(false);
 }
 
 void MusicReader::initialize_fast_search()
