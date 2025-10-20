@@ -31,14 +31,18 @@ public:
         memory_usage_->setText(QString::fromStdString(msg));
     }
 
-    void set_page_count(int current_page, int total_pages)
+    void set_page_count(const std::vector<std::string>& page_displays, const std::string& current_page_display)
     {
-        if (total_pages > 0) {
+        if (!page_displays.empty()) {
             page_combo_box_->blockSignals(true);
             page_combo_box_->clear();
-            for (int i = 0; i < total_pages; ++i)
-                page_combo_box_->addItem(QString::number(i + 1));
-            page_combo_box_->setCurrentIndex(current_page - 1);
+            for (const auto& display : page_displays)
+                page_combo_box_->addItem(QString::fromStdString(display));
+
+            int index = page_combo_box_->findText(QString::fromStdString(current_page_display));
+            if (index >= 0)
+                page_combo_box_->setCurrentIndex(index);
+
             page_combo_box_->adjustSize();
             page_combo_box_->blockSignals(false);
         } else {

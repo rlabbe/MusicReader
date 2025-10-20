@@ -62,6 +62,9 @@ void PDFViewer::update_status_bar()
 
     std::string page_display = renderer_.current_page_display();
     //rrl status_bar_->set_page_count(page_display, document_->page_count());
+    auto displays = renderer_.get_all_page_displays();
+    auto current = renderer_.current_page_display();
+    status_bar_->set_page_count(displays, current);
 }
 
 

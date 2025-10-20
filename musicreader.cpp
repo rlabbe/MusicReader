@@ -1928,17 +1928,21 @@ void MusicReader::show_page_count()
         return;
     }
 
-    int total_pages = viewer->page_count();
-    int current_page = viewer->current_page();
+    auto page_displays = viewer->get_page_displays();
+    auto current_display = viewer->current_page_display();
 
-    status_bar_->set_page_count(current_page, total_pages);
+    status_bar_->set_page_count(page_displays, current_display);
 
     if (toolbar_page_selector_) {
         toolbar_page_selector_->blockSignals(true);
         toolbar_page_selector_->clear();
-        for (int i = 0; i < total_pages; ++i)
-            toolbar_page_selector_->addItem(QString::number(i + 1));
-        toolbar_page_selector_->setCurrentIndex(current_page - 1);
+        for (const auto& display : page_displays)
+            toolbar_page_selector_->addItem(QString::fromStdString(display));
+
+        int index = toolbar_page_selector_->findText(QString::fromStdString(current_display));
+        if (index >= 0)
+            toolbar_page_selector_->setCurrentIndex(index);
+
         toolbar_page_selector_->adjustSize();
         toolbar_page_selector_->blockSignals(false);
     }
@@ -1950,10 +1954,13 @@ void MusicReader::on_page_selected(int index)
     TRACE_FUNCTION;
 
     PDFViewer *viewer = current_viewer();
-    if (viewer)
-        viewer->get_page(index + 1);  // Convert index to 1-based page number
+    if (!viewer)
+        return;
 
-    show_page_count();  // Ensure status bar reflects any adjustments
+    // Navigate to the selected virtual page
+    viewer->goto_virtual_page(index);
+
+    show_page_count();
 }
 
 void MusicReader::on_toolbar_page_changed(int page)
@@ -2455,6 +2462,9 @@ void MusicReader::toggle_performance_mode()
 
     // Update button to reflect actual state
     performance_mode_action_->setChecked(new_mode == PerformanceMode::Mode::Performance);
+
+    // Update page displays in toolbar and status bar
+    show_page_count();
 
     logger::info("Performance mode {}",
                  new_mode == PerformanceMode::Mode::Performance ? "enabled" : "disabled");

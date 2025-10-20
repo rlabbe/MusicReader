@@ -33,6 +33,9 @@ public:
     // not const, but PDFViewer needs to call it on a const PageRenderer& so...
     void goto_page(int physical_page) const;
 
+    // Jump to a specific virtual page index (from combobox selection)
+    void goto_virtual_page(int virtual_index);
+
     // Get display string for current position (e.g., "1a", "2", "3b")
     std::string current_page_display() const;
 
@@ -42,6 +45,9 @@ public:
     // Check if can navigate in either direction
     bool can_go_next() const;
     bool can_go_prev() const;
+
+    // Get list of all page display strings for populating UI
+    std::vector<std::string> get_all_page_displays() const;
 
 private:
     Document* document_;
