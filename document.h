@@ -73,6 +73,7 @@ public:
 
 
     const PerformanceData &performance_data() const { return performance_data_; }
+    PerformanceData &performance_data() { return performance_data_; }
 
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);
