@@ -1343,6 +1343,7 @@ void MusicReader::on_tab_changed()
 
     auto viewer = current_viewer();
     if (viewer) {
+        viewer->update_status_bar();
 
         if (!restoring_documents_) {
             auto doc = current_document();
@@ -1948,10 +1949,7 @@ void MusicReader::on_page_selected(int index)
     if (!viewer)
         return;
 
-    // Navigate to the selected virtual page
-    viewer->goto_virtual_page(index);
-
-    show_page_count();
+    viewer->goto_index(index);
 }
 
 void MusicReader::on_toolbar_page_changed(int page)
@@ -1960,20 +1958,17 @@ void MusicReader::on_toolbar_page_changed(int page)
     if (!viewer)
         return;
 
-    // Navigate to the selected virtual page
-    viewer->goto_virtual_page(page);
-
-    show_page_count();
+    viewer->goto_index(page);
 }
 
 void MusicReader::on_viewer_page_changed(int page_num)
 {
+    (void)page_num;
+
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    toolbar_page_selector_->blockSignals(true);
-    toolbar_page_selector_->setCurrentIndex(page_num - 1);
-    toolbar_page_selector_->blockSignals(false);
+    show_page_count();
 }
 
 void MusicReader::initialize_fast_search()
@@ -2450,11 +2445,9 @@ void MusicReader::toggle_performance_mode()
 
     viewer->set_performance_mode(new_mode);
 
-    // Update button to reflect actual state
     performance_mode_action_->setChecked(new_mode == PerformanceMode::Mode::Performance);
 
-    // Update page displays in toolbar and status bar
-    show_page_count();
+    viewer->refresh();
 
     logger::info("Performance mode {}",
                  new_mode == PerformanceMode::Mode::Performance ? "enabled" : "disabled");

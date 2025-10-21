@@ -54,16 +54,6 @@ void PDFViewer::update_status_bar()
 
     if (!status_bar_) return;
     if (!isVisible()) return;
-
-    /*if (page_.is_empty()) {
-        status_bar_->clear_page_count();
-        return;
-    }*/
-
-    std::string page_display = renderer_.current_page_display();
-    //rrl status_bar_->set_page_count(page_display, document_->page_count());
-    auto displays = renderer_.get_all_page_displays();
-    auto current = renderer_.current_page_display();
 }
 
 
@@ -80,8 +70,53 @@ void PDFViewer::refresh()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-    get_page(current_page());
+    REQUIRES(document_);
+
+    const int count = renderer_.page_count();
+    if (count == 0) return;
+
+    int current_idx = renderer_.current_index();
+    Page page1 = renderer_.get_current_page();
+    int physical_page = page1.page_num;
+
+    const bool is_double = in_double_page_view();
+
+    if (is_double && current_idx + 1 < count) {
+        // Get the next page from renderer
+        renderer_.next();
+        Page page2 = renderer_.get_current_page();
+        renderer_.prev();  // restore position
+
+        // Compose double page
+        PixmapPage p1(page1);
+        PixmapPage p2(page2);
+        QPixmap composed = compose_double_page(p1, p2);
+        page_ = PixmapPage(composed, physical_page, true);
+    } else {
+        page_ = PixmapPage(page1);
+    }
+
+    update_image();
+
+    const int delta = is_double ? 2 : 1;
+    int physical_count = document_->page_count();
+
+    if (physical_page + delta <= physical_count)
+        prefetch_async(physical_page + delta);
+
+    if (physical_page - delta >= 1)
+        prefetch_async(physical_page - delta);
+
+    bookmark_panel_->select_page(physical_page);
+
+    manual_scrollbar_change_ = true;
+    scrollbar_->setValue(renderer_.current_index());
+    manual_scrollbar_change_ = false;
+
     update_scrollbar_visibility();
+    update_status_bar();
+
+    emit page_changed(physical_page);
 }
 
 
@@ -112,19 +147,16 @@ void PDFViewer::change_page(int step)
     TRACE_FUNCTION;
     REQUIRES(scrollbar_);
 
-    int count = page_count();
-    int new_page = qBound(1, current_page() + step, count);
+    int count = renderer_.page_count();
+    int current = renderer_.current_index();
+    int new_index = qBound(0, current + step, count - 1);
 
     // don't go to last page if even number of pages
-    if (new_page == count && in_double_page_view() && new_page % 2 == 0)
-        new_page = count - 1;
-
-    manual_scrollbar_change_ = true;
-    scrollbar_->setValue(new_page);
-    manual_scrollbar_change_ = false;
+    if (new_index == count - 1 && in_double_page_view() && count % 2 == 0)
+        new_index = count - 2;
 
     document_->prioritize();
-    get_page(new_page);
+    goto_index(new_index);
 }
 
 
@@ -236,6 +268,9 @@ void PDFViewer::init_ui(int page)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    // Initialize renderer to requested page
+    renderer_.goto_physical_page(page);
+
     layout_ = new QHBoxLayout(this);
 
     // Remove extra spacing/margins
@@ -243,10 +278,10 @@ void PDFViewer::init_ui(int page)
     layout_->setSpacing(0);
 
     scrollbar_ = new QScrollBar(Qt::Vertical, this);
-    scrollbar_->setMinimum(1);
-    scrollbar_->setMaximum(page_count());
+    scrollbar_->setMinimum(0);
+    scrollbar_->setMaximum(page_count() - 1);
     manual_scrollbar_change_ = true;
-    scrollbar_->setValue(page);
+    scrollbar_->setValue(renderer_.current_index());
     manual_scrollbar_change_ = false;
 
     connect(scrollbar_, &QScrollBar::valueChanged, this, &PDFViewer::on_scrollbar_value_changed);
@@ -285,16 +320,15 @@ void PDFViewer::init_ui(int page)
 }
 
 
-void PDFViewer::on_scrollbar_value_changed(int new_page)
+void PDFViewer::on_scrollbar_value_changed(int new_index)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     if (manual_scrollbar_change_) return;
 
-    if (new_page != current_page()) {
-        get_page(new_page);
-    }
+    if (new_index != renderer_.current_index())
+        goto_index(new_index);
 }
 
 
@@ -409,38 +443,31 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
 }
 
 
-void PDFViewer::get_page(int page_num)
+void PDFViewer::goto_physical_page(int page_num)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
     REQUIRES(document_);
 
-    const int count = document_->page_count();
-    if (count == 0) return;
+    renderer_.goto_physical_page(page_num);
+    refresh();
+}
 
-    const bool is_double = in_double_page_view();
-    PrefetchEntry entry = is_double
-        ? make_double_page_entry(page_num, true)
-        : make_single_page_entry(page_num);
 
-    page_ = PixmapPage(entry.rendered, page_num, is_double);
+void PDFViewer::goto_index(int index)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+    REQUIRES(document_);
 
-    update_image();
+    renderer_.goto_index(index);
+    refresh();
+}
 
-    // Prefetch next and previous pages asap to maximize chances of being done
-    // by the next request
-    const int delta = is_double ? 2 : 1;
 
-    if (page_num + delta <= count)
-        prefetch_async(page_num + delta);
-
-    if (page_num - delta >= 1)
-        prefetch_async(page_num - delta);
-
-    if (bookmark_panel_)
-        bookmark_panel_->select_page(page_num);
-
-    emit page_changed(page_num);
+void PDFViewer::get_page(int page_num)
+{
+    goto_physical_page(page_num);
 }
 
 

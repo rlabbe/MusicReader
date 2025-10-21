@@ -34,30 +34,18 @@ public:
 
     ~PDFViewer();
 
-    int page_count() const { return (document_ ? document_->page_count() : 0); }
+    int page_count() const { return renderer_.page_count(); }
     int current_page() const { return page_.page_num; }
-    std::vector<std::string> get_page_displays() const { return renderer_.get_all_page_displays(); }
+    int current_index() const { return renderer_.current_index(); }
     std::string current_page_display() const { return renderer_.current_page_display(); }
-    void goto_virtual_page(int virtual_index) {
-        renderer_.goto_virtual_page(virtual_index);
-        // Fetch and display the page at the new position
-        Page page = renderer_.get_current_page();
-        page_ = PixmapPage(page);
-        update_image();
-    }
-
-    void goto_physical_page(int physical_page) {
-        renderer_.goto_page(physical_page);
-        // Fetch and display the page at the new position
-        Page page = renderer_.get_current_page();
-        page_ = PixmapPage(page);
-        update_image();
-    }
+    std::vector<std::string> get_page_displays() const { return renderer_.get_all_page_displays(); }
 
     bool in_single_page_view() const;
     bool in_double_page_view() const { return !in_single_page_view(); }
 
     void get_page(int page_num);
+    void goto_index(int index);
+    void goto_physical_page(int physical_page);
 
     void refresh();
     void page_up();
