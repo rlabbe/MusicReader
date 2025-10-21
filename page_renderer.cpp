@@ -210,3 +210,24 @@ std::string PageRenderer::format_display(int physical_page, int segment_index) c
     char letter = 'a' + static_cast<char>(segment_index);
     return std::to_string(physical_page) + letter;
 }
+
+Page PageRenderer::get_page_at_index(int index) const
+{
+    if (!document_)
+        return Page(1);
+
+    int count = page_count();
+    if (index < 0 || index >= count)
+        return Page(1);
+
+    Position pos = index_to_position(index);
+    Page page = document_->get_page(pos.physical_page, false);
+
+    if (PerformanceMode::is_performance()) {
+        int seg_count = segment_count(pos.physical_page);
+        if (seg_count > 1)
+            page = crop_page(page, pos.physical_page, pos.segment_index);
+    }
+
+    return page;
+}

@@ -76,41 +76,30 @@ void PDFViewer::refresh()
     if (count == 0) return;
 
     int current_idx = renderer_.current_index();
-    Page page1 = renderer_.get_current_page();
-    int physical_page = page1.page_num;
+    Page page = renderer_.get_current_page();
+    int physical_page = page.page_num;
 
     const bool is_double = in_double_page_view();
 
-    if (is_double && current_idx + 1 < count) {
-        // Get the next page from renderer
-        renderer_.next();
-        Page page2 = renderer_.get_current_page();
-        renderer_.prev();  // restore position
+    PrefetchEntry entry = is_double
+        ? make_double_page_entry(current_idx)
+        : make_single_page_entry(current_idx);
 
-        // Compose double page
-        PixmapPage p1(page1);
-        PixmapPage p2(page2);
-        QPixmap composed = compose_double_page(p1, p2);
-        page_ = PixmapPage(composed, physical_page, true);
-    } else {
-        page_ = PixmapPage(page1);
-    }
+    page_ = PixmapPage(entry.rendered, physical_page, is_double);
 
     update_image();
 
-    const int delta = is_double ? 2 : 1;
-    int physical_count = document_->page_count();
+    // Prefetch next and previous indices
+    if (current_idx + 1 < count)
+        prefetch_async(current_idx + 1);
 
-    if (physical_page + delta <= physical_count)
-        prefetch_async(physical_page + delta);
-
-    if (physical_page - delta >= 1)
-        prefetch_async(physical_page - delta);
+    if (current_idx - 1 >= 0)
+        prefetch_async(current_idx - 1);
 
     bookmark_panel_->select_page(physical_page);
 
     manual_scrollbar_change_ = true;
-    scrollbar_->setValue(renderer_.current_index());
+    scrollbar_->setValue(current_idx);
     manual_scrollbar_change_ = false;
 
     update_scrollbar_visibility();
@@ -125,8 +114,9 @@ void PDFViewer::page_up()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-
-    renderer_.prev();
+    int step = in_double_page_view() ? 2 : 1;
+    for (int i = 0; i < step && renderer_.can_go_prev(); ++i)
+        renderer_.prev();
     refresh();
 }
 
@@ -136,7 +126,9 @@ void PDFViewer::page_down()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    renderer_.next();
+    int step = in_double_page_view() ? 2 : 1;
+    for (int i = 0; i < step && renderer_.can_go_next(); ++i)
+        renderer_.next();
     refresh();
 }
 
@@ -351,34 +343,35 @@ void PDFViewer::update_scrollbar_visibility()
 }
 
 
-void PDFViewer::prefetch_async(int page_num)
+void PDFViewer::prefetch_async(int index)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
     REQUIRES(document_);
 
-    std::jthread([this, page_num]() {
-        const int count = document_->page_count();
-        if (page_num < 1 || page_num > count)
+    std::jthread([this, index]() {
+        const int count = renderer_.page_count();
+        if (index < 0 || index >= count)
             return;
 
         const bool is_double = in_double_page_view();
+        int current_idx = renderer_.current_index();
 
         // Choose correct slot
-        PrefetchEntry &slot = (page_num > page_.page_num) ? prefetch_.next : prefetch_.prev;
-        if (slot.page_num == page_num && slot.double_page == is_double)
+        PrefetchEntry &slot = (index > current_idx) ? prefetch_.next : prefetch_.prev;
+        if (slot.index == index && slot.double_page == is_double)
             return; // Already prefetched, matching mode
 
         PrefetchEntry entry = is_double
-            ? make_double_page_entry(page_num, false)
-            : make_single_page_entry(page_num);
+            ? make_double_page_entry(index)
+            : make_single_page_entry(index);
 
         if (entry.rendered.isNull())
             return;
 
         {
             std::lock_guard lock(prefetch_mutex_);
-            PrefetchEntry &dest = (entry.page_num > page_.page_num) ? prefetch_.next : prefetch_.prev;
+            PrefetchEntry &dest = (entry.index > current_idx) ? prefetch_.next : prefetch_.prev;
             dest = std::move(entry);
         }
     }).detach();
@@ -395,21 +388,28 @@ void PDFViewer::clear_prefetch()
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num, bool is_current_page) const
+PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     if (!config_ || !document_)
-        return PrefetchEntry(page_num, false, 0);
+        return PrefetchEntry(index, false, 0);
 
-    PrefetchEntry entry(page_num, true, config_->border_margin());
-    entry.p1 = PixmapPage(document_->get_page(page_num, is_current_page));
+    PrefetchEntry entry(index, true, config_->border_margin());
 
-    if (page_num < document_->page_count())
-        entry.p2 = document_->get_page(page_num + 1, false);
-    else
+    // Get page at this index from renderer
+    Page page1 = renderer_.get_page_at_index(index);
+    entry.p1 = PixmapPage(page1);
+
+    // Get page at next index if it exists
+    int count = renderer_.page_count();
+    if (index + 1 < count) {
+        Page page2 = renderer_.get_page_at_index(index + 1);
+        entry.p2 = PixmapPage(page2);
+    } else {
         copy_blank_image(entry.p1, entry.p2);
+    }
 
     if (!entry.p1.is_empty() && !entry.p2.is_empty())
         entry.rendered = compose_double_page(entry.p1, entry.p2);
@@ -418,21 +418,20 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int page_num, bool is
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int page_num) const
+PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     if (!config_ || !document_)
-        return PrefetchEntry(page_num, false, 0);
+        return PrefetchEntry(index, false, 0);
 
-    PrefetchEntry entry(page_num, false, config_->border_margin());
+    PrefetchEntry entry(index, false, config_->border_margin());
 
-    // Use renderer to get the page (will apply cropping in performance mode)
-    //if (is_current_page)
-    //    renderer_.goto_page(page_num);
+    // Get page at this index from renderer
+    Page page = renderer_.get_page_at_index(index);
+    entry.p1 = page;
 
-    entry.p1 = renderer_.get_current_page();
     if (!entry.p1.is_empty()) {
         if (config_->zoom_to_content())
             entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
@@ -511,30 +510,37 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     if (name != document_->filename())
         return;
 
-    int page_num = current_page();
+    // Map physical page to index for comparison
+    int current_idx = renderer_.current_index();
+    PageRenderer::Position current_pos = renderer_.index_to_position(current_idx);
 
+    // Check if loaded page is relevant to current display
+    bool relevant = false;
     if (in_single_page_view()) {
-        if (page_index != page_num)
-            return;
+        relevant = (page_index == current_pos.physical_page);
     } else {
-        if (page_index != page_num && page_index != page_num + 1)
-            return;
+        // In double page mode, check if it's current or next page
+        if (page_index == current_pos.physical_page)
+            relevant = true;
+        else if (current_idx + 1 < renderer_.page_count()) {
+            PageRenderer::Position next_pos = renderer_.index_to_position(current_idx + 1);
+            relevant = (page_index == next_pos.physical_page);
+        }
     }
+
+    if (!relevant)
+        return;
 
     TRACE_FUNCTION;
     int count = page_count();
     if (in_single_page_view() || count == 1) {
-        if (page_num == page_index) {
-            PrefetchEntry entry = make_single_page_entry(page_num);
-            page_ = PixmapPage(entry.rendered, page_num, false);
-            update_image();
-        }
+        PrefetchEntry entry = make_single_page_entry(current_idx);
+        page_ = PixmapPage(entry.rendered, current_pos.physical_page, false);
+        update_image();
     } else {
-        if (page_num == page_index || page_num + 1 == page_index) {
-            PrefetchEntry entry = make_double_page_entry(page_num, page_num == page_index);
-            page_ = PixmapPage(entry.rendered, page_num, true);
-            update_image();
-        }
+        PrefetchEntry entry = make_double_page_entry(current_idx);
+        page_ = PixmapPage(entry.rendered, current_pos.physical_page, true);
+        update_image();
     }
 }
 
@@ -621,12 +627,12 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
 }
 
 
-bool PDFViewer::PrefetchEntry::valid(int target_page_num, ConfigFile &config) const
+bool PDFViewer::PrefetchEntry::valid(int target_index, ConfigFile &config) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    return page_num == target_page_num &&
+    return index == target_index &&
         double_page == (config.page_view_count() == 2) &&
         border_margin == config.border_margin() &&
         !rendered.isNull();

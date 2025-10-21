@@ -100,14 +100,14 @@ private:
     struct PrefetchEntry {
 
         PrefetchEntry() = default;
-        PrefetchEntry(int page_num, bool double_page, int margin)
-            : page_num(page_num)
+        PrefetchEntry(int index, bool double_page, int margin)
+            : index(index)
             , double_page(double_page)
             , border_margin(margin)
         {
         }
 
-        int page_num = -1;
+        int index = -1;
 
         // render settings
         bool double_page = false;
@@ -118,8 +118,8 @@ private:
         PixmapPage p2;
         QPixmap rendered;
 
-        void clear() { page_num = -1; }
-        bool valid(int target_page_num, ConfigFile &config) const;
+        void clear() { index = -1; }
+        bool valid(int target_index, ConfigFile &config) const;
     };
 
     struct PrefetchCache {
@@ -130,11 +130,11 @@ private:
     PrefetchCache prefetch_;
     mutable std::mutex prefetch_mutex_;
 
-    void prefetch_async(int page_num);
+    void prefetch_async(int index);
     QPixmap compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const;
     void clear_prefetch();
-    PrefetchEntry make_double_page_entry(int page_num, bool is_current_page) const;
-    PrefetchEntry make_single_page_entry(int page_num) const;
+    PrefetchEntry make_double_page_entry(int index) const;
+    PrefetchEntry make_single_page_entry(int index) const;
 
     void init_ui(int page);
     PixmapPage get_single_page(int page_num);

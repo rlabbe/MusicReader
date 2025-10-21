@@ -48,7 +48,7 @@ Document::~Document()
 Page Document::get_page(int page_num, bool is_current) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
+    TRACE_FUNCTION_MSG("Requesting page {} of {}, is_current={}", page_num, filename_.string(), is_current);
 
     if (is_current)
         current_page_ = page_num;
@@ -148,7 +148,7 @@ void Document::initialize_document()
 
     close_fitz(ctx, doc);
 
-    // Load performance data from .pbk file if it exists
+    // Load performance data from .perf file if it exists
     performance_data_.load(filename_);
 
     // If we got an exception loading bookmarks, we want to save the document without them.

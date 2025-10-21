@@ -1,17 +1,18 @@
 <RCC>
-  <qresource prefix="/MusicReader">
-    <file>images/border.svg</file>
-    <file>images/gclef.png</file>
-    <file>images/gclef-icon.png</file>
-    <file>images/gear.png</file>
-    <file>images/left.ico</file>
-    <file>images/annotation.ico</file>
-    <file>images/right.ico</file>
-    <file>images/zoomin.ico</file>
-    <file>images/zoomout.ico</file>
-    <file>images/page_by_1.ico</file>
-    <file>images/page_by_2.ico</file>
-    <file>images/delete.ico</file>
-    <file>help/fast_search_help.html</file>
-  </qresource>
+    <qresource prefix="/MusicReader">
+        <file>images/border.svg</file>
+        <file>images/gclef.png</file>
+        <file>images/gclef-icon.png</file>
+        <file>images/gear.png</file>
+        <file>images/left.ico</file>
+        <file>images/annotation.ico</file>
+        <file>images/right.ico</file>
+        <file>images/zoomin.ico</file>
+        <file>images/zoomout.ico</file>
+        <file>images/page_by_1.ico</file>
+        <file>images/page_by_2.ico</file>
+        <file>images/delete.ico</file>
+        <file>help/fast_search_help.html</file>
+        <file>images/perform.ico</file>
+    </qresource>
 </RCC>

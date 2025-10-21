@@ -1034,8 +1034,8 @@ void MusicReader::create_toolbar()
     zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(zoom_in_out_action_);
 
-    performance_mode_action_ = new QAction(QIcon(":/MusicReader/images/playback.ico"), "", this);
-    performance_mode_action_->setToolTip("Toggle Playback Mode (P)");
+    performance_mode_action_ = new QAction(QIcon(":/MusicReader/images/perform.ico"), "", this);
+    performance_mode_action_->setToolTip("Toggle Performance Mode (P)");
     performance_mode_action_->setCheckable(true);
     connect(performance_mode_action_, &QAction::triggered, this, &MusicReader::toggle_performance_mode);
     toolbar_->addAction(performance_mode_action_);

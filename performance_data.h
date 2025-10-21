@@ -4,17 +4,17 @@
 #include <vector>
 #include <map>
 
-// Manages playback-related data for sheet music performance mode.
+// Manages performance-related data for sheet music performance mode.
 //
 // Stores page breaks that split physical PDF pages into multiple virtual pages
 // for performance use. Break positions are stored as normalized coordinates (0.0-1.0)
 // relative to page height, making them DPI-independent.
 //
-// Data is persisted in a .pbk (playback) file alongside the PDF, using a simple
+// Data is persisted in a .perf (performance) file alongside the PDF, using a simple
 // text format that allows for future extensions (repeats, jumps, etc.).
 //
-// Example .pbk file format:
-//   # Playback file for score.pdf
+// Example .perf file format:
+//   # Performance file for score.pdf
 //   version: 1
 //
 //   [page_breaks]
@@ -25,15 +25,15 @@ class PerformanceData {
 public:
     PerformanceData() = default;
 
-    // Load playback data from the .pbk file associated with the given PDF path.
+    // Load playback data from the .perf file associated with the given PDF path.
     // Returns true if file exists and was loaded successfully, false otherwise.
-    // If no .pbk file exists, this is not an error - just means no playback data.
-    bool load(const std::filesystem::path& pdf_path);
+    // If no .perf file exists, this is not an error - just means no playback data.
+    bool load(const std::filesystem::path &pdf_path);
 
-    // Save playback data to the .pbk file associated with the given PDF path.
+    // Save playback data to the .perf file associated with the given PDF path.
     // If data is empty, still returns true (but creates no file).
     // Returns false only on write errors.
-    bool save(const std::filesystem::path& pdf_path) const;
+    bool save(const std::filesystem::path &pdf_path) const;
 
     // Add a page break at the specified normalized position (0.0-1.0) on the page.
     // Breaks are automatically kept sorted. Duplicate positions are ignored.
@@ -50,7 +50,7 @@ public:
 
     // Get all page breaks for a specific page, sorted in ascending order.
     // Returns empty vector if no breaks exist for this page.
-    const std::vector<double>& get_page_breaks(int page_num) const;
+    const std::vector<double> &get_page_breaks(int page_num) const;
 
     // Check if a specific page has any breaks.
     bool has_breaks(int page_num) const;
@@ -59,8 +59,8 @@ public:
     bool empty() const { return page_breaks_.empty(); }
 
 private:
-    // Constructs the .pbk filename from the PDF path (same name, .pbk extension).
-    std::filesystem::path get_playback_file_path(const std::filesystem::path& pdf_path) const;
+    // Constructs the .perf filename from the PDF path (same name, .perf extension).
+    std::filesystem::path get_filename(std::filesystem::path pdf_path) const;
 
     // Map from page number to list of break positions (normalized 0.0-1.0).
     // Each vector is kept sorted.

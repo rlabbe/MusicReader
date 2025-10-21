@@ -4,22 +4,22 @@
 #include <algorithm>
 #include <cmath>
 
-std::filesystem::path PerformanceData::get_playback_file_path(const std::filesystem::path &pdf_path) const
+
+std::filesystem::path PerformanceData::get_filename(std::filesystem::path path) const
 {
-    auto pbk_path = pdf_path;
-    pbk_path.replace_extension(".pbk");
-    return pbk_path;
+    path.replace_extension(".perf");
+    return path;
 }
 
 
 bool PerformanceData::load(const std::filesystem::path &pdf_path)
 {
-    auto pbk_path = get_playback_file_path(pdf_path);
+    auto fname = get_filename(pdf_path);
 
-    if (!std::filesystem::exists(pbk_path))
+    if (!std::filesystem::exists(fname))
         return false;
 
-    std::ifstream file(pbk_path);
+    std::ifstream file(fname);
     if (!file.is_open())
         return false;
 
@@ -93,9 +93,8 @@ bool PerformanceData::save(const std::filesystem::path &pdf_path) const
     if (empty())
         return true;
 
-    auto pbk_path = get_playback_file_path(pdf_path);
-
-    std::ofstream file(pbk_path);
+    auto fname = get_filename(pdf_path);
+    std::ofstream file(fname);
     if (!file.is_open())
         return false;
 
@@ -154,7 +153,6 @@ void PerformanceData::clear()
 {
     page_breaks_.clear();
 }
-
 
 
 const std::vector<double> &PerformanceData::get_page_breaks(int page_num) const
