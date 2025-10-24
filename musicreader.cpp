@@ -45,9 +45,9 @@ MusicReader::MusicReader(QWidget *parent)
     , load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)
-    logger::initialize(true, config_, true, 1024);
+    logger::initialize(true, config_, 1024);
 #else
-    logger::initialize(true, config_, true, 1024);
+    logger::initialize(true, config_, 1024);
 #endif
 
     update_logging_level();
@@ -85,15 +85,7 @@ void MusicReader::setup_UI()
     // repaint the tab bar when a tab is moved, plus save the new order to config
     auto *tabBar = tab_widget_->tabBar();
     connect(tabBar, &QTabBar::tabMoved, this, &MusicReader::on_tab_moved);
-
-    connect(this, &MusicReader::document_loaded, this, [this](std::string name, int page) {
-        auto i = doc_is_open(name);
-        if (i.has_value()) {
-            auto viewer = viewer_tab(i.value());
-            if (viewer)
-                viewer->get_page(page);  // Show the loaded page
-        }
-    });
+    connect(this, &MusicReader::document_loaded, this, &MusicReader::on_document_loaded);
 
     splitter_->addWidget(tab_widget_);
     splitter_->setStretchFactor(0, 0);  // Give bookmark panel minimal space
@@ -147,7 +139,7 @@ void MusicReader::setup_UI()
     if (config_.restore_documents())
         QTimer::singleShot(0, this, [this]() { restore_open_documents(); });
 
-    setup_mouse_hiding();
+    //setup_mouse_hiding();
     // this will search the directories and create the fast search dialog
     // asynchronously, because it can take many seconds to populate all the
     // files.
@@ -180,6 +172,18 @@ void MusicReader::setup_UI()
         check_first_run_tour();
     });
 }
+
+
+void MusicReader::on_document_loaded(std::string name, int page)
+{
+    auto i = doc_is_open(name);
+    if (i.has_value()) {
+        auto viewer = viewer_tab(i.value());
+        if (viewer)
+            viewer->get_page(page);
+    }
+}
+
 
 void MusicReader::create_global_shortcuts()
 {
@@ -221,7 +225,7 @@ void MusicReader::create_global_shortcuts()
 
     shortcut = new QShortcut(Qt::Key_O, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() { open_file_dialog(); });
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_file_dialog_default_path);
 
     shortcut = new QShortcut(QKeySequence(Qt::Key_F), this);
     shortcut->setContext(Qt::WindowShortcut);
@@ -238,10 +242,7 @@ void MusicReader::create_global_shortcuts()
 
     shortcut = new QShortcut(Qt::Key_Space, this);
     shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
-        auto viewer = current_viewer();
-        if (viewer) viewer->page_down();
-    });
+    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_down);
 
     shortcut = new QShortcut(QKeySequence("F5"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
@@ -348,7 +349,8 @@ bool MusicReader::handle_mouse_movement(QObject *watched, QEvent *event)
     }
 
     // Reset the timer
-    mouse_hide_timer_->start(3000); // 3 seconds
+    if (mouse_hide_timer_)
+        mouse_hide_timer_->start(3000); // 3 seconds
 
     // Return false to allow event propagation
     return false;
@@ -364,7 +366,6 @@ void MusicReader::setup_mouse_hiding()
     mouse_hide_timer_->setSingleShot(true);
     connect(mouse_hide_timer_, &QTimer::timeout, this, [this]() {
         // Only hide cursor if we're over a document
-        TRACE_FUNCTION;
         PDFViewer *current = current_viewer();
         if (current) {
             QRect viewerRect = current->rect();
@@ -385,6 +386,8 @@ void MusicReader::setup_mouse_hiding()
 void MusicReader::reset_cursor_timer()
 {
     SAFE_METHOD;
+    if (!mouse_hide_timer_)
+        return;
 
     if (cursor_hidden_) {
         QApplication::restoreOverrideCursor();
@@ -479,16 +482,6 @@ void MusicReader::show_log_content()
     layout.addWidget(&scroll_area);
 
     QHBoxLayout button_layout;
-
-    // Future enhancement: Report button (commented out)
-    /*
-    QPushButton report_button("Report Issue");
-    QObject::connect(&report_button, &QPushButton::clicked, [&]() {
-        report_issue(log_content.toStdString());
-    });
-    button_layout.addWidget(&report_button);
-    */
-
     QPushButton ok_button("OK");
     QObject::connect(&ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
 
@@ -514,7 +507,7 @@ void MusicReader::create_file_menu(auto *menu_bar)
     QAction *action = new QAction("&Open...", this);
     action->setShortcut(shortcuts_["open_file"]);
     file_menu->addAction(action);
-    connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+    connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
 
     action = new QAction("&Fast Search...", this);
     action->setShortcut(shortcuts_["fast_search"]);
@@ -534,7 +527,7 @@ void MusicReader::create_file_menu(auto *menu_bar)
 
     action = new QAction("Copy log to clipboard", this);
     action->setShortcut(shortcuts_["open_file"]);
-    connect(action, &QAction::triggered, this, [this]() { copy_log_to_clipboard(); });
+    connect(action, &QAction::triggered, this, &MusicReader::copy_log_to_clipboard);
     file_menu->addAction(action);
 
     file_menu->addSeparator();
@@ -576,11 +569,7 @@ void MusicReader::create_edit_menu(auto *menu_bar)
     edit_menu_->addSeparator();
 
     QAction *set_bookmarks_action = new QAction("Set bookmarks from txt file", this);
-    connect(set_bookmarks_action, &QAction::triggered, this, [this]() {
-        auto doc = current_document();
-        if (doc && doc->set_bookmarks_from_txt_file())
-            update_bookmarks_for_doc();
-    });
+    connect(set_bookmarks_action, &QAction::triggered, this, &MusicReader::set_bookmarks_from_file);
     edit_menu_->addAction(set_bookmarks_action);
 
     connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
@@ -588,8 +577,16 @@ void MusicReader::create_edit_menu(auto *menu_bar)
         undo_action_->setEnabled(doc && doc->can_undo());
         redo_action_->setEnabled(doc && doc->can_redo());
     });
-
 }
+
+
+void MusicReader::set_bookmarks_from_file()
+{
+    auto doc = current_document();
+    if (doc && doc->set_bookmarks_from_txt_file())
+        update_bookmarks_for_doc();
+}
+
 
 void MusicReader::create_view_menu(auto *menu_bar)
 {
@@ -812,6 +809,10 @@ void MusicReader::show_context_menu(const QPoint &pos)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    auto viewer = current_viewer();
+    if (!viewer) return;
+    if (viewer->in_page_break_edit_mode()) return; // don't show menu in this mode, right-click is used for deleting
+
     QMenu context_menu(this);
 
     QAction *reload_action = new QAction("Reload", this);
@@ -823,7 +824,7 @@ void MusicReader::show_context_menu(const QPoint &pos)
     connect(edit_action, &QAction::triggered, this, &MusicReader::edit_document);
 
     QAction *open_folder_action = new QAction("Open from containing folder...", this);
-    connect(open_folder_action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+    connect(open_folder_action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
 
     QAction *browse_folder_action = new QAction("Browse containing folder...", this);
     connect(browse_folder_action, &QAction::triggered, this, &MusicReader::browse_folder);
@@ -1002,7 +1003,7 @@ void MusicReader::create_toolbar()
 
         action = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "", this);
         action->setToolTip("Open File...(O)");
-        connect(action, &QAction::triggered, this, [this]() { open_file_dialog(); });
+        connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
         toolbar_->addAction(action);
     }
 
@@ -1033,6 +1034,12 @@ void MusicReader::create_toolbar()
     connect(zoom_in_out_action_, &QAction::triggered, this, &MusicReader::toggle_page_zoom);
     zoom_in_out_action_->setToolTip("Toggle zoom to content (Z)");
     toolbar_->addAction(zoom_in_out_action_);
+
+    page_break_edit_action_ = new QAction(QIcon(":/MusicReader/images/page_break.ico"), "", this);
+    page_break_edit_action_->setToolTip("Edit Page Breaks");
+    page_break_edit_action_->setCheckable(true);
+    connect(page_break_edit_action_, &QAction::triggered, this, &MusicReader::toggle_page_break_edit_mode);
+    toolbar_->addAction(page_break_edit_action_);
 
     performance_mode_action_ = new QAction(QIcon(":/MusicReader/images/perform.ico"), "", this);
     performance_mode_action_->setToolTip("Toggle Performance Mode (P)");
@@ -1344,6 +1351,9 @@ void MusicReader::on_tab_changed()
     auto viewer = current_viewer();
     if (viewer) {
         viewer->update_status_bar();
+
+        // Update page break edit button state based on current viewer
+        page_break_edit_action_->setChecked(viewer->in_page_break_edit_mode());
 
         if (!restoring_documents_) {
             auto doc = current_document();
@@ -1682,6 +1692,12 @@ void MusicReader::open_imslp_search_dialog()
     }
 }
 
+void MusicReader::open_file_dialog_default_path()
+{
+    open_file_dialog("");
+}
+
+
 void MusicReader::open_file_dialog(const std::filesystem::path &pathname)
 {
     SAFE_METHOD;
@@ -1949,16 +1965,16 @@ void MusicReader::on_page_selected(int index)
     if (!viewer)
         return;
 
-    viewer->goto_index(index);
+    viewer->get_page(index);
 }
 
-void MusicReader::on_toolbar_page_changed(int page)
+void MusicReader::on_toolbar_page_changed(int index_0_based)
 {
     PDFViewer *viewer = current_viewer();
     if (!viewer)
         return;
 
-    viewer->goto_index(page);
+    viewer->get_page(index_0_based + 1);
 }
 
 void MusicReader::on_viewer_page_changed(int page_num)
@@ -2430,12 +2446,31 @@ void MusicReader::check_first_run_tour()
 }
 
 
+void MusicReader::toggle_page_break_edit_mode()
+{
+    SAFE_METHOD;
+
+    auto viewer = current_viewer();
+    if (!viewer)
+        return;
+
+    bool new_state = !viewer->in_page_break_edit_mode();
+    viewer->set_page_break_edit_mode(new_state);
+    page_break_edit_action_->setChecked(new_state);
+
+    logger::info("Page break edit mode {}", new_state ? "enabled" : "disabled");
+}
+
+
 void MusicReader::toggle_performance_mode()
 {
     SAFE_METHOD;
 
     auto viewer = current_viewer();
     if (!viewer)
+        return;
+
+    if (viewer->in_page_break_edit_mode())
         return;
 
     PerformanceMode::Mode current_mode = PerformanceMode::get();

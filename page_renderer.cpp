@@ -5,7 +5,7 @@
 
 PageRenderer::PageRenderer(Document *document)
     : document_(document)
-    , current_index_(0)
+    , current_index_(1)
 {
 }
 
@@ -42,7 +42,7 @@ std::vector<std::string> PageRenderer::get_all_page_displays() const
         return displays;
 
     int total = page_count();
-    for (int i = 0; i < total; ++i) {
+    for (int i = 1; i <= total; ++i) {
         Position pos = index_to_position(i);
         displays.push_back(format_display(pos.physical_page, pos.segment_index));
     }
@@ -64,18 +64,18 @@ void PageRenderer::prev()
 
 bool PageRenderer::can_go_next() const
 {
-    return current_index_ < page_count() - 1;
+    return current_index_ < page_count();
 }
 
 bool PageRenderer::can_go_prev() const
 {
-    return current_index_ > 0;
+    return current_index_ > 1;
 }
 
 void PageRenderer::goto_index(int index)
 {
     int count = page_count();
-    if (index >= 0 && index < count)
+    if (index >= 1 && index <= count)
         current_index_ = index;
 }
 
@@ -113,15 +113,20 @@ PageRenderer::Position PageRenderer::index_to_position(int index) const
     if (!document_)
         return pos;
 
+    // Convert 1-based index to 0-based for calculation
+    int zero_based = index - 1;
+    if (zero_based < 0)
+        return pos;
+
     int accumulated = 0;
     int total_physical = physical_page_count();
 
     for (int page = 1; page <= total_physical; ++page) {
         int seg_count = segment_count(page);
 
-        if (accumulated + seg_count > index) {
+        if (accumulated + seg_count > zero_based) {
             pos.physical_page = page;
-            pos.segment_index = index - accumulated;
+            pos.segment_index = zero_based - accumulated;
             return pos;
         }
 
@@ -134,7 +139,7 @@ PageRenderer::Position PageRenderer::index_to_position(int index) const
 int PageRenderer::position_to_index(int physical_page, int segment_index) const
 {
     if (!document_)
-        return 0;
+        return 1;
 
     int index = 0;
     int total_physical = physical_page_count();
@@ -144,7 +149,7 @@ int PageRenderer::position_to_index(int physical_page, int segment_index) const
 
     index += segment_index;
 
-    return index;
+    return index + 1;  // Convert to 1-based
 }
 
 int PageRenderer::segment_count(int physical_page) const
@@ -217,7 +222,7 @@ Page PageRenderer::get_page_at_index(int index) const
         return Page(1);
 
     int count = page_count();
-    if (index < 0 || index >= count)
+    if (index < 1 || index > count)
         return Page(1);
 
     Position pos = index_to_position(index);

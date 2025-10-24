@@ -32,7 +32,10 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
     init_ui(page);
 
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-    get_page(page);
+
+    // Convert physical page number to index and navigate
+    renderer_.goto_physical_page(page);
+    get_page(renderer_.current_index());
 
     connect(this, &PDFViewer::annotation_mode_changed, reader, &MusicReader::on_annotation_mode_changed);
 }
@@ -62,7 +65,7 @@ bool PDFViewer::in_single_page_view() const
     SAFE_METHOD;
     REQUIRES_RET(config_, true);
 
-    return config_->page_view_count() == 1 || page_count() == 1;
+    return page_break_edit_mode_ || config_->page_view_count() == 1 || page_count() == 1;
 }
 
 
@@ -76,8 +79,6 @@ void PDFViewer::refresh()
     if (count == 0) return;
 
     int current_idx = renderer_.current_index();
-    Page page = renderer_.get_current_page();
-    int physical_page = page.page_num;
 
     const bool is_double = in_double_page_view();
 
@@ -85,27 +86,30 @@ void PDFViewer::refresh()
         ? make_double_page_entry(current_idx)
         : make_single_page_entry(current_idx);
 
+    int physical_page = entry.p1.page_num;
+
     page_ = PixmapPage(entry.rendered, physical_page, is_double);
 
     update_image();
 
     // Prefetch next and previous indices
-    if (current_idx + 1 < count)
+    if (current_idx + 1 <= count)
         prefetch_async(current_idx + 1);
 
-    if (current_idx - 1 >= 0)
+    if (current_idx - 1 >= 1)
         prefetch_async(current_idx - 1);
 
     bookmark_panel_->select_page(physical_page);
 
     manual_scrollbar_change_ = true;
+    scrollbar_->setMaximum(count);
     scrollbar_->setValue(current_idx);
     manual_scrollbar_change_ = false;
 
     update_scrollbar_visibility();
     update_status_bar();
 
-    emit page_changed(physical_page);
+    emit page_changed(current_idx);
 }
 
 
@@ -113,11 +117,8 @@ void PDFViewer::page_up()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-
-    int step = in_double_page_view() ? 2 : 1;
-    for (int i = 0; i < step && renderer_.can_go_prev(); ++i)
-        renderer_.prev();
-    refresh();
+    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
+    change_page(single_page ? -1 : -2);
 }
 
 
@@ -125,11 +126,8 @@ void PDFViewer::page_down()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-
-    int step = in_double_page_view() ? 2 : 1;
-    for (int i = 0; i < step && renderer_.can_go_next(); ++i)
-        renderer_.next();
-    refresh();
+    bool single_page = in_single_page_view() || config_->page_step_size() == 1;
+    change_page(single_page ? 1 : 2);
 }
 
 
@@ -141,14 +139,18 @@ void PDFViewer::change_page(int step)
 
     int count = renderer_.page_count();
     int current = renderer_.current_index();
-    int new_index = qBound(0, current + step, count - 1);
+    int new_index = qBound(1, current + step, count);
 
     // don't go to last page if even number of pages
-    if (new_index == count - 1 && in_double_page_view() && count % 2 == 0)
-        new_index = count - 2;
+    if (new_index == count && in_double_page_view() && count % 2 == 0)
+        new_index = count - 1;
+
+    manual_scrollbar_change_ = true;
+    scrollbar_->setValue(new_index);
+    manual_scrollbar_change_ = false;
 
     document_->prioritize();
-    goto_index(new_index);
+    get_page(new_index);
 }
 
 
@@ -205,7 +207,6 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
         break;
     case Qt::Key_Right:
         change_page(1);
-        logger::info("some stuff");
         event->accept();
         break;
     default:
@@ -270,8 +271,8 @@ void PDFViewer::init_ui(int page)
     layout_->setSpacing(0);
 
     scrollbar_ = new QScrollBar(Qt::Vertical, this);
-    scrollbar_->setMinimum(0);
-    scrollbar_->setMaximum(page_count() - 1);
+    scrollbar_->setMinimum(1);
+    scrollbar_->setMaximum(page_count());
     manual_scrollbar_change_ = true;
     scrollbar_->setValue(renderer_.current_index());
     manual_scrollbar_change_ = false;
@@ -301,14 +302,16 @@ void PDFViewer::init_ui(int page)
 
     QShortcut *delete_shortcut = new QShortcut(QKeySequence::Delete, this);
     delete_shortcut->setContext(Qt::WidgetShortcut); // Only when this widget has focus
-    connect(delete_shortcut, &QShortcut::activated, this, [this]() {
-        if (has_selection_ && document_) {
+    connect(delete_shortcut, &QShortcut::activated, this, &PDFViewer::delete_shortcut);
+}
 
-            if (document_->remove_annotation(selected_annotation_)) {
-                clear_selection();
-            }
-        }
-    });
+
+void PDFViewer::delete_shortcut()
+{
+    if (has_selection_ && document_) {
+        if (document_->remove_annotation(selected_annotation_))
+            clear_selection();
+    }
 }
 
 
@@ -320,7 +323,7 @@ void PDFViewer::on_scrollbar_value_changed(int new_index)
     if (manual_scrollbar_change_) return;
 
     if (new_index != renderer_.current_index())
-        goto_index(new_index);
+        get_page(new_index);
 }
 
 
@@ -351,8 +354,13 @@ void PDFViewer::prefetch_async(int index)
 
     std::jthread([this, index]() {
         const int count = renderer_.page_count();
-        if (index < 0 || index >= count)
+        if (index < 1 || index > count)
             return;
+
+
+        // dummy sleep for 5 seconds
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
 
         const bool is_double = in_double_page_view();
         int current_idx = renderer_.current_index();
@@ -373,6 +381,7 @@ void PDFViewer::prefetch_async(int index)
             std::lock_guard lock(prefetch_mutex_);
             PrefetchEntry &dest = (entry.index > current_idx) ? prefetch_.next : prefetch_.prev;
             dest = std::move(entry);
+            logger::info("Prefetched page index {}", index);
         }
     }).detach();
 }
@@ -391,7 +400,7 @@ void PDFViewer::clear_prefetch()
 PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("index={}", index);
 
     if (!config_ || !document_)
         return PrefetchEntry(index, false, 0);
@@ -404,7 +413,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
 
     // Get page at next index if it exists
     int count = renderer_.page_count();
-    if (index + 1 < count) {
+    if (index + 1 <= count) {
         Page page2 = renderer_.get_page_at_index(index + 1);
         entry.p2 = PixmapPage(page2);
     } else {
@@ -421,7 +430,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
 PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("index={}", index);
 
     if (!config_ || !document_)
         return PrefetchEntry(index, false, 0);
@@ -433,10 +442,13 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
     entry.p1 = page;
 
     if (!entry.p1.is_empty()) {
-        if (config_->zoom_to_content())
+        if (config_->zoom_to_content()) {
+            time_logger logger("Render page with border cropping");
             entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
-        else
+        } else {
+            time_logger logger("Render page without border cropping");
             entry.rendered = entry.p1.as_pixmap();
+        }
     }
     return entry;
 }
@@ -445,28 +457,86 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
 void PDFViewer::goto_physical_page(int page_num)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("page_num={}", page_num);
     REQUIRES(document_);
 
+    // Map physical page to index and navigate there
     renderer_.goto_physical_page(page_num);
-    refresh();
+    int index = renderer_.current_index();
+    get_page(index);
 }
 
 
-void PDFViewer::goto_index(int index)
+
+void PDFViewer::get_page(int index)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("index={}", index);
     REQUIRES(document_);
 
+    const int count = renderer_.page_count();
+    if (count == 0) return;
+    if (index < 1 || index > count) return;
+
+    // Update renderer position
     renderer_.goto_index(index);
-    refresh();
-}
 
+    const bool is_double = in_double_page_view();
 
-void PDFViewer::get_page(int page_num)
-{
-    goto_physical_page(page_num);
+    // Check if this index is already in prefetch cache
+    PrefetchEntry entry;
+    bool found_in_cache = false;
+
+    {
+        std::lock_guard lock(prefetch_mutex_);
+        if (prefetch_.next.valid(index, *config_)) {
+            logger::info("CACHE HIT next, moving entry");
+            entry = std::move(prefetch_.next);
+            logger::info("Move complete");
+            prefetch_.next.clear();
+            found_in_cache = true;
+        } else if (prefetch_.prev.valid(index, *config_)) {
+            logger::info("CACHE HIT prev, moving entry");
+            entry = std::move(prefetch_.prev);
+            logger::info("Move complete");
+            prefetch_.prev.clear();
+            found_in_cache = true;
+        }
+    }
+
+    // If not in cache, render it now
+    if (!found_in_cache) {
+        entry = is_double
+            ? make_double_page_entry(index)
+            : make_single_page_entry(index);
+    }
+
+    // Get physical page from the entry
+    int physical_page = entry.p1.page_num;
+
+    logger::info("Creating PixmapPage");
+    // Avoid expensive pixmap.toImage() conversion - just assign directly
+    page_.pixmap = entry.rendered;
+    page_.page_num = physical_page;
+    page_.double_page = is_double;
+    logger::info("PixmapPage created");
+
+    update_image();
+
+    // Prefetch next and previous indices
+    if (index + 1 <= count)
+        prefetch_async(index + 1);
+
+    if (index - 1 >= 1)
+        prefetch_async(index - 1);
+
+    bookmark_panel_->select_page(physical_page);
+
+    manual_scrollbar_change_ = true;
+    scrollbar_->setValue(index);
+    manual_scrollbar_change_ = false;
+
+    emit page_changed(index);
 }
 
 
@@ -506,6 +576,7 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 void PDFViewer::on_page_loaded(std::string name, int page_index)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION_MSG("page_index={}", page_index);
 
     if (name != document_->filename())
         return;
@@ -522,7 +593,7 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
         // In double page mode, check if it's current or next page
         if (page_index == current_pos.physical_page)
             relevant = true;
-        else if (current_idx + 1 < renderer_.page_count()) {
+        else if (current_idx + 1 <= renderer_.page_count()) {
             PageRenderer::Position next_pos = renderer_.index_to_position(current_idx + 1);
             relevant = (page_index == next_pos.physical_page);
         }
@@ -531,7 +602,6 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     if (!relevant)
         return;
 
-    TRACE_FUNCTION;
     int count = page_count();
     if (in_single_page_view() || count == 1) {
         PrefetchEntry entry = make_single_page_entry(current_idx);
@@ -544,6 +614,50 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     }
 }
 
+
+// Convert normalized position (0.0-1.0 relative to full page) to display Y coordinate
+// Accounts for zoom-to-content cropping
+int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height) const
+{
+    // Get the FULL uncropped page to get proper dimensions and border
+    Page full_page = document_->get_page(current_page(), false);
+    int full_height = full_page.height();
+    int break_y_full = static_cast<int>(normalized_pos * full_height);
+
+    if (config_->zoom_to_content()) {
+        // When zoomed, the displayed image is cropped to border
+        int border_top = full_page.border.top;
+        int border_height = full_page.border.bottom - full_page.border.top;
+        int break_y_cropped = break_y_full - border_top;
+        return static_cast<int>((static_cast<float>(break_y_cropped) / border_height) * display_height);
+    } else {
+        // When not zoomed, direct mapping from full image to display
+        return static_cast<int>((static_cast<float>(break_y_full) / full_height) * display_height);
+    }
+}
+
+// Convert display Y coordinate to normalized position (0.0-1.0 relative to full page)
+// Accounts for zoom-to-content cropping
+double PDFViewer::display_y_to_normalized(int display_y, int display_height) const
+{
+    // Get the FULL uncropped page to get proper dimensions and border
+    Page full_page = document_->get_page(current_page(), false);
+    int full_height = full_page.height();
+    float click_ratio = static_cast<float>(display_y) / display_height;
+
+    if (config_->zoom_to_content()) {
+        // When zoomed, the displayed image is cropped to border
+        int border_top = full_page.border.top;
+        int border_height = full_page.border.bottom - full_page.border.top;
+        int cropped_y = static_cast<int>(click_ratio * border_height);
+        int full_y = border_top + cropped_y;
+        return static_cast<double>(full_y) / full_height;
+    } else {
+        // When not zoomed, direct mapping from display to full image
+        int full_y = static_cast<int>(click_ratio * full_height);
+        return static_cast<double>(full_y) / full_height;
+    }
+}
 
 void PDFViewer::update_image(const QString &message)
 {
@@ -587,6 +701,40 @@ void PDFViewer::update_image(const QString &message)
             }
         }
         painter.end();
+    }
+
+    // Draw page break lines in edit mode
+    if (page_break_edit_mode_) {
+        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        if (!breaks.empty() || dragging_page_break_) {
+            QPainter painter(&scaled_pixmap);
+            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+
+            int display_height = scaled_pixmap.height();
+
+            // Draw existing breaks (skip the one being dragged)
+            for (double break_pos : breaks) {
+                // Skip drawing the break we're currently dragging
+                if (dragging_existing_break_ && std::abs(break_pos - original_break_position_) < 0.01)
+                    continue;
+
+                int break_y_display = normalized_to_display_y(break_pos, display_height);
+
+                // Only draw if within visible area
+                if (break_y_display >= 0 && break_y_display < display_height)
+                    painter.drawLine(0, break_y_display, scaled_pixmap.width(), break_y_display);
+            }
+
+            // Draw the line being dragged (if any)
+            if (dragging_page_break_) {
+                int break_y_display = normalized_to_display_y(dragging_break_position_, display_height);
+
+                if (break_y_display >= 0 && break_y_display < display_height)
+                    painter.drawLine(0, break_y_display, scaled_pixmap.width(), break_y_display);
+            }
+
+            painter.end();
+        }
     }
 
     label_->setPixmap(scaled_pixmap);
@@ -647,6 +795,17 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
 
+void PDFViewer::set_page_break_edit_mode(bool enabled)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+    page_break_edit_mode_ = enabled;
+    setCursor(enabled ? Qt::CrossCursor : Qt::ArrowCursor);
+    refresh();
+    emit page_break_edit_mode_changed(enabled);
+}
+
+
 
 void PDFViewer::mousePressEvent(QMouseEvent *event)
 {
@@ -665,6 +824,66 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
 
         // Position editor directly at click point (screen coordinates)
         annotation_editor_->start_editing(event->pos());
+
+        event->accept();
+        return;
+    } else if (event->button() == Qt::LeftButton && page_break_edit_mode_) {
+        // Handle page break editing - left button to add/move
+        int click_y = event->pos().y();
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull()) return;
+
+        int display_height = displayed.height();
+        double normalized_pos = display_y_to_normalized(click_y, display_height);
+
+        // Check if clicking near an existing break (within 5 pixels)
+        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        double clicked_break = -1.0;
+        for (double break_pos : breaks) {
+            int break_y_display = normalized_to_display_y(break_pos, display_height);
+
+            if (std::abs(click_y - break_y_display) <= 5) {
+                clicked_break = break_pos;
+                break;
+            }
+        }
+
+        if (clicked_break >= 0.0) {
+            // Clicked on existing break - start dragging it
+            dragging_page_break_ = true;
+            dragging_existing_break_ = true;
+            dragging_break_position_ = clicked_break;
+            original_break_position_ = clicked_break;
+        } else {
+            // Clicked in empty space - start creating new break
+            dragging_page_break_ = true;
+            dragging_existing_break_ = false;
+            dragging_break_position_ = normalized_pos;
+        }
+
+        update_image();
+        event->accept();
+        return;
+    } else if (event->button() == Qt::RightButton && page_break_edit_mode_) {
+        // Handle page break deletion - right button
+        int click_y = event->pos().y();
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull()) return;
+
+        int display_height = displayed.height();
+
+        // Find and delete the break
+        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        for (double break_pos : breaks) {
+            int break_y_display = normalized_to_display_y(break_pos, display_height);
+
+            if (std::abs(click_y - break_y_display) <= 5) {
+                document_->performance_data().remove_page_break(current_page(), break_pos);
+                document_->performance_data().save(document_->path());
+                update_image();
+                break;
+            }
+        }
 
         event->accept();
         return;
@@ -688,6 +907,60 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
     QWidget::mousePressEvent(event);
 }
 
+
+
+
+void PDFViewer::mouseMoveEvent(QMouseEvent *event)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (dragging_page_break_) {
+        int click_y = event->pos().y();
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull()) return;
+
+        int display_height = displayed.height();
+        double normalized_pos = display_y_to_normalized(click_y, display_height);
+
+        // Clamp to valid range
+        normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
+
+        dragging_break_position_ = normalized_pos;
+        update_image();
+        event->accept();
+        return;
+    }
+
+    QWidget::mouseMoveEvent(event);
+}
+
+
+void PDFViewer::mouseReleaseEvent(QMouseEvent *event)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (event->button() == Qt::LeftButton && dragging_page_break_) {
+        // Finalize the break
+        if (dragging_existing_break_) {
+            // Moving existing break - remove from original position
+            document_->performance_data().remove_page_break(current_page(), original_break_position_);
+        }
+
+        // Add at new position
+        document_->performance_data().add_page_break(current_page(), dragging_break_position_);
+        document_->performance_data().save(document_->path());
+
+        dragging_page_break_ = false;
+        dragging_existing_break_ = false;
+        update_image();
+        event->accept();
+        return;
+    }
+
+    QWidget::mouseReleaseEvent(event);
+}
 
 void PDFViewer::on_annotation_text_finished(const QString &text)
 {

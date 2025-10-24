@@ -18,7 +18,7 @@ public:
     // This is what controls should use for their maximum value
     int page_count() const;
 
-    // Get current 0-based index into the page sequence
+    // Get current 1-based index into the page sequence
     // This is what controls should use for their current value
     int current_index() const;
 
@@ -40,9 +40,9 @@ public:
     bool can_go_next() const;
     bool can_go_prev() const;
 
-    // Go to a specific index in the sequence (0-based)
+    // Go to a specific index in the sequence (1-based)
     // This is what controls call: scrollbar, combobox, etc.
-    // Index must be in range [0, page_count()-1]
+    // Index must be in range [1, page_count()]
     void goto_index(int index);
 
     // Go to a specific physical page number (1-based, from bookmarks/goto dialog)

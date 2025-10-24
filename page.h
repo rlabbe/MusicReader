@@ -3,8 +3,9 @@
 #include <QPixmap>
 #include <QImage>
 #include <QSize>
+//#include <iostream>
 #include "border.h"
-#include <iostream>
+#include "logger.h"
 
 QPixmap resize_by_border(QPixmap img, Border border, int relief);
 QImage resize_by_border(QImage img, Border border, int relief);
@@ -42,6 +43,7 @@ struct Page {
 
     static QPixmap as_pixmap(const QImage &image)
     {
+        TRACE_FUNCTION;
         if (image.isNull()) return QPixmap();
         QPixmap pixmap = QPixmap::fromImage(image);
         pixmap.setDevicePixelRatio(image.devicePixelRatio());
@@ -51,6 +53,7 @@ struct Page {
 
     QImage resize_by_border(int relief = 0)
     {
+        TRACE_FUNCTION;
         return ::resize_by_border(img, border, relief);
     }
 };

@@ -81,6 +81,9 @@ void ConfigDialog::setup_ui()
     check_allow_delete_ = new QCheckBox("Allow file deletion in Fast File Search dialog", this);
     check_allow_delete_->setWhatsThis("If enabled, DEL key deletes files in fast file search dialog");
 
+    check_append_log_ = new QCheckBox("append to log each run", this);
+    check_append_log_->setWhatsThis("If enabled the log will contain ouput from all runs, otherwise it will be cleared on each app launch");
+
     btn_save_ = new QPushButton("Save", this);
     btn_save_->setDefault(true);
     btn_save_->setWhatsThis("Apply all settings changes and close the dialog.");
@@ -114,6 +117,7 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_allow_oversize_);
     form_layout->addRow(check_horiz_tabs_);
     form_layout->addRow(check_allow_delete_);
+    form_layout->addRow(check_append_log_);
 
 
     QHBoxLayout *layout_dpi = new QHBoxLayout;
@@ -194,6 +198,7 @@ void ConfigDialog::load_settings()
     check_show_statusbar_->setChecked(config_.show_status_bar());
     check_horiz_tabs_->setChecked(!config_.horiz_tabs());
     check_allow_delete_->setChecked(config_.allow_file_delete());
+    check_append_log_->setChecked(config_.append_to_log());
 }
 
 void ConfigDialog::setup_connections()
@@ -234,6 +239,7 @@ void ConfigDialog::save_settings()
     config_.set_show_status_bar(check_show_statusbar_->isChecked());
     config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
     config_.set_allow_file_delete(check_allow_delete_->isChecked());
+    config_.set_append_to_log(check_append_log_->isChecked());
 
     accept();
 }

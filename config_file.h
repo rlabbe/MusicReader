@@ -69,6 +69,7 @@ private:
     bool horiz_tabs_;
     bool allow_file_delete_;
     bool tour_has_run_;
+    bool append_to_log_;
 
     bool hide_mouse_cursor_ = false;
     int mouse_hide_delay_secs_ = 3;
@@ -195,6 +196,9 @@ public:
 
     bool tour_has_run() const { return tour_has_run_; }
     void set_tour_has_run(bool value) { tour_has_run_ = value; save(); }
+
+    bool append_to_log() const { return append_to_log_; }
+    void set_append_to_log(bool value) { append_to_log_ = value; save(); }
 
     // Method to read configuration from file
     void read(bool reset_on_error = true);

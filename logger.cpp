@@ -76,21 +76,21 @@ void logger::configure_logger(const std::string &filename, size_t max_size_kb, b
         spdlog::register_logger(logger_);
         logger_->set_level(spdlog::level::info);
         set_high_precision(logger_, false);
-        logger_->flush_on(spdlog::level::debug);
+        //logger_->flush_on(spdlog::level::info);
         spdlog::flush_every(std::chrono::seconds(5));
     } catch (const std::exception &ex) {
         std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
     }
 }
 
-void logger::initialize(bool log_to_console, ConfigFile &cf, bool append, size_t max_size_kb)
+void logger::initialize(bool log_to_console, ConfigFile &cf, size_t max_size_kb)
 {
     SAFE_METHOD;
 
     log_file_path_ = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file_path_ << std::endl;
 
-    if (!append)
+    if (!cf.append_to_log())
         std::filesystem::remove(log_file_path_);
 
     configure_logger(log_file_path_, max_size_kb, log_to_console);

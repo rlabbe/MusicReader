@@ -44,7 +44,6 @@ public:
     bool in_double_page_view() const { return !in_single_page_view(); }
 
     void get_page(int page_num);
-    void goto_index(int index);
     void goto_physical_page(int physical_page);
 
     void refresh();
@@ -61,6 +60,7 @@ public:
     void set_page_break_edit_mode(bool enabled);
     void set_performance_mode(PerformanceMode::Mode mode);
     PerformanceMode::Mode performance_mode() const;
+    bool in_page_break_edit_mode() const { return page_break_edit_mode_; }
 
 signals:
     void annotation_mode_changed(bool enabled);
@@ -74,11 +74,14 @@ protected:
     bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private slots:
     void on_page_loaded(std::string name, int page_index);
     void on_annotation_text_finished(const QString &text);
     void on_annotation_text_cancelled();
+    void delete_shortcut();
 
 private:
 
@@ -142,6 +145,8 @@ private:
     void adjust_initial_subwindow_size();
     void update_scrollbar_visibility();
     void on_scrollbar_value_changed(int new_page);
+    int normalized_to_display_y(double normalized_pos, int display_height) const;
+    double display_y_to_normalized(int display_y, int display_height) const;
     void update_image(const QString &message = QString());
     Qt::AlignmentFlag page_alignment() const;
 
@@ -158,6 +163,10 @@ private:
     QRect margin_rect_;
     bool text_annotation_mode_ = false;
     bool page_break_edit_mode_ = false;
+    bool dragging_page_break_ = false;
+    double dragging_break_position_ = 0.0;
+    double original_break_position_ = 0.0;
+    bool dragging_existing_break_ = false;
     InPlaceAnnotationEditor *annotation_editor_;
     ClickTarget last_click_target_;
     FontInfo annotation_font_;

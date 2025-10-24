@@ -4,6 +4,7 @@
 #include <format>
 #include <iostream>
 #include <atomic>
+#include <chrono>
 
 #pragma warning(disable : 4390) // empty ; control statement
 class ConfigFile;
@@ -15,7 +16,7 @@ struct logger {
     // Parameters:
     // log_to_console - Whether to also log to the console.
     // max_size_kb - The maximum log file size in kilobytes.
-    static void initialize(bool log_to_console, ConfigFile &config_file, bool append, size_t max_size_kb);
+    static void initialize(bool log_to_console, ConfigFile &config_file, size_t max_size_kb);
     static void shutdown();
 
     static void flush();
@@ -110,25 +111,46 @@ inline static void logger::trace(std::format_string<Args...> fmt, Args&&... args
 }
 
 
+
+
 // __FUNCSIG__ generates something like:
 //     auto __cdecl MusicReader::setup_mouse_hiding::<lambda_1>::operator ()(void) const
 // and we just want the name, however, we don't use __FUNC__ because
 // if inside a lambda it doesn't give you the outer function name.
-std::string strip_extra_call_info(const std::string &funcsig, bool log=false);
+std::string strip_extra_call_info(const std::string &funcsig, bool log = false);
 void test_strip_extra_call_info();
 
 int indent_level();
 void increase_indent();
 void decrease_indent();
 
+struct time_logger {
+    const char *msg;
+    std::chrono::high_resolution_clock::time_point start_time_;
+
+    __forceinline time_logger(const char *msg)
+        : msg(msg), start_time_(std::chrono::high_resolution_clock::now())
+    {
+    }
+
+    __forceinline ~time_logger()
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count();
+        logger::trace("{}: ({} us)", msg, duration_us);
+
+    }
+};
+
+
 struct function_tracer {
-    // the alignas is needed because otherwise you get a link warning about this being
-    // aligned differently in different translation units (although all use 4, so stupid warning)
     const char *file_name;
     const char *func_name;
     int line_num;
+    std::chrono::high_resolution_clock::time_point start_time_;
+
     __forceinline function_tracer(const char *file, const char *name, int line)
-        : file_name(file), func_name(name), line_num(line)
+        : file_name(file), func_name(name), line_num(line), start_time_(std::chrono::high_resolution_clock::now())
     {
         if (logger::trace_enabled()) {
             std::string indent(indent_level(), ' ');
@@ -136,15 +158,20 @@ struct function_tracer {
             increase_indent();
         }
     }
+
     __forceinline ~function_tracer()
     {
         if (logger::trace_enabled()) {
             decrease_indent();
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count();
             std::string indent(indent_level(), ' ');
-            logger::trace("{}Exit {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
+            logger::trace("{}Exit {}:{} {} ({} us)", indent, file_name, line_num, strip_extra_call_info(func_name), duration_us);
         }
     }
 };
+
+
 
 struct function_tracer_msg {
     const char *file_name;
@@ -152,10 +179,16 @@ struct function_tracer_msg {
     int line_num;
     std::string message;
     bool enabled;
+    std::chrono::high_resolution_clock::time_point start_time_;
+
 
     template<typename... Args>
     __forceinline function_tracer_msg(const char *file, const char *name, int line, std::format_string<Args...> fmt, Args&&... args)
-        : file_name(file), func_name(name), line_num(line), enabled(logger::trace_enabled())
+        : file_name(file)
+        , func_name(name)
+        , line_num(line)
+        , enabled(logger::trace_enabled())
+        , start_time_(std::chrono::high_resolution_clock::now())
     {
         if (enabled) {
             std::string indent(indent_level(), ' ');
@@ -169,8 +202,10 @@ struct function_tracer_msg {
     {
         if (enabled) {
             decrease_indent();
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count();
             std::string indent(indent_level(), ' ');
-            logger::trace("{}Exit {}:{} {} {}", indent, file_name, line_num, strip_extra_call_info(func_name), message);
+            logger::trace("{}Exit {}:{} {} {} ({} us)", indent, file_name, line_num, strip_extra_call_info(func_name), message, duration_us);
         }
     }
 };

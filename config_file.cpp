@@ -266,6 +266,11 @@ void ConfigFile::read(bool reset_on_error)
     else
         logger::error("Invalid or missing 'tour_has_run'");
 
+    if (j.contains("append_to_log") && j["append_to_log"].is_boolean())
+        append_to_log_ = j["append_to_log"].get<bool>();
+    else
+        logger::error("Invalid or missing 'append_to_log'");
+
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         int default_tab_order = 0;
@@ -566,6 +571,7 @@ json ConfigFile::to_json() const
     j["music_directory"] = std::string(reinterpret_cast<const char *>(music_directory_.u8string().c_str()));
     j["log_level"] = log_level_to_string(log_level_);
     j["tour_has_run"] = tour_has_run_;
+    j["append_to_log"] = append_to_log_;
     return j;
 }
 
@@ -780,6 +786,7 @@ void ConfigFile::set_defaults()
     log_level_ = LogLevel::Normal;
     dev_mode_ = false;
     tour_has_run_ = false;
+    append_to_log_ = false;
 }
 
 std::string ConfigFile::repr() const

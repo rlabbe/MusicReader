@@ -66,6 +66,9 @@ private:
     void on_page_down();
     void on_page_up();
 
+    void set_bookmarks_from_file();
+
+
     void closeEvent(QCloseEvent *event) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
@@ -102,7 +105,8 @@ private:
 
     void show_log_content();
 
-    void open_file_dialog(const std::filesystem::path &pathname = "");
+    void open_file_dialog_default_path();
+    void open_file_dialog(const std::filesystem::path &pathname);
     void open_imslp_search_dialog();
     void open_dev_status_dialog();
 
@@ -141,6 +145,7 @@ private:
 
     void toggle_text_annotation_mode();
     void toggle_performance_mode();
+    void toggle_page_break_edit_mode();
 
     void on_close_tab(int index);
     void update_title(int index = 0);
@@ -155,6 +160,7 @@ private:
 
     void reload_document();
     void edit_document(); // edit with external viewer
+    void on_document_loaded(std::string name, int page);
 
     // Check if the given document is open in a tab, returning either the tab index or None
     std::optional<int> doc_is_open(std::filesystem::path name);
@@ -203,6 +209,7 @@ private:
     QAction *tabs_menu_action_ = nullptr;
 
     QAction *text_annotation_action_ = nullptr;
+    QAction *page_break_edit_action_ = nullptr;
     QAction *performance_mode_action_ = nullptr;
     bool text_annotation_mode_ = false;
 
