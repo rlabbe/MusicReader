@@ -442,13 +442,10 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
     entry.p1 = page;
 
     if (!entry.p1.is_empty()) {
-        if (config_->zoom_to_content()) {
-            time_logger logger("Render page with border cropping");
+        if (config_->zoom_to_content())
             entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
-        } else {
-            time_logger logger("Render page without border cropping");
+        else
             entry.rendered = entry.p1.as_pixmap();
-        }
     }
     return entry;
 }
@@ -490,15 +487,13 @@ void PDFViewer::get_page(int index)
     {
         std::lock_guard lock(prefetch_mutex_);
         if (prefetch_.next.valid(index, *config_)) {
-            logger::info("CACHE HIT next, moving entry");
+            logger::debug("CACHE HIT next, moving entry");
             entry = std::move(prefetch_.next);
-            logger::info("Move complete");
             prefetch_.next.clear();
             found_in_cache = true;
         } else if (prefetch_.prev.valid(index, *config_)) {
-            logger::info("CACHE HIT prev, moving entry");
+            logger::debug("CACHE HIT prev, moving entry");
             entry = std::move(prefetch_.prev);
-            logger::info("Move complete");
             prefetch_.prev.clear();
             found_in_cache = true;
         }
@@ -514,12 +509,10 @@ void PDFViewer::get_page(int index)
     // Get physical page from the entry
     int physical_page = entry.p1.page_num;
 
-    logger::info("Creating PixmapPage");
     // Avoid expensive pixmap.toImage() conversion - just assign directly
     page_.pixmap = entry.rendered;
     page_.page_num = physical_page;
     page_.double_page = is_double;
-    logger::info("PixmapPage created");
 
     update_image();
 

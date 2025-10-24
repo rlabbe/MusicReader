@@ -122,7 +122,7 @@ void DocumentLoadManager::populate_job_queue()
         if (!doc) continue;
 
         auto pending_pages = doc->get_pending_pages();
-        if (pending_pages.size() == 0) 
+        if (pending_pages.size() == 0)
             continue;
 
         auto doc_path = std::filesystem::path(doc->filename());
@@ -376,8 +376,6 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
     if (!job_queue_.empty()) {
         PageJob &job = job_queue_.front();
         logger::trace("first job in queue: file: {} page: {}", job.doc_path.string(), job.page_num);
-    } else {
-        logger::trace("job queue is empty");
     }
     submit_next_jobs();
 
