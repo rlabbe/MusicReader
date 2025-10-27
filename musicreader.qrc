@@ -14,5 +14,6 @@
         <file>images/delete.ico</file>
         <file>help/fast_search_help.html</file>
         <file>images/perform.ico</file>
+        <file>images/page_break.ico</file>
     </qresource>
 </RCC>
