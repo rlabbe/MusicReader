@@ -9,6 +9,10 @@ public:
         Performance  // Respects page breaks, repeats, jumps
     };
 
+    static Mode toggled(Mode mode) {
+        return (mode == Mode::Normal) ? Mode::Performance : Mode::Normal;
+    }
+
     static Mode get() { return mode_; }
     static void set(Mode mode) { mode_ = mode; }
     static bool is_performance() { return mode_ == Mode::Performance; }

@@ -196,11 +196,6 @@ Page PageRenderer::crop_page(const Page &page, int physical_page, int segment_in
     int top_pixel = static_cast<int>(top_normalized * height);
     int bottom_pixel = static_cast<int>(bottom_normalized * height);
     int crop_height = bottom_pixel - top_pixel;
-
-    logger::info("crop_page: page={} seg={} height={} top_norm={} bot_norm={} top_pix={} bot_pix={} crop_h={}",
-                 physical_page, segment_index, height, top_normalized, bottom_normalized, 
-                 top_pixel, bottom_pixel, crop_height);
-
     if (crop_height <= 0)
         return page;
 

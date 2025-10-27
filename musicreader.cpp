@@ -2454,11 +2454,15 @@ void MusicReader::toggle_page_break_edit_mode()
     if (!viewer)
         return;
 
-    bool new_state = !viewer->in_page_break_edit_mode();
-    viewer->set_page_break_edit_mode(new_state);
-    page_break_edit_action_->setChecked(new_state);
+    bool editing = !viewer->in_page_break_edit_mode();
 
-    logger::info("Page break edit mode {}", new_state ? "enabled" : "disabled");
+    if (editing && PerformanceMode::is_performance()) {
+        QSignalBlocker blocker(performance_mode_action_);
+        performance_mode_action_->setChecked(false);
+        viewer->set_performance_mode(PerformanceMode::Mode::Normal);
+    }
+
+    viewer->set_page_break_edit_mode(editing);
 }
 
 
@@ -2470,20 +2474,15 @@ void MusicReader::toggle_performance_mode()
     if (!viewer)
         return;
 
-    if (viewer->in_page_break_edit_mode())
-        return;
-
     PerformanceMode::Mode current_mode = PerformanceMode::get();
-    PerformanceMode::Mode new_mode = (current_mode == PerformanceMode::Mode::Normal)
-        ? PerformanceMode::Mode::Performance
-        : PerformanceMode::Mode::Normal;
+    PerformanceMode::Mode new_mode = PerformanceMode::toggled(current_mode);
+
+    if (new_mode == PerformanceMode::Mode::Performance && viewer->in_page_break_edit_mode()) {
+        QSignalBlocker blocker(page_break_edit_action_);
+        page_break_edit_action_->setChecked(false);
+        viewer->set_page_break_edit_mode(false);
+    }
 
     viewer->set_performance_mode(new_mode);
-
-    performance_mode_action_->setChecked(new_mode == PerformanceMode::Mode::Performance);
-
     viewer->refresh();
-
-    logger::info("Performance mode {}",
-                 new_mode == PerformanceMode::Mode::Performance ? "enabled" : "disabled");
 }

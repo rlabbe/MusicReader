@@ -623,10 +623,10 @@ int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height
         int border_height = full_page.border.bottom - full_page.border.top;
         int break_y_cropped = break_y_full - border_top;
         return static_cast<int>((static_cast<float>(break_y_cropped) / border_height) * display_height);
-    } else {
+    } else
         // When not zoomed, direct mapping from full image to display
         return static_cast<int>((static_cast<float>(break_y_full) / full_height) * display_height);
-    }
+
 }
 
 // Convert display Y coordinate to normalized position (0.0-1.0 relative to full page)
@@ -664,9 +664,8 @@ void PDFViewer::update_image(const QString &message)
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
-    } else {
+    } else
         label_->setStyleSheet("");
-    }
 
     REQUIRES(document_);
     QSize max_size;
@@ -734,6 +733,7 @@ void PDFViewer::update_image(const QString &message)
     adjust_initial_subwindow_size();
     QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 }
+
 
 void PDFViewer::adjust_initial_subwindow_size()
 {
@@ -1136,16 +1136,13 @@ void PDFViewer::set_performance_mode(PerformanceMode::Mode mode)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-    
-    // Save current physical page before mode switch
+
+    if (PerformanceMode::get() == mode)
+        return;
+
     int current_physical = page_.page_num;
-    
     PerformanceMode::set(mode);
-    
-    // Clear cache - cached pages were rendered in the old mode
     clear_prefetch();
-    
-    // Navigate to the same physical page in the new mode
     goto_physical_page(current_physical);
 }
 
