@@ -1142,6 +1142,9 @@ void PDFViewer::set_performance_mode(PerformanceMode::Mode mode)
     
     PerformanceMode::set(mode);
     
+    // Clear cache - cached pages were rendered in the old mode
+    clear_prefetch();
+    
     // Navigate to the same physical page in the new mode
     goto_physical_page(current_physical);
 }
