@@ -1136,8 +1136,14 @@ void PDFViewer::set_performance_mode(PerformanceMode::Mode mode)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
+    
+    // Save current physical page before mode switch
+    int current_physical = page_.page_num;
+    
     PerformanceMode::set(mode);
-    refresh();
+    
+    // Navigate to the same physical page in the new mode
+    goto_physical_page(current_physical);
 }
 
 
