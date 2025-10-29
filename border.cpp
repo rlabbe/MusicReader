@@ -3,37 +3,35 @@
 
 #pragma optimize("", off)
 
-Border find_content_edges(const QImage &img, int black_pixel_threshold)
+Border find_content_edges(const QImage& img, int black_pixel_threshold)
 {
     if (img.isNull()) {
-        return Border{ 0, 0, 0, 0 };  // Handle empty images
+        return Border {0, 0, 0, 0}; // Handle empty images
     }
 
     // Convert to grayscale if needed
     QImage grayscale = img;
-    if (img.format() != QImage::Format_Grayscale8) {
+    if (img.format() != QImage::Format_Grayscale8)
         grayscale = img.convertToFormat(QImage::Format_Grayscale8);
-    }
 
     int width = grayscale.width();
     int height = grayscale.height();
-    const uchar *data = grayscale.bits();
+    const uchar* data = grayscale.bits();
     int bytes_per_line = grayscale.bytesPerLine();
 
     // Apply binary thresholding: everything above 127 becomes 255 (white), below becomes 0 (black)
     QImage binary(width, height, QImage::Format_Grayscale8);
     for (int y = 0; y < height; ++y) {
-        const uchar *src = data + y * bytes_per_line;
-        uchar *dst = binary.scanLine(y);
-        for (int x = 0; x < width; ++x) {
+        const uchar* src = data + y * bytes_per_line;
+        uchar* dst = binary.scanLine(y);
+        for (int x = 0; x < width; ++x)
             dst[x] = (src[x] > 172) ? 255 : 0;
-        }
     }
 
-    const uchar *binary_data = binary.bits();
+    const uchar* binary_data = binary.bits();
     int binary_stride = binary.bytesPerLine();
 
-    auto count_black_pixels = [&](const uchar *line, int length) -> int {
+    auto count_black_pixels = [&](const uchar* line, int length) -> int {
         return std::count(line, line + length, 0);
     };
 
@@ -81,16 +79,14 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
     for (int i = 0; i < width; ++i) {
         int count = 0;
         for (int j = 0; j < height; ++j) {
-            if (binary_data[j * binary_stride + i] == 0) {
+            if (binary_data[j * binary_stride + i] == 0)
                 count++;
-            }
         }
         if (count > black_pixel_threshold) {
             left = i;
             break;
         }
         counts.push_back(count);
-
     }
     while (!counts.empty() && counts.back() > 1) {
         --left;
@@ -102,9 +98,8 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
     for (int i = width - 1; i >= 0; --i) {
         int count = 0;
         for (int j = 0; j < height; ++j) {
-            if (binary_data[j * binary_stride + i] == 0) {
+            if (binary_data[j * binary_stride + i] == 0)
                 count++;
-            }
         }
         if (count > black_pixel_threshold) {
             right = i;
@@ -112,12 +107,13 @@ Border find_content_edges(const QImage &img, int black_pixel_threshold)
         }
         counts.push_back(count);
     }
+
     while (!counts.empty() && counts.back() > 1) {
         ++right;
         counts.pop_back();
     }
 
-    return Border{ .top = top, .bottom = bottom, .left = left, .right = right };
+    return Border {.top = top, .bottom = bottom, .left = left, .right = right};
 
     /* doesn't seem right - it was intented to not zoom in to tiny pages, like
     * in some of Glass' hand written scores, but more often than not it causes

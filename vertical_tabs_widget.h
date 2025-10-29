@@ -6,7 +6,8 @@
 class VerticalTabBar : public QTabBar {
 
 public:
-    explicit VerticalTabBar(QWidget *parent = nullptr) : QTabBar(parent)
+    explicit VerticalTabBar(QWidget* parent = nullptr)
+        : QTabBar(parent)
     {
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
         setDocumentMode(true);
@@ -33,7 +34,6 @@ public:
         color: white;
     }
 )");
-
     }
 
 protected:
@@ -44,7 +44,7 @@ protected:
         return size;
     }
 
-    void paintEvent(QPaintEvent *) override
+    void paintEvent(QPaintEvent*) override
     {
         QStylePainter painter(this);
         for (int i = 0; i < count(); ++i) {
@@ -65,34 +65,29 @@ protected:
                 optRect.setY(optRect.y() + 6);
                 optRect.setSize(QSize(16, 16));
 
-                if (QWidget *closeButton = tabButton(i, QTabBar::RightSide)) {
+                if (QWidget* closeButton = tabButton(i, QTabBar::RightSide)) {
                     closeButton->setGeometry(optRect);
                 }
             }
         }
     }
 
-    void wheelEvent(QWheelEvent *event) override
-    {
-        event->ignore();
-    }
+    void wheelEvent(QWheelEvent* event) override { event->ignore(); }
 };
-
 
 
 class VerticalTabsWidget : public QTabWidget {
 public:
-    explicit VerticalTabsWidget(QWidget *parent = nullptr) : QTabWidget(parent)
+    explicit VerticalTabsWidget(QWidget* parent = nullptr)
+        : QTabWidget(parent)
     {
         setTabBar(new VerticalTabBar(this));
         setTabPosition(QTabWidget::West);
     }
 
-    void wheelEvent(QWheelEvent *event) override
+    void wheelEvent(QWheelEvent* event) override
     {
         // Do nothing - ignore wheel events
         event->ignore();
     }
 };
-
-

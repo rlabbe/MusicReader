@@ -1,32 +1,27 @@
 #pragma once
 
-#include <QTextEdit>
-#include <QKeyEvent>
-#include <QFocusEvent>
-#include <QPaintEvent>
-#include <QPainter>
-#include <QColor>
-#include "font_info.h" 
+#include <QtWidgets>
+#include "font_info.h"
 
 
 class InPlaceAnnotationEditor : public QTextEdit {
     Q_OBJECT
 
 public:
-    InPlaceAnnotationEditor(const FontInfo &font_info, QWidget *parent = nullptr);
-    void start_editing(const QPoint &position, const QString &initial_text = "");
+    InPlaceAnnotationEditor(const FontInfo& font_info, QWidget* parent = nullptr);
+    void start_editing(const QPoint& position, const QString& initial_text = "");
 
 signals:
-    void editing_finished(const QString &text);
+    void editing_finished(const QString& text);
     void editing_cancelled();
 
 private slots:
     void resize_to_content();
 
 protected:
-    void keyPressEvent(QKeyEvent *event) override;
-    void focusOutEvent(QFocusEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
     void finish_editing();

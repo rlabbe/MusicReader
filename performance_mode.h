@@ -5,13 +5,11 @@
 class PerformanceMode {
 public:
     enum class Mode {
-        Normal,      // Standard page-by-page navigation
-        Performance  // Respects page breaks, repeats, jumps
+        Normal,     // Standard page-by-page navigation
+        Performance // Respects page breaks, repeats, jumps
     };
 
-    static Mode toggled(Mode mode) {
-        return (mode == Mode::Normal) ? Mode::Performance : Mode::Normal;
-    }
+    static Mode toggled(Mode mode) { return (mode == Mode::Normal) ? Mode::Performance : Mode::Normal; }
 
     static Mode get() { return mode_; }
     static void set(Mode mode) { mode_ = mode; }

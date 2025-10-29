@@ -9,17 +9,20 @@
 using json = nlohmann::json;
 
 // Static helper functions
-static std::wstring string_to_wstring(const std::string &str)
+static std::wstring string_to_wstring(const std::string& str)
 {
-    if (str.empty()) return L"";
+    if (str.empty())
+        return L"";
     int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
-    if (size <= 0) return L"";
+    if (size <= 0)
+        return L"";
     std::wstring wstr(size - 1, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size);
     return wstr;
 }
 
-static std::string wstring_to_string(const std::wstring &wstr)
+
+static std::string wstring_to_string(const std::wstring& wstr)
 {
     int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
     std::string str(size, 0);
@@ -27,7 +30,8 @@ static std::string wstring_to_string(const std::wstring &wstr)
     return str;
 }
 
-static std::string url_encode(const std::string &str)
+
+static std::string url_encode(const std::string& str)
 {
     std::string encoded;
     for (unsigned char c : str) {
@@ -44,11 +48,13 @@ static std::string url_encode(const std::string &str)
     return encoded;
 }
 
-static json make_request(HINTERNET hConnect, const std::map<std::string, std::string> &params)
+
+static json make_request(HINTERNET hConnect, const std::map<std::string, std::string>& params)
 {
     std::string query_string;
-    for (const auto &[key, value] : params) {
-        if (!query_string.empty()) query_string += "&";
+    for (const auto& [key, value] : params) {
+        if (!query_string.empty())
+            query_string += "&";
         query_string += key + "=" + url_encode(value);
     }
 
@@ -56,8 +62,8 @@ static json make_request(HINTERNET hConnect, const std::map<std::string, std::st
 
     logger::debug("Path: {}", wstring_to_string(path));
 
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(),
-        nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
+                                            WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
 
     if (!hRequest) {
         DWORD error = GetLastError();
@@ -73,8 +79,7 @@ static json make_request(HINTERNET hConnect, const std::map<std::string, std::st
     DWORD timeout = 30000; // 30 seconds
     WinHttpSetOption(hRequest, WINHTTP_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
 
-    BOOL result = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-        WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    BOOL result = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
 
     if (!result) {
         DWORD error = GetLastError();
@@ -94,8 +99,8 @@ static json make_request(HINTERNET hConnect, const std::map<std::string, std::st
     // Check HTTP status
     DWORD status_code = 0;
     DWORD status_size = sizeof(status_code);
-    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-        WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &status_size, WINHTTP_NO_HEADER_INDEX);
+    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX,
+                        &status_code, &status_size, WINHTTP_NO_HEADER_INDEX);
 
     logger::debug("HTTP Status: {}", status_code);
 
@@ -111,18 +116,16 @@ static json make_request(HINTERNET hConnect, const std::map<std::string, std::st
 
         if (bytes_available > 0) {
             DWORD to_read = (std::min)(bytes_available, (DWORD)sizeof(buffer));
-            if (WinHttpReadData(hRequest, buffer, to_read, &bytes_read)) {
+            if (WinHttpReadData(hRequest, buffer, to_read, &bytes_read))
                 response_data.append(buffer, bytes_read);
-            }
         }
     } while (bytes_available > 0);
 
     WinHttpCloseHandle(hRequest);
 
     logger::debug("Response length: {}", response_data.length());
-    if (!response_data.empty()) {
+    if (!response_data.empty())
         logger::debug("Response preview: {}", response_data.substr(0, 200));
-    }
 
     if (response_data.empty()) {
         logger::error("Empty response from server");
@@ -134,8 +137,8 @@ static json make_request(HINTERNET hConnect, const std::map<std::string, std::st
 
 IMSLPClient::IMSLPClient()
 {
-    hSession = WinHttpOpen(L"IMSLP Client/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    hSession = WinHttpOpen(L"IMSLP Client/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME,
+                           WINHTTP_NO_PROXY_BYPASS, 0);
 
     if (!hSession) {
         logger::error("Failed to open WinHTTP session");
@@ -154,19 +157,21 @@ IMSLPClient::IMSLPClient()
 
 IMSLPClient::~IMSLPClient()
 {
-    if (hConnect) WinHttpCloseHandle(hConnect);
-    if (hSession) WinHttpCloseHandle(hSession);
+    if (hConnect)
+        WinHttpCloseHandle(hConnect);
+    if (hSession)
+        WinHttpCloseHandle(hSession);
 }
 
-std::vector<std::string> IMSLPClient::search_works(const std::string &search_term, int namespace_id)
+std::vector<std::string> IMSLPClient::search_works(const std::string& search_term, int namespace_id)
 {
     logger::debug("Searching for: {}", search_term);
 
     std::map<std::string, std::string> params = {
-        {"action", "query"},
-        {"format", "json"},
-        {"list", "search"},
-        {"srsearch", search_term},
+        {     "action",                      "query"},
+        {     "format",                       "json"},
+        {       "list",                     "search"},
+        {   "srsearch",                  search_term},
         {"srnamespace", std::to_string(namespace_id)}
     };
 
@@ -174,42 +179,40 @@ std::vector<std::string> IMSLPClient::search_works(const std::string &search_ter
     std::vector<std::string> results;
 
     if (response.contains("query") && response["query"].contains("search")) {
-        for (const auto &item : response["query"]["search"]) {
+        for (const auto& item : response["query"]["search"])
             results.push_back(item["title"]);
-        }
     }
 
     logger::debug("Found {} works", results.size());
     return results;
 }
 
-std::vector<FileInfo> IMSLPClient::get_page_files(const std::string &page_title,
-                                    const std::vector<std::string> &extensions)
+std::vector<FileInfo> IMSLPClient::get_page_files(const std::string& page_title,
+                                                  const std::vector<std::string>& extensions)
 {
     std::map<std::string, std::string> params = {
-        {"action", "query"},
-        {"format", "json"},
+        {"action",    "query"},
+        {"format",     "json"},
         {"titles", page_title},
-        {"prop", "images"}
+        {  "prop",   "images"}
     };
 
     json response = make_request(hConnect, params);
     std::vector<FileInfo> files;
 
-    if (!response.contains("query") || !response["query"].contains("pages")) {
+    if (!response.contains("query") || !response["query"].contains("pages"))
         return files;
-    }
 
-    for (const auto &[page_id, page_data] : response["query"]["pages"].items()) {
-        if (!page_data.contains("images")) continue;
+    for (const auto& [page_id, page_data] : response["query"]["pages"].items()) {
+        if (!page_data.contains("images"))
+            continue;
 
-        for (const auto &image : page_data["images"]) {
+        for (const auto& image : page_data["images"]) {
             std::string title = image["title"];
 
             bool has_extension = false;
-            for (const auto &ext : extensions) {
-                if (title.size() >= ext.size() &&
-                    title.substr(title.size() - ext.size()) == ext) {
+            for (const auto& ext : extensions) {
+                if (title.size() >= ext.size() && title.substr(title.size() - ext.size()) == ext) {
                     has_extension = true;
                     break;
                 }
@@ -217,9 +220,8 @@ std::vector<FileInfo> IMSLPClient::get_page_files(const std::string &page_title,
 
             if (has_extension) {
                 auto file_info = get_file_info(title);
-                if (!file_info.filename.empty()) {
+                if (!file_info.filename.empty())
                     files.push_back(file_info);
-                }
             }
         }
     }
@@ -227,27 +229,26 @@ std::vector<FileInfo> IMSLPClient::get_page_files(const std::string &page_title,
     return files;
 }
 
-FileInfo IMSLPClient::get_file_info(const std::string &file_title, int thumb_width)
+FileInfo IMSLPClient::get_file_info(const std::string& file_title, int thumb_width)
 {
     std::map<std::string, std::string> params = {
-        {"action", "query"},
-        {"format", "json"},
-        {"titles", file_title},
-        {"prop", "imageinfo"},
-        {"iiprop", "url|size|mime|thumbmime"},
+        {    "action",                     "query"},
+        {    "format",                      "json"},
+        {    "titles",                  file_title},
+        {      "prop",                 "imageinfo"},
+        {    "iiprop",   "url|size|mime|thumbmime"},
         {"iiurlwidth", std::to_string(thumb_width)}
     };
 
     json response = make_request(hConnect, params);
     FileInfo file_info;
 
-    if (!response.contains("query") || !response["query"].contains("pages")) {
+    if (!response.contains("query") || !response["query"].contains("pages"))
         return file_info;
-    }
 
-    for (const auto &[page_id, page_data] : response["query"]["pages"].items()) {
+    for (const auto& [page_id, page_data] : response["query"]["pages"].items()) {
         if (page_data.contains("imageinfo") && !page_data["imageinfo"].empty()) {
-            const auto &info = page_data["imageinfo"][0];
+            const auto& info = page_data["imageinfo"][0];
             file_info.filename = file_title;
             file_info.url = info["url"];
             file_info.size = info["size"];
@@ -260,12 +261,13 @@ FileInfo IMSLPClient::get_file_info(const std::string &file_title, int thumb_wid
     return file_info;
 }
 
-std::vector<FileInfo> IMSLPClient::get_work_pdfs(const std::string &search_term)
+
+std::vector<FileInfo> IMSLPClient::get_work_pdfs(const std::string& search_term)
 {
     logger::debug("Getting PDFs for search term: {}", search_term);
     auto works = search_works(search_term);
     std::vector<FileInfo> all_pdfs;
-    for (const auto &work_title : works) {
+    for (const auto& work_title : works) {
         auto pdfs = get_page_files(work_title);
         all_pdfs.insert(all_pdfs.end(), pdfs.begin(), pdfs.end());
     }
@@ -273,15 +275,15 @@ std::vector<FileInfo> IMSLPClient::get_work_pdfs(const std::string &search_term)
     return all_pdfs;
 }
 
-std::vector<uint8_t> IMSLPClient::get_thumbnail_data(const std::string &thumb_url)
+
+std::vector<uint8_t> IMSLPClient::get_thumbnail_data(const std::string& thumb_url)
 {
     logger::debug("Downloading thumbnail: {}", thumb_url);
 
     // Parse URL to extract host and path
     std::string url = thumb_url;
-    if (url.starts_with("//")) {
+    if (url.starts_with("//"))
         url = "https:" + url; // Add protocol for protocol-relative URLs
-    }
 
     // Simple URL parsing - extract host and path
     size_t protocol_pos = url.find("://");
@@ -313,8 +315,8 @@ std::vector<uint8_t> IMSLPClient::get_thumbnail_data(const std::string &thumb_ur
         return {};
     }
 
-    HINTERNET hRequest = WinHttpOpenRequest(hImageConnect, L"GET", wpath.c_str(),
-        nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    HINTERNET hRequest = WinHttpOpenRequest(hImageConnect, L"GET", wpath.c_str(), nullptr, WINHTTP_NO_REFERER,
+                                            WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
 
     if (!hRequest) {
         DWORD error = GetLastError();
@@ -327,8 +329,7 @@ std::vector<uint8_t> IMSLPClient::get_thumbnail_data(const std::string &thumb_ur
     DWORD redirect_policy = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
     WinHttpSetOption(hRequest, WINHTTP_OPTION_REDIRECT_POLICY, &redirect_policy, sizeof(redirect_policy));
 
-    BOOL result = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-        WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    BOOL result = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
 
     if (!result) {
         DWORD error = GetLastError();
@@ -350,8 +351,8 @@ std::vector<uint8_t> IMSLPClient::get_thumbnail_data(const std::string &thumb_ur
     // Check HTTP status
     DWORD status_code = 0;
     DWORD status_size = sizeof(status_code);
-    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-        WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &status_size, WINHTTP_NO_HEADER_INDEX);
+    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX,
+                        &status_code, &status_size, WINHTTP_NO_HEADER_INDEX);
 
     logger::debug("Thumbnail HTTP Status: {}", status_code);
 

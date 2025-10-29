@@ -17,28 +17,29 @@
 #pragma comment(lib, "psapi.lib")
 #pragma comment(lib, "pdh.lib")
 
-QString format_page_ranges(const std::vector<int> &pages);
+QString format_page_ranges(const std::vector<int>& pages);
 
-DevStatusDialog *DevStatusDialog::instance_ = nullptr;
+DevStatusDialog* DevStatusDialog::instance_ = nullptr;
 
-void DevStatusDialog::show(ConfigFile &config, QWidget *parent)
+
+void DevStatusDialog::show(ConfigFile& config, QWidget* parent)
 {
-    if (!instance_) {
+    if (!instance_)
         instance_ = new DevStatusDialog(config, parent);
-    }
     instance_->QDialog::show();
     instance_->raise();
     instance_->activateWindow();
 }
 
+
 void DevStatusDialog::close_if_open()
 {
-    if (instance_) {
+    if (instance_)
         instance_->close();
-    }
 }
 
-DevStatusDialog::DevStatusDialog(ConfigFile &config, QWidget *parent)
+
+DevStatusDialog::DevStatusDialog(ConfigFile& config, QWidget* parent)
     : QDialog(nullptr)
     , config_(config)
     , parent_widget_(parent)
@@ -54,8 +55,9 @@ DevStatusDialog::DevStatusDialog(ConfigFile &config, QWidget *parent)
     wchar_t counter_path[512];
     swprintf_s(counter_path, L"\\Process(MusicReader)\\%% Processor Time");
 
-    if (PdhOpenQuery(nullptr, 0, reinterpret_cast<PDH_HQUERY *>(&cpu_query_)) == ERROR_SUCCESS) {
-        if (PdhAddCounterW(reinterpret_cast<PDH_HQUERY>(cpu_query_), counter_path, 0, reinterpret_cast<PDH_HCOUNTER *>(&cpu_counter_)) == ERROR_SUCCESS) {
+    if (PdhOpenQuery(nullptr, 0, reinterpret_cast<PDH_HQUERY*>(&cpu_query_)) == ERROR_SUCCESS) {
+        if (PdhAddCounterW(reinterpret_cast<PDH_HQUERY>(cpu_query_), counter_path, 0,
+                           reinterpret_cast<PDH_HCOUNTER*>(&cpu_counter_)) == ERROR_SUCCESS) {
             PdhCollectQueryData(reinterpret_cast<PDH_HQUERY>(cpu_query_));
             cpu_initialized_ = true;
         }
@@ -68,6 +70,7 @@ DevStatusDialog::DevStatusDialog(ConfigFile &config, QWidget *parent)
     update_status();
 }
 
+
 DevStatusDialog::~DevStatusDialog()
 {
     instance_ = nullptr;
@@ -76,12 +79,13 @@ DevStatusDialog::~DevStatusDialog()
         PdhCloseQuery(reinterpret_cast<PDH_HQUERY>(cpu_query_));
 }
 
-void DevStatusDialog::showEvent(QShowEvent *event)
+
+void DevStatusDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
 
     // Get current geometry from config each time
-    const auto &dialog_size = config_.dev_dialog_size();
+    const auto& dialog_size = config_.dev_dialog_size();
     if (dialog_size.size() >= 4 && dialog_size[2] > 0 && dialog_size[3] > 0) {
         resize(dialog_size[2], dialog_size[3]);
         move(dialog_size[0], dialog_size[1]);
@@ -98,11 +102,11 @@ void DevStatusDialog::showEvent(QShowEvent *event)
     }
 }
 
-void DevStatusDialog::closeEvent(QCloseEvent *event)
+void DevStatusDialog::closeEvent(QCloseEvent* event)
 {
     // Save size and position to config when dialog is closed
     QRect geom = geometry();
-    std::array<int, 4> dialog_size = { geom.x(), geom.y(), geom.width(), geom.height() };
+    std::array<int, 4> dialog_size = {geom.x(), geom.y(), geom.width(), geom.height()};
     config_.set_dev_size(dialog_size);
 
     QDialog::closeEvent(event);
@@ -110,7 +114,7 @@ void DevStatusDialog::closeEvent(QCloseEvent *event)
 
 void DevStatusDialog::setup_ui()
 {
-    QVBoxLayout *layout = new QVBoxLayout(this);
+    QVBoxLayout* layout = new QVBoxLayout(this);
 
     status_display_ = new QTextEdit(this);
     status_display_->setReadOnly(true);
@@ -137,7 +141,8 @@ DevStatusDialog::SystemStats DevStatusDialog::get_system_stats()
     if (cpu_initialized_) {
         if (PdhCollectQueryData(reinterpret_cast<PDH_HQUERY>(cpu_query_)) == ERROR_SUCCESS) {
             PDH_FMT_COUNTERVALUE counter_value;
-            if (PdhGetFormattedCounterValue(reinterpret_cast<PDH_HCOUNTER>(cpu_counter_), PDH_FMT_DOUBLE, nullptr, &counter_value) == ERROR_SUCCESS) {
+            if (PdhGetFormattedCounterValue(reinterpret_cast<PDH_HCOUNTER>(cpu_counter_), PDH_FMT_DOUBLE, nullptr,
+                                            &counter_value) == ERROR_SUCCESS) {
                 // Divide by number of cores to match Task Manager's per-core average
                 stats.cpu_percentage = counter_value.doubleValue / std::thread::hardware_concurrency();
             }
@@ -165,9 +170,10 @@ DevStatusDialog::SystemStats DevStatusDialog::get_system_stats()
     return stats;
 }
 
+
 QString DevStatusDialog::format_memory(size_t bytes)
 {
-    static const char *units[] = { "B", "KB", "MB", "GB", "TB" };
+    static const char* units[] = {"B", "KB", "MB", "GB", "TB"};
     int unit_index = 0;
     double size = static_cast<double>(bytes);
 
@@ -179,16 +185,17 @@ QString DevStatusDialog::format_memory(size_t bytes)
     return QString("%1 %2").arg(size, 0, 'f', 3).arg(units[unit_index]);
 }
 
+
 void DevStatusDialog::update_status()
 {
-    auto *manager = DocumentLoadManager::instance();
+    auto* manager = DocumentLoadManager::instance();
     if (!manager) {
         status_display_->clear();
         return;
     }
 
     // Save scroll position
-    QScrollBar *scroll_bar = status_display_->verticalScrollBar();
+    QScrollBar* scroll_bar = status_display_->verticalScrollBar();
     int scroll_position = scroll_bar->value();
 
     auto loading_summary = manager->get_loading_summary();
@@ -200,13 +207,13 @@ void DevStatusDialog::update_status()
     if (!loading_summary.documents.empty()) {
         html += "<h4>Document Loading</h4>";
         html += QString("<p>Active Jobs: %1 | Queued Jobs: %2</p>")
-            .arg(loading_summary.total_active_jobs)
-            .arg(loading_summary.total_queued_jobs);
+                    .arg(loading_summary.total_active_jobs)
+                    .arg(loading_summary.total_queued_jobs);
 
         html += "<table border='1' cellpadding='5' cellspacing='0'>";
         html += "<tr><th>Document</th><th>Pending Pages</th></tr>";
 
-        for (const auto &doc_info : loading_summary.documents) {
+        for (const auto& doc_info : loading_summary.documents) {
             html += "<tr>";
             html += "<td>" + QString::fromStdString(doc_info.name) + "</td>";
             html += "<td>" + format_page_ranges(doc_info.pending_pages) + "</td>";
@@ -222,14 +229,12 @@ void DevStatusDialog::update_status()
 
     int memory_pct = static_cast<int>(100.0 * system_stats.memory_usage_bytes / system_stats.total_memory_bytes);
     html += QString("<tr><td>Process Memory</td><td>%1 (%2%)</td></tr>")
-        .arg(format_memory(system_stats.memory_usage_bytes))
-        .arg(memory_pct);
+                .arg(format_memory(system_stats.memory_usage_bytes))
+                .arg(memory_pct);
 
-    html += QString("<tr><td>Process CPU</td><td>%1%</td></tr>")
-        .arg(system_stats.cpu_percentage, 0, 'f', 1);
+    html += QString("<tr><td>Process CPU</td><td>%1%</td></tr>").arg(system_stats.cpu_percentage, 0, 'f', 1);
 
-    html += QString("<tr><td>Process Threads</td><td>%1</td></tr>")
-        .arg(system_stats.thread_count);
+    html += QString("<tr><td>Process Threads</td><td>%1</td></tr>").arg(system_stats.thread_count);
 
     html += "</table>";
     html += "</body></html>";
@@ -239,15 +244,16 @@ void DevStatusDialog::update_status()
     scroll_bar->setValue(scroll_position);
 }
 
-QString format_page_ranges(const std::vector<int> &pages)
+
+QString format_page_ranges(const std::vector<int>& pages)
 {
     if (pages.empty())
         return "";
 
     // Remove duplicates and sort
     std::vector<int> sorted_pages = pages;
-    //std::sort(sorted_pages.begin(), sorted_pages.end());
-    //sorted_pages.erase(std::unique(sorted_pages.begin(), sorted_pages.end()), sorted_pages.end());
+    // std::sort(sorted_pages.begin(), sorted_pages.end());
+    // sorted_pages.erase(std::unique(sorted_pages.begin(), sorted_pages.end()), sorted_pages.end());
 
     QStringList ranges;
     int start = sorted_pages[0];

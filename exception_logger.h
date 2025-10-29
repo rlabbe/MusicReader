@@ -35,8 +35,9 @@ public:
      * @param func_name The name of the function where this logger is used.
      * @param allow_throw If true, the exception is rethrown after logging.
      */
-    ExceptionLogger(const std::string &func_name, bool allow_throw)
-        : func_name_(func_name), allow_throw_(allow_throw)
+    ExceptionLogger(const std::string& func_name, bool allow_throw)
+        : func_name_(func_name)
+        , allow_throw_(allow_throw)
     {
     }
 
@@ -51,19 +52,21 @@ public:
         if (std::uncaught_exceptions() > 0) {
             try {
                 throw;
-            } catch (const std::exception &e) {
+            } catch (const std::exception& e) {
                 logger::error("Exception in " + func_name_ + ": " + e.what());
-                if (allow_throw_) throw;
+                if (allow_throw_)
+                    throw;
             } catch (...) {
                 logger::error("Unknown exception in " + func_name_);
-                if (allow_throw_) throw;
+                if (allow_throw_)
+                    throw;
             }
         }
     }
 
 private:
-    std::string func_name_;  ///< Stores the function name for logging.
-    bool allow_throw_;       ///< Determines whether to rethrow the exception.
+    std::string func_name_; ///< Stores the function name for logging.
+    bool allow_throw_;      ///< Determines whether to rethrow the exception.
 };
 
 /**
@@ -82,17 +85,17 @@ private:
  */
 #define SAFE_METHOD ExceptionLogger _exception_logger(__func__, false)
 
- /**
-  * @brief Macro to apply ExceptionLogger to a function, logging exceptions but allowing them to propagate.
-  *
-  * Use this when you want to log unexpected exceptions but still allow the caller to handle them.
-  *
-  * Example Usage:
-  * ```cpp
-  * void my_function() {
-  *     LOG_EXCEPTION;  // Logs but allows exceptions to propagate
-  *     might_throw();
-  * }
-  * ```
-  */
+/**
+ * @brief Macro to apply ExceptionLogger to a function, logging exceptions but allowing them to propagate.
+ *
+ * Use this when you want to log unexpected exceptions but still allow the caller to handle them.
+ *
+ * Example Usage:
+ * ```cpp
+ * void my_function() {
+ *     LOG_EXCEPTION;  // Logs but allows exceptions to propagate
+ *     might_throw();
+ * }
+ * ```
+ */
 #define LOG_EXCEPTION ExceptionLogger _exception_logger(__func__, true)

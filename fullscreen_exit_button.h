@@ -1,25 +1,20 @@
 #pragma once
 
-#include <QWidget>
-#include <QPushButton>
-#include <QPropertyAnimation>
-#include <QTimer>
-#include <QVBoxLayout>
-#include <QScreen>
-#include <QGuiApplication>
+#include <QtWidgets>
 
 class FullscreenExitButton : public QWidget {
     Q_OBJECT
 
 public:
-    explicit FullscreenExitButton(QWidget *parent = nullptr) : QWidget(parent)
+    explicit FullscreenExitButton(QWidget* parent = nullptr)
+        : QWidget(parent)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint | Qt::Tool);
         setAttribute(Qt::WA_TranslucentBackground);
-        setFixedSize(60, 60);  // Circular button size
+        setFixedSize(60, 60); // Circular button size
 
         // Create the exit button
-        QPushButton *exit_button = new QPushButton(this);
+        QPushButton* exit_button = new QPushButton(this);
         exit_button->setFixedSize(60, 60);
         exit_button->setStyleSheet(R"(
             QPushButton {
@@ -37,7 +32,7 @@ public:
         exit_button->setText("x");
         connect(exit_button, &QPushButton::clicked, this, &FullscreenExitButton::exitFullscreen);
 
-        QVBoxLayout *layout = new QVBoxLayout(this);
+        QVBoxLayout* layout = new QVBoxLayout(this);
         layout->addWidget(exit_button);
         layout->setContentsMargins(0, 0, 0, 0);
         setLayout(layout);
@@ -65,14 +60,14 @@ public:
 
     void showAtTop()
     {
-        QScreen *screen = QGuiApplication::primaryScreen();
+        QScreen* screen = QGuiApplication::primaryScreen();
         QRect screen_geometry = screen->geometry();
         int x = (screen_geometry.width() - width()) / 2;
         int start_y = -height();
         int end_y = 10;
 
         move(x, start_y);
-        setAttribute(Qt::WA_TransparentForMouseEvents, false);  // Enable mouse clicks again
+        setAttribute(Qt::WA_TransparentForMouseEvents, false); // Enable mouse clicks again
         show();
 
         slide_->setStartValue(QPoint(x, start_y));
@@ -87,7 +82,7 @@ public slots:
     void exitFullscreen()
     {
         if (parentWidget()) {
-            parentWidget()->showNormal();  // Exit fullscreen
+            parentWidget()->showNormal(); // Exit fullscreen
         }
         hide();
     }
@@ -96,14 +91,14 @@ public slots:
     {
         fade_out_->start();
         connect(fade_out_, &QPropertyAnimation::finished, this, [this]() {
-            setAttribute(Qt::WA_TransparentForMouseEvents, true);  // Ignore mouse clicks
+            setAttribute(Qt::WA_TransparentForMouseEvents, true); // Ignore mouse clicks
             hide();
         });
     }
 
 private:
-    QPropertyAnimation *fade_in_;
-    QPropertyAnimation *fade_out_;
-    QPropertyAnimation *slide_;
-    QTimer *auto_hide_timer_;
+    QPropertyAnimation* fade_in_;
+    QPropertyAnimation* fade_out_;
+    QPropertyAnimation* slide_;
+    QTimer* auto_hide_timer_;
 };

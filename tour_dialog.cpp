@@ -4,7 +4,7 @@
 #include <QUrl>
 #include <QWebEngineSettings>
 
-TourDialog::TourDialog(QWidget *parent)
+TourDialog::TourDialog(QWidget* parent)
     : QDialog(parent)
     , web_view_(nullptr)
     , prev_button_(nullptr)
@@ -16,12 +16,12 @@ TourDialog::TourDialog(QWidget *parent)
     setModal(true);
     setFixedSize(800, 650);
 
-    QVBoxLayout *main_layout = new QVBoxLayout(this);
+    QVBoxLayout* main_layout = new QVBoxLayout(this);
 
     web_view_ = new QWebEngineView;
     main_layout->addWidget(web_view_);
 
-    QHBoxLayout *button_layout = new QHBoxLayout;
+    QHBoxLayout* button_layout = new QHBoxLayout;
     prev_button_ = new QPushButton("Previous");
     next_button_ = new QPushButton("Next");
     page_label_ = new QLabel;
@@ -82,6 +82,7 @@ void TourDialog::load_tour_data()
     }
 }
 
+
 void TourDialog::update_display()
 {
     if (current_slide_ >= 0 && current_slide_ < static_cast<int>(slide_names_.size())) {
@@ -93,6 +94,7 @@ void TourDialog::update_display()
     }
 }
 
+
 void TourDialog::update_buttons()
 {
     prev_button_->setEnabled(current_slide_ > 0);
@@ -103,6 +105,7 @@ void TourDialog::update_buttons()
         next_button_->setText("Next");
     }
 }
+
 
 void TourDialog::next_slide()
 {
@@ -116,6 +119,7 @@ void TourDialog::next_slide()
     update_buttons();
 }
 
+
 void TourDialog::prev_slide()
 {
     if (current_slide_ > 0) {
@@ -123,9 +127,4 @@ void TourDialog::prev_slide()
         update_display();
         update_buttons();
     }
-}
-
-void TourDialog::size_to_fit_images()
-{
-    // Not needed with fixed size web view
 }

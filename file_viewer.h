@@ -1,27 +1,27 @@
 #pragma once
 #include <QtWidgets>
-#include <iostream>
 #include <string>
 
 class FileViewer : public QMainWindow {
     Q_OBJECT
 public:
-    explicit FileViewer(const std::string &filename, QWidget *parent = nullptr)
-        : QMainWindow(parent), m_filename(filename)
+    explicit FileViewer(const std::string& filename, QWidget* parent = nullptr)
+        : QMainWindow(parent)
+        , m_filename(filename)
     {
         QString q_filename = QString::fromStdString(filename);
         setWindowTitle(q_filename);
         setAttribute(Qt::WA_DeleteOnClose);
 
-        auto *centralWidget = new QWidget(this);
-        auto *layout = new QVBoxLayout(centralWidget);
+        auto* centralWidget = new QWidget(this);
+        auto* layout = new QVBoxLayout(centralWidget);
 
-        auto *buttonLayout = new QHBoxLayout();
-        auto *refreshButton = new QPushButton("Refresh", this);
+        auto* buttonLayout = new QHBoxLayout();
+        auto* refreshButton = new QPushButton("Refresh", this);
         connect(refreshButton, &QPushButton::clicked, this, &FileViewer::loadFile);
         buttonLayout->addWidget(refreshButton);
 
-        auto *clearButton = new QPushButton("Clear", this);
+        auto* clearButton = new QPushButton("Clear", this);
         connect(clearButton, &QPushButton::clicked, this, &FileViewer::clearFile);
         buttonLayout->addWidget(clearButton);
 
@@ -38,7 +38,7 @@ public:
     }
 
 protected:
-    void keyPressEvent(QKeyEvent *event) override
+    void keyPressEvent(QKeyEvent* event) override
     {
         if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_F) {
             showSearchDialog();
@@ -99,6 +99,6 @@ private slots:
 
 private:
     std::string m_filename;
-    QTextEdit *m_textEdit;
+    QTextEdit* m_textEdit;
     QString m_searchText;
 };

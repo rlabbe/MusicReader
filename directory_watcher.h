@@ -13,50 +13,42 @@ class EventHandler : public QFileSystemWatcher {
     Q_OBJECT
 
 public:
-    explicit EventHandler(const QString &file_ending, int debounce_time_ms = 500)
-        : file_ending_(file_ending), debounce_time_(debounce_time_ms)
+    explicit EventHandler(const QString& file_ending, int debounce_time_ms = 500)
+        : file_ending_(file_ending)
+        , debounce_time_(debounce_time_ms)
     {
         connect(&timer_, &QTimer::timeout, this, &EventHandler::emit_signal);
         timer_.setSingleShot(true);
     }
 
-    void on_file_changed(const QString &path)
+    void on_file_changed(const QString& path)
     {
-        if (path.endsWith(file_ending_)) {
+        if (path.endsWith(file_ending_))
             start_timer();
-        }
     }
 
-    void on_directory_changed()
-    {
-        start_timer();
-    }
+    void on_directory_changed() { start_timer(); }
 
 signals:
     void file_changed_signal();
 
 private:
-    void start_timer()
-    {
-        timer_.start(debounce_time_);
-    }
-
-    void emit_signal()
-    {
-        emit file_changed_signal();
-    }
+    void start_timer() { timer_.start(debounce_time_); }
+    void emit_signal() { emit file_changed_signal(); }
 
     QString file_ending_;
     QTimer timer_;
     int debounce_time_;
 };
 
+
 class DirectoryWatcher : public QObject {
     Q_OBJECT
 
 public:
-    explicit DirectoryWatcher(const QString &file_ending, QObject *parent = nullptr)
-        : QObject(parent), file_ending_(file_ending)
+    explicit DirectoryWatcher(const QString& file_ending, QObject* parent = nullptr)
+        : QObject(parent)
+        , file_ending_(file_ending)
     {
         supported_ = QOperatingSystemVersion::currentType() != QOperatingSystemVersion::Unknown;
         if (supported_) {
@@ -65,9 +57,10 @@ public:
         }
     }
 
-    void start(const QString &directory)
+    void start(const QString& directory)
     {
-        if (!supported_) return;
+        if (!supported_)
+            return;
 
         stop();
         directory_ = directory;
@@ -80,24 +73,26 @@ public:
 
     void stop()
     {
-        if (!supported_) return;
+        if (!supported_)
+            return;
 
-        if (!watcher_.directories().isEmpty()) watcher_.removePaths(watcher_.directories());
-        if (!watcher_.files().isEmpty())  watcher_.removePaths(watcher_.files());
+        if (!watcher_.directories().isEmpty())
+            watcher_.removePaths(watcher_.directories());
+        if (!watcher_.files().isEmpty())
+            watcher_.removePaths(watcher_.files());
     }
 
 signals:
     void file_changed();
 
 private:
-    void add_directories_recursively(const QString &directory)
+    void add_directories_recursively(const QString& directory)
     {
         QDirIterator it(directory, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
         watcher_.addPath(directory);
 
-        while (it.hasNext()) {
+        while (it.hasNext())
             watcher_.addPath(it.next());
-        }
     }
 
     void on_directory_changed()
@@ -115,5 +110,5 @@ private:
     QString file_ending_;
     QString directory_;
     QFileSystemWatcher watcher_;
-    EventHandler *event_handler_;
+    EventHandler* event_handler_;
 };

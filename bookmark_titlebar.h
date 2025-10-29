@@ -5,16 +5,16 @@
 #include "musicreader.h"
 
 
-class BookmarkTitleBar : public QWidget
-{
+class BookmarkTitleBar : public QWidget {
     Q_OBJECT
 
 public:
-    explicit BookmarkTitleBar(MusicReader *main_window, QWidget *parent = nullptr)
-        : QWidget(parent), main_window_(main_window)
+    explicit BookmarkTitleBar(MusicReader* main_window, QWidget* parent = nullptr)
+        : QWidget(parent)
+        , main_window_(main_window)
     {
 
-        auto *layout = new QHBoxLayout(this);
+        auto* layout = new QHBoxLayout(this);
         layout->setContentsMargins(5, 2, 5, 2);
         layout->setSpacing(5);
 
@@ -37,17 +37,11 @@ private slots:
     void onCloseClicked()
     {
         if (main_window_)
-        {
-            /*TODO
-            main_window_->bookmark_panel_visible = false;
-            main_window_->update_menu_bookmark_visibility();*/
             parentWidget()->setVisible(false);
-        }
     }
 
 private:
-    QWidget *main_window_;
-    QLabel *title_label_;
-    QPushButton *close_button_;
+    QWidget* main_window_;
+    QLabel* title_label_;
+    QPushButton* close_button_;
 };
-

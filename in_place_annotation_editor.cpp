@@ -1,7 +1,12 @@
 #include "in_place_annotation_editor.h"
 #include <iostream>
-InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo &font_info, QWidget *parent)
-    : QTextEdit(parent), font_family_(font_info.family), font_size_(font_info.size), font_color_(font_info.color)
+
+
+InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo& font_info, QWidget* parent)
+    : QTextEdit(parent)
+    , font_family_(font_info.family)
+    , font_size_(font_info.size)
+    , font_color_(font_info.color)
 {
     setFrameStyle(QFrame::NoFrame);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -12,22 +17,22 @@ InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo &font_info, QWid
     QFont font(font_family_, static_cast<int>(font_size_));
     setFont(font);
 
-    QString color_str = QString("rgb(%1, %2, %3)").arg(font_color_.red()).arg(font_color_.green()).arg(font_color_.blue());
+    QString color_str =
+        QString("rgb(%1, %2, %3)").arg(font_color_.red()).arg(font_color_.green()).arg(font_color_.blue());
     setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
 
     hide();
 }
 
 
-
-void InPlaceAnnotationEditor::start_editing(const QPoint &position, const QString &initial_text)
+void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QString& initial_text)
 {
     // Reset the flag when starting new editing session
     editing_finished_ = false;
 
     setPlainText(initial_text);
 
-    FontInfo current_font{ font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text) };
+    FontInfo current_font {font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text)};
     QSize size;
     if (initial_text.isEmpty())
         // For empty text, use single character width as starting point
@@ -51,7 +56,7 @@ void InPlaceAnnotationEditor::start_editing(const QPoint &position, const QStrin
     selectAll();
 }
 
-void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent *event)
+void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent* event)
 {
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
         finish_editing();
@@ -67,41 +72,41 @@ void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent *event)
     resize_to_content();
 }
 
-void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent *event)
+void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent* event)
 {
     qDebug() << "focusOutEvent triggered";
     finish_editing();
     QTextEdit::focusOutEvent(event);
 }
 
-void InPlaceAnnotationEditor::paintEvent(QPaintEvent *event)
+void InPlaceAnnotationEditor::paintEvent(QPaintEvent* event)
 {
     QTextEdit::paintEvent(event);
-
     QPainter painter(viewport());
     painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
     painter.drawRect(rect().adjusted(0, 0, -1, -1));
 }
 
 
-
 void InPlaceAnnotationEditor::finish_editing()
 {
-    if (!editing_finished_) emit editing_finished(toPlainText());
+    if (!editing_finished_)
+        emit editing_finished(toPlainText());
     editing_finished_ = true;
     hide();
 }
 
 void InPlaceAnnotationEditor::cancel_editing()
 {
-    if (!editing_finished_) emit editing_cancelled();
+    if (!editing_finished_)
+        emit editing_cancelled();
     editing_finished_ = true;
     hide();
 }
 
 void InPlaceAnnotationEditor::resize_to_content()
 {
-    FontInfo current_font{ font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text) };
+    FontInfo current_font {font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text)};
     QSize new_size = calculate_text_size(toPlainText(), current_font);
 
     // Store the current position to maintain left edge

@@ -13,8 +13,9 @@
 #include "config_file.h"
 
 
-ConfigDialog::ConfigDialog(ConfigFile &config, QWidget *parent)
-    : QDialog(parent), config_(config)
+ConfigDialog::ConfigDialog(ConfigFile& config, QWidget* parent)
+    : QDialog(parent)
+    , config_(config)
 {
     setWindowTitle("Settings");
     setWindowFlags(windowFlags() | Qt::WindowContextHelpButtonHint);
@@ -28,61 +29,69 @@ void ConfigDialog::setup_ui()
 {
     spin_dpi_ = new QSpinBox(this);
     spin_dpi_->setRange(72, 360);
-    spin_dpi_->setWhatsThis("PDF rendering resolution in dots per inch. Higher values provide sharper images but use more memory. 360 for 4K display is good");
+    spin_dpi_->setWhatsThis("PDF rendering resolution in dots per inch. Higher values provide sharper images but use "
+                            "more memory. 360 for 4K display is good");
 
     spin_border_margin_ = new QSpinBox(this);
     spin_border_margin_->setRange(0, 100);
-    spin_border_margin_->setWhatsThis("Padding space in pixels around the document when zoomed in (hiding the white border)");
+    spin_border_margin_->setWhatsThis(
+        "Padding space in pixels around the document when zoomed in (hiding the white border)");
 
     spin_max_recent_documents_ = new QSpinBox(this);
     spin_max_recent_documents_->setRange(1, 100);
-    spin_max_recent_documents_->setWhatsThis("Maximum number of recently opened documents to remember in the File menu.");
+    spin_max_recent_documents_->setWhatsThis(
+        "Maximum number of recently opened documents to remember in the File menu.");
 
     spin_save_cadence_ = new QSpinBox(this);
     spin_save_cadence_->setRange(0, 5 * 60);
-    spin_save_cadence_->setWhatsThis("Automatically save the document every specified number of seconds. Set to 0 to disable automatic saving.");
-
-    /*
-    combo_theme_ = new QComboBox(this);
-    combo_theme_->addItem("Dark", static_cast<int>(Theme::Dark));
-    combo_theme_->addItem("Light", static_cast<int>(Theme::Light));
-    */
+    spin_save_cadence_->setWhatsThis(
+        "Automatically save the document every specified number of seconds. Set to 0 to disable automatic saving.");
 
     combo_log_level_ = new QComboBox(this);
     combo_log_level_->addItem("Normal", static_cast<int>(LogLevel::Normal));
     combo_log_level_->addItem("Diagnostic", static_cast<int>(LogLevel::Diagnostic));
     combo_log_level_->addItem("Trace", static_cast<int>(LogLevel::Trace));
-    combo_log_level_->setWhatsThis("Logging verbosity level. Normal for standard operation, Diagnostic for troubleshooting and detailed debugging information, Trace only if you need to trace every function call..");
+    combo_log_level_->setWhatsThis(
+        "Logging verbosity level. Normal for standard operation, Diagnostic for troubleshooting and detailed debugging "
+        "information, Trace only if you need to trace every function call..");
 
     check_center_ = new QCheckBox("Center Document in window", this);
-    check_center_->setWhatsThis("Center the PDF document in the view area. When unchecked, documents are aligned to the left side.");
+    check_center_->setWhatsThis(
+        "Center the PDF document in the view area. When unchecked, documents are aligned to the left side.");
 
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
-    check_restore_window_position_->setWhatsThis("Remember and restore the application window size and position when the program starts.");
+    check_restore_window_position_->setWhatsThis(
+        "Remember and restore the application window size and position when the program starts.");
 
     check_restore_documents_ = new QCheckBox("Restore Documents On Startup", this);
-    check_restore_documents_->setWhatsThis("Automatically reopen the documents that were open when the application was last closed.");
+    check_restore_documents_->setWhatsThis(
+        "Automatically reopen the documents that were open when the application was last closed.");
 
     check_allow_oversize_ = new QCheckBox("Allow > 100% page zoom (recommended)", this);
-    check_allow_oversize_->setWhatsThis("Allow zooming beyond 100% to magnify documents larger than their natural size. Recommended for detailed viewing of sheet music.");
+    check_allow_oversize_->setWhatsThis("Allow zooming beyond 100% to magnify documents larger than their natural "
+                                        "size. Recommended for detailed viewing of sheet music.");
 
     check_show_menu_ = new QCheckBox("Menu Bar (click app title bar icon for menu if not shown)", this);
-    check_show_menu_->setWhatsThis("Show the menu bar with File, Edit, View, and other menus. If hidden, you can access the menu by clicking the application icon in the title bar.");
+    check_show_menu_->setWhatsThis("Show the menu bar with File, Edit, View, and other menus. If hidden, you can "
+                                   "access the menu by clicking the application icon in the title bar.");
 
     check_show_toolbar_ = new QCheckBox("Tool Bar", this);
     check_show_toolbar_->setWhatsThis("Show the toolbar with buttons for common actions like Open, Save, Zoom, etc.");
 
     check_show_statusbar_ = new QCheckBox("Status Bar", this);
-    check_show_statusbar_->setWhatsThis("Show the status bar at the bottom of the window with document information and current status.");
+    check_show_statusbar_->setWhatsThis(
+        "Show the status bar at the bottom of the window with document information and current status.");
 
     check_horiz_tabs_ = new QCheckBox("Document Tabs At Top (requires app restart)", this);
-    check_horiz_tabs_->setWhatsThis("Position document tabs at the top of the window. When unchecked, tabs appear at the bottom or side. Requires restarting the application to take effect.");
+    check_horiz_tabs_->setWhatsThis("Position document tabs at the top of the window. When unchecked, tabs appear at "
+                                    "the bottom or side. Requires restarting the application to take effect.");
 
     check_allow_delete_ = new QCheckBox("Allow file deletion in Fast File Search dialog", this);
     check_allow_delete_->setWhatsThis("If enabled, DEL key deletes files in fast file search dialog");
 
     check_append_log_ = new QCheckBox("append to log each run", this);
-    check_append_log_->setWhatsThis("If enabled the log will contain ouput from all runs, otherwise it will be cleared on each app launch");
+    check_append_log_->setWhatsThis(
+        "If enabled the log will contain ouput from all runs, otherwise it will be cleared on each app launch");
 
     btn_save_ = new QPushButton("Save", this);
     btn_save_->setDefault(true);
@@ -92,17 +101,17 @@ void ConfigDialog::setup_ui()
     btn_cancel_->setWhatsThis("Discard all changes and close the dialog without saving.");
 
     // Layouts
-    QFormLayout *form_layout = new QFormLayout;
+    QFormLayout* form_layout = new QFormLayout;
 
-    QGroupBox *group_show = new QGroupBox("Show", this);
+    QGroupBox* group_show = new QGroupBox("Show", this);
     group_show->setWhatsThis("Controls which user interface elements are visible in the main window.");
-    QVBoxLayout *group_layout = new QVBoxLayout;
+    QVBoxLayout* group_layout = new QVBoxLayout;
 
     // First row: check_show_menu_
     group_layout->addWidget(check_show_menu_);
 
     // Second row: toolbar and statusbar
-    QHBoxLayout *row_layout = new QHBoxLayout;
+    QHBoxLayout* row_layout = new QHBoxLayout;
     row_layout->addWidget(check_show_toolbar_);
     row_layout->addWidget(check_show_statusbar_);
     group_layout->addLayout(row_layout);
@@ -120,50 +129,42 @@ void ConfigDialog::setup_ui()
     form_layout->addRow(check_append_log_);
 
 
-    QHBoxLayout *layout_dpi = new QHBoxLayout;
+    QHBoxLayout* layout_dpi = new QHBoxLayout;
     layout_dpi->addStretch();
     form_layout->addRow("DPI:", layout_dpi);
     layout_dpi->addWidget(spin_dpi_);
 
-    QHBoxLayout *layout_border = new QHBoxLayout;
+    QHBoxLayout* layout_border = new QHBoxLayout;
     layout_border->addStretch();
     form_layout->addRow("Border Margin (pixels):", layout_border);
     layout_border->addWidget(spin_border_margin_);
 
     // Max Recent Documents
-    QHBoxLayout *layout_max_recent_documents = new QHBoxLayout;
+    QHBoxLayout* layout_max_recent_documents = new QHBoxLayout;
     layout_max_recent_documents->addStretch();
     form_layout->addRow("Max Recent Documents:", layout_max_recent_documents);
     layout_max_recent_documents->addWidget(spin_max_recent_documents_);
 
     // Save Cadence
-    QHBoxLayout *layout_save_cadence = new QHBoxLayout;
+    QHBoxLayout* layout_save_cadence = new QHBoxLayout;
     layout_save_cadence->addStretch();
     layout_save_cadence->addWidget(spin_save_cadence_);
     form_layout->addRow("Save Modified Docs every (secs, 0 for never):", layout_save_cadence);
 
-    // Theme
-    /*
-    QHBoxLayout *layout_theme = new QHBoxLayout;
-    layout_theme->addStretch();
-    layout_theme->addWidget(combo_theme_);
-    form_layout->addRow("Theme:", layout_theme);
-    */
-
     // Log Level
-    QHBoxLayout *layout_log_level = new QHBoxLayout;
+    QHBoxLayout* layout_log_level = new QHBoxLayout;
     layout_log_level->addStretch();
     layout_log_level->addWidget(combo_log_level_);
     form_layout->addRow("Log Level:", layout_log_level);
 
     // Save and Cancel buttons
-    QHBoxLayout *buttons_layout = new QHBoxLayout;
+    QHBoxLayout* buttons_layout = new QHBoxLayout;
     buttons_layout->addStretch();
     buttons_layout->addWidget(btn_save_);
     buttons_layout->addWidget(btn_cancel_);
 
     // Main layout
-    QVBoxLayout *main_layout = new QVBoxLayout;
+    QVBoxLayout* main_layout = new QVBoxLayout;
     main_layout->addLayout(form_layout);
     main_layout->addLayout(buttons_layout);
 
@@ -185,10 +186,7 @@ void ConfigDialog::load_settings()
     spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_save_cadence_->setValue(config_.save_cadence_secs());
-
-    //combo_theme_->setCurrentIndex(combo_theme_->findData(static_cast<int>(config_.theme())));
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
-
     check_center_->setChecked(config_.page_location() == PageLocation::Center);
     check_restore_window_position_->setChecked(config_.restore_window_position());
     check_restore_documents_->setChecked(config_.restore_documents());
@@ -200,6 +198,7 @@ void ConfigDialog::load_settings()
     check_allow_delete_->setChecked(config_.allow_file_delete());
     check_append_log_->setChecked(config_.append_to_log());
 }
+
 
 void ConfigDialog::setup_connections()
 {
@@ -228,7 +227,6 @@ void ConfigDialog::save_settings()
     config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
     config_.set_save_cadence_secs(spin_save_cadence_->value());
-    //config_.set_theme(static_cast<Theme>(combo_theme_->currentData().toInt()));
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
     config_.set_page_location(check_center_->isChecked() ? PageLocation::Center : PageLocation::Left);
     config_.set_restore_window_position(check_restore_window_position_->isChecked());

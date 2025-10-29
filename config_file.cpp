@@ -12,11 +12,11 @@
 using json = nlohmann::json;
 
 
-std::filesystem::path path_to_os_convention(const std::filesystem::path &path)
+std::filesystem::path path_to_os_convention(const std::filesystem::path& path)
 {
     try {
         return std::filesystem::canonical(std::filesystem::absolute(path));
-    } catch (const std::filesystem::filesystem_error &e) {
+    } catch (const std::filesystem::filesystem_error& e) {
         logger::logger::error("Error canonicalizing path: " + std::string(e.what()));
         return std::filesystem::absolute(path);
     }
@@ -24,7 +24,7 @@ std::filesystem::path path_to_os_convention(const std::filesystem::path &path)
 
 
 // Implementation of get_persistent_config_path
-std::filesystem::path get_persistent_config_path(const std::string &filename)
+std::filesystem::path get_persistent_config_path(const std::string& filename)
 {
     return filename;
 
@@ -53,31 +53,31 @@ std::filesystem::path get_persistent_config_path(const std::string &filename)
     */
 }
 
+
 // Implementation of point_to_same_file
-bool point_to_same_file(const std::filesystem::path &path1, const std::filesystem::path &path2)
+bool point_to_same_file(const std::filesystem::path& path1, const std::filesystem::path& path2)
 {
     try {
         return std::filesystem::equivalent(path1, path2);
-    } catch (const std::filesystem::filesystem_error &e) {
+    } catch (const std::filesystem::filesystem_error& e) {
         logger::error("Error comparing files '" + path1.string() + "' and '" + path2.string() + "': " + e.what());
         return false;
     }
 }
 
+
 // Helper functions to convert enums to strings
 static std::string theme_to_string(Theme theme)
 {
     switch (theme) {
-    case Theme::Dark:
-        return "dark";
-    case Theme::Light:
-        return "light";
-    default:
-        return "dark";
+        case Theme::Dark: return "dark";
+        case Theme::Light: return "light";
+        default: return "dark";
     }
 }
 
-static bool string_to_theme(const std::string &str, Theme &theme)
+
+static bool string_to_theme(const std::string& str, Theme& theme)
 {
     if (str == "dark") {
         theme = Theme::Dark;
@@ -89,17 +89,19 @@ static bool string_to_theme(const std::string &str, Theme &theme)
     return false;
 }
 
+
 static std::string log_level_to_string(LogLevel level)
 {
     switch (level) {
-    case LogLevel::Normal: return "normal";
-    case LogLevel::Diagnostic: return "diagnostic";
-    case LogLevel::Trace: return "trace";
-    default: return "normal";
+        case LogLevel::Normal: return "normal";
+        case LogLevel::Diagnostic: return "diagnostic";
+        case LogLevel::Trace: return "trace";
+        default: return "normal";
     }
 }
 
-static bool string_to_log_level(const std::string &str, LogLevel &level)
+
+static bool string_to_log_level(const std::string& str, LogLevel& level)
 {
     if (str == "normal") {
         level = LogLevel::Normal;
@@ -115,35 +117,30 @@ static bool string_to_log_level(const std::string &str, LogLevel &level)
     return false;
 }
 
+
 static std::string toolbar_location_to_string(ToolbarLocation location)
 {
     switch (location) {
-    case ToolbarLocation::Top:
-        return "top";
-    case ToolbarLocation::Bottom:
-        return "bottom";
-    case ToolbarLocation::Left:
-        return "left";
-    case ToolbarLocation::Right:
-        return "right";
-    default:
-        return "left";
+        case ToolbarLocation::Top: return "top";
+        case ToolbarLocation::Bottom: return "bottom";
+        case ToolbarLocation::Left: return "left";
+        case ToolbarLocation::Right: return "right";
+        default: return "left";
     }
 }
+
 
 static std::string page_location_to_string(PageLocation location)
 {
     switch (location) {
-    case PageLocation::Left:
-        return "left";
-    case PageLocation::Center:
-        return "center";
-    default:
-        return "top";
+        case PageLocation::Left: return "left";
+        case PageLocation::Center: return "center";
+        default: return "top";
     }
 }
 
-static bool string_to_toolbar_location(const std::string &str, ToolbarLocation &location)
+
+static bool string_to_toolbar_location(const std::string& str, ToolbarLocation& location)
 {
     if (str == "top") {
         location = ToolbarLocation::Top;
@@ -162,7 +159,8 @@ static bool string_to_toolbar_location(const std::string &str, ToolbarLocation &
     return false;
 }
 
-static bool string_to_page_location(const std::string &str, PageLocation &location)
+
+static bool string_to_page_location(const std::string& str, PageLocation& location)
 {
     if (str == "left") {
         location = PageLocation::Left;
@@ -178,13 +176,12 @@ static bool string_to_page_location(const std::string &str, PageLocation &locati
 
 // Constructor
 ConfigFile::ConfigFile(bool reset_on_error)
-    : filename_(get_persistent_config_path("MusicReader.config")),
-    save_operation_enabled_(true)
+    : filename_(get_persistent_config_path("MusicReader.config"))
+    , save_operation_enabled_(true)
 {
     set_defaults();
     read(reset_on_error);
 }
-
 
 
 // Method to read configuration from file with improved error handling
@@ -193,7 +190,7 @@ void ConfigFile::read(bool reset_on_error)
     bool valid_file = false; // Flag to indicate successful parsing
     json j;
 
-    //std::cout << "Reading config file: " << filename_.string() << std::endl;
+    // std::cout << "Reading config file: " << filename_.string() << std::endl;
     std::ifstream infile(filename_);
     if (!infile.is_open()) {
         logger::error("Config file not found: " + filename_.string());
@@ -202,7 +199,7 @@ void ConfigFile::read(bool reset_on_error)
 
     try {
         infile >> j;
-    } catch (const json::parse_error &e) {
+    } catch (const json::parse_error& e) {
         logger::error("JSON parse error: " + std::string(e.what()));
         goto CLEANUP;
     }
@@ -274,10 +271,10 @@ void ConfigFile::read(bool reset_on_error)
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         int default_tab_order = 0;
-        for (const auto &doc : j["open_documents"]) {
-            if (doc.contains("filename") && doc["filename"].is_string() &&
-                doc.contains("page") && doc["page"].is_number_integer() &&
-                doc.contains("page_count") && doc["page_count"].is_number_integer()) {
+        for (const auto& doc : j["open_documents"]) {
+            if (doc.contains("filename") && doc["filename"].is_string() && doc.contains("page") &&
+                doc["page"].is_number_integer() && doc.contains("page_count") &&
+                doc["page_count"].is_number_integer()) {
 
                 OpenDocument od;
                 std::string filename_str = doc["filename"].get<std::string>();
@@ -288,13 +285,13 @@ void ConfigFile::read(bool reset_on_error)
                 if (doc.contains("access_order") && doc["access_order"].is_number_integer())
                     od.access_order = doc["access_order"].get<int>();
                 else
-                    od.access_order = -1;  // Mark as needs assignment
+                    od.access_order = -1; // Mark as needs assignment
 
                 // Handle tab_order for backward compatibility
                 if (doc.contains("tab_order") && doc["tab_order"].is_number_integer())
                     od.tab_order = doc["tab_order"].get<int>();
                 else
-                    od.tab_order = default_tab_order++;  // Use array position if missing
+                    od.tab_order = default_tab_order++; // Use array position if missing
 
                 open_documents_.push_back(od);
             } else {
@@ -308,7 +305,7 @@ void ConfigFile::read(bool reset_on_error)
         int max_order = 0;
 
         // First pass: collect valid orders
-        for (const auto &doc : open_documents_) {
+        for (const auto& doc : open_documents_) {
             if (doc.access_order > 0) {
                 used_orders.insert(doc.access_order);
                 max_order = std::max(max_order, doc.access_order);
@@ -316,7 +313,7 @@ void ConfigFile::read(bool reset_on_error)
         }
 
         // Second pass: assign unique orders to missing/invalid ones
-        for (auto &doc : open_documents_) {
+        for (auto& doc : open_documents_) {
             if (doc.access_order <= 0 || used_orders.count(doc.access_order) > 1) {
                 ++max_order;
                 doc.access_order = max_order;
@@ -329,7 +326,7 @@ void ConfigFile::read(bool reset_on_error)
         int max_tab_order = -1;
 
         // First pass: collect valid tab orders
-        for (const auto &doc : open_documents_) {
+        for (const auto& doc : open_documents_) {
             if (doc.tab_order >= 0) {
                 used_tab_orders.insert(doc.tab_order);
                 max_tab_order = std::max(max_tab_order, doc.tab_order);
@@ -337,7 +334,7 @@ void ConfigFile::read(bool reset_on_error)
         }
 
         // Second pass: assign unique tab orders to missing/invalid ones
-        for (auto &doc : open_documents_) {
+        for (auto& doc : open_documents_) {
             if (doc.tab_order < 0 || used_tab_orders.count(doc.tab_order) > 1) {
                 ++max_tab_order;
                 doc.tab_order = max_tab_order;
@@ -351,7 +348,7 @@ void ConfigFile::read(bool reset_on_error)
 
     if (j.contains("recent_documents") && j["recent_documents"].is_array()) {
         recent_documents_.clear();
-        for (const auto &path : j["recent_documents"]) {
+        for (const auto& path : j["recent_documents"]) {
             if (path.is_string()) {
                 std::string path_str = path.get<std::string>();
                 recent_documents_.emplace_back(std::filesystem::path(std::u8string(path_str.begin(), path_str.end())));
@@ -364,7 +361,7 @@ void ConfigFile::read(bool reset_on_error)
         logger::error("Invalid or missing 'recent_documents'");
 
 
-    app_size_ = { 0, 0, 1280, 1024 };
+    app_size_ = {0, 0, 1280, 1024};
     if (j.contains("app_size") && j["app_size"].is_array() && j["app_size"].size() == 4) {
         bool valid = true;
         std::array<int, 4> size = {};
@@ -382,7 +379,7 @@ void ConfigFile::read(bool reset_on_error)
     } else
         logger::info("Invalid or missing 'app_size'");
 
-    dev_dialog_size_ = { 0, 0, 0, 0 };
+    dev_dialog_size_ = {0, 0, 0, 0};
     if (j.contains("dev_dialog_size") && j["dev_dialog_size"].is_array() && j["dev_dialog_size"].size() == 4) {
         bool valid = true;
         std::array<int, 4> size = {};
@@ -473,8 +470,9 @@ void ConfigFile::read(bool reset_on_error)
         logger::error("Invalid or missing 'theme'");
 
 
-    fast_search_dialog_size_ = { 100, 100, 480, 320 };
-    if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() && j["fast_search_dialog_size"].size() == 4) {
+    fast_search_dialog_size_ = {100, 100, 480, 320};
+    if (j.contains("fast_search_dialog_size") && j["fast_search_dialog_size"].is_array() &&
+        j["fast_search_dialog_size"].size() == 4) {
         bool valid = true;
         std::array<int, 4> size = {};
         for (int i = 0; valid && i < 4; ++i) {
@@ -540,9 +538,9 @@ json ConfigFile::to_json() const
     j["allow_file_delete"] = allow_file_delete_;
 
     j["open_documents"] = json::array();
-    for (const auto &doc : open_documents_) {
+    for (const auto& doc : open_documents_) {
         json doc_json;
-        doc_json["filename"] = std::string(reinterpret_cast<const char *>(doc.filename.u8string().c_str()));
+        doc_json["filename"] = std::string(reinterpret_cast<const char*>(doc.filename.u8string().c_str()));
         doc_json["page"] = doc.page;
         doc_json["page_count"] = doc.page_count;
         doc_json["access_order"] = doc.access_order;
@@ -551,8 +549,8 @@ json ConfigFile::to_json() const
     }
 
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents_)
-        j["recent_documents"].push_back(std::string(reinterpret_cast<const char *>(path.u8string().c_str())));
+    for (const auto& path : recent_documents_)
+        j["recent_documents"].push_back(std::string(reinterpret_cast<const char*>(path.u8string().c_str())));
 
     j["app_size"] = app_size_;
     j["dev_dialog_size"] = dev_dialog_size_;
@@ -568,13 +566,12 @@ json ConfigFile::to_json() const
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;
     j["border_margin"] = border_margin_;
-    j["music_directory"] = std::string(reinterpret_cast<const char *>(music_directory_.u8string().c_str()));
+    j["music_directory"] = std::string(reinterpret_cast<const char*>(music_directory_.u8string().c_str()));
     j["log_level"] = log_level_to_string(log_level_);
     j["tour_has_run"] = tour_has_run_;
     j["append_to_log"] = append_to_log_;
     return j;
 }
-
 
 
 // Method to save configuration to file
@@ -590,7 +587,8 @@ void ConfigFile::save() const
 
     std::ofstream outfile(filename_, std::ios::out | std::ios::binary);
     if (!outfile.is_open()) {
-        logger::error("Failed to open config file for writing: " + std::string(reinterpret_cast<const char *>(filename_.u8string().c_str())));
+        logger::error("Failed to open config file for writing: " +
+                      std::string(reinterpret_cast<const char*>(filename_.u8string().c_str())));
         return;
     }
 
@@ -604,31 +602,44 @@ void ConfigFile::save() const
 // Validation method
 bool ConfigFile::validate() const
 {
-    if (file_version_ <= 0) return false;
+    if (file_version_ <= 0)
+        return false;
 
-    if (page_view_count_ != 1 && page_view_count_ != 2) return false;
-    if (page_step_size_ != 1 && page_step_size_ != 2) return false;
-    if (open_tab_ < -1) return false;
-    if (max_recent_documents_ < 0) return false;
-    if (save_cadence_secs_ < 0) return false;
-    if (dpi_ < 1) return false;
-    if (!(theme_ == Theme::Dark || theme_ == Theme::Light)) return false;
-    if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic || log_level_ != LogLevel::Trace)) return false;
+    if (page_view_count_ != 1 && page_view_count_ != 2)
+        return false;
+    if (page_step_size_ != 1 && page_step_size_ != 2)
+        return false;
+    if (open_tab_ < -1)
+        return false;
+    if (max_recent_documents_ < 0)
+        return false;
+    if (save_cadence_secs_ < 0)
+        return false;
+    if (dpi_ < 1)
+        return false;
+    if (!(theme_ == Theme::Dark || theme_ == Theme::Light))
+        return false;
+    if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic || log_level_ != LogLevel::Trace))
+        return false;
 
-    if (!(toolbar_location_ == ToolbarLocation::Top ||
-          toolbar_location_ == ToolbarLocation::Bottom ||
-          toolbar_location_ == ToolbarLocation::Left ||
-          toolbar_location_ == ToolbarLocation::Right)) return false;
+    if (!(toolbar_location_ == ToolbarLocation::Top || toolbar_location_ == ToolbarLocation::Bottom ||
+          toolbar_location_ == ToolbarLocation::Left || toolbar_location_ == ToolbarLocation::Right))
+        return false;
 
-    if (!(page_location_ == PageLocation::Left || page_location_ == PageLocation::Center)) return false;
-    if (!valid_window_rect(app_size_)) return false;
-    if (!valid_window_rect(fast_search_dialog_size_)) return false;
+    if (!(page_location_ == PageLocation::Left || page_location_ == PageLocation::Center))
+        return false;
+    if (!valid_window_rect(app_size_))
+        return false;
+    if (!valid_window_rect(fast_search_dialog_size_))
+        return false;
 
     // Validate tab_order values are unique and start from 0
     std::set<int> tab_orders;
-    for (const auto &doc : open_documents_) {
-        if (doc.tab_order < 0) return false;
-        if (tab_orders.count(doc.tab_order)) return false; // Duplicate
+    for (const auto& doc : open_documents_) {
+        if (doc.tab_order < 0)
+            return false;
+        if (tab_orders.count(doc.tab_order))
+            return false; // Duplicate
         tab_orders.insert(doc.tab_order);
     }
 
@@ -649,36 +660,38 @@ bool ConfigFile::fix()
 }
 
 // Document management methods
-void ConfigFile::add_recent_document(const std::filesystem::path &path)
+void ConfigFile::add_recent_document(const std::filesystem::path& path)
 {
     // Remove if already exists
-    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path), recent_documents_.end());
+    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path),
+                            recent_documents_.end());
     // Add to the end
     recent_documents_.push_back(path);
     // Trim to max_recent_documents
     if (recent_documents_.size() > static_cast<size_t>(max_recent_documents_)) {
-        recent_documents_.erase(recent_documents_.begin(), recent_documents_.begin() + (recent_documents_.size() - max_recent_documents_));
+        recent_documents_.erase(recent_documents_.begin(),
+                                recent_documents_.begin() + (recent_documents_.size() - max_recent_documents_));
     }
     save();
 }
 
-void ConfigFile::remove_recent_document(const std::filesystem::path &path)
+void ConfigFile::remove_recent_document(const std::filesystem::path& path)
 {
-    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path), recent_documents_.end());
+    recent_documents_.erase(std::remove(recent_documents_.begin(), recent_documents_.end(), path),
+                            recent_documents_.end());
     save();
 }
 
-void ConfigFile::remove_recent_documents(const std::vector<std::filesystem::path> &paths)
+void ConfigFile::remove_recent_documents(const std::vector<std::filesystem::path>& paths)
 {
-    for (const auto &path : paths) {
+    for (const auto& path : paths) {
         remove_recent_document(path);
     }
 }
 
-void ConfigFile::update_document_access(const std::filesystem::path &filepath)
+void ConfigFile::update_document_access(const std::filesystem::path& filepath)
 {
-    auto it = std::find_if(open_documents_.begin(), open_documents_.end(),
-        [&filepath](const OpenDocument &doc) {
+    auto it = std::find_if(open_documents_.begin(), open_documents_.end(), [&filepath](const OpenDocument& doc) {
         return doc.filename == filepath;
     });
 
@@ -688,8 +701,7 @@ void ConfigFile::update_document_access(const std::filesystem::path &filepath)
         open_documents_.erase(it);
 
         // Renumber remaining documents
-        std::sort(open_documents_.begin(), open_documents_.end(),
-                  [](const OpenDocument &a, const OpenDocument &b) {
+        std::sort(open_documents_.begin(), open_documents_.end(), [](const OpenDocument& a, const OpenDocument& b) {
             return a.access_order < b.access_order;
         });
 
@@ -706,13 +718,12 @@ void ConfigFile::update_document_access(const std::filesystem::path &filepath)
 }
 
 
-void ConfigFile::set_open_documents(const std::vector<OpenDocument> &value)
+void ConfigFile::set_open_documents(const std::vector<OpenDocument>& value)
 {
     open_documents_ = value;
 
     // Sort by access_order and renumber to be consecutive
-    std::sort(open_documents_.begin(), open_documents_.end(),
-              [](const OpenDocument &a, const OpenDocument &b) {
+    std::sort(open_documents_.begin(), open_documents_.end(), [](const OpenDocument& a, const OpenDocument& b) {
         return a.access_order < b.access_order;
     });
 
@@ -721,8 +732,7 @@ void ConfigFile::set_open_documents(const std::vector<OpenDocument> &value)
     }
 
     // Ensure tab_order values are valid and consecutive
-    std::sort(open_documents_.begin(), open_documents_.end(),
-              [](const OpenDocument &a, const OpenDocument &b) {
+    std::sort(open_documents_.begin(), open_documents_.end(), [](const OpenDocument& a, const OpenDocument& b) {
         return a.tab_order < b.tab_order;
     });
 
@@ -734,20 +744,20 @@ void ConfigFile::set_open_documents(const std::vector<OpenDocument> &value)
 }
 
 
-void ConfigFile::add_new_document(const std::filesystem::path &filepath, int page, int page_count)
+void ConfigFile::add_new_document(const std::filesystem::path& filepath, int page, int page_count)
 {
     // Increment all existing documents' access_order
-    for (auto &doc : open_documents_)
+    for (auto& doc : open_documents_)
         ++doc.access_order;
 
     // Find the highest tab_order
     int max_tab_order = -1;
-    for (const auto &doc : open_documents_) {
+    for (const auto& doc : open_documents_) {
         max_tab_order = std::max(max_tab_order, doc.tab_order);
     }
 
     // Add new document with access_order = 1 and tab_order at the end
-    open_documents_.push_back({ filepath, page, page_count, 1, max_tab_order + 1 });
+    open_documents_.push_back({filepath, page, page_count, 1, max_tab_order + 1});
 
     save();
 }
@@ -767,8 +777,8 @@ void ConfigFile::set_defaults()
     allow_file_delete_ = false;
     open_documents_.clear();
     recent_documents_.clear();
-    app_size_ = { 10, 10, 1280, 1024 };
-    dev_dialog_size_ = { 0, 0, 0, 0 };
+    app_size_ = {10, 10, 1280, 1024};
+    dev_dialog_size_ = {0, 0, 0, 0};
 
     toolbar_location_ = ToolbarLocation::Left;
     page_location_ = PageLocation::Center;
@@ -780,7 +790,7 @@ void ConfigFile::set_defaults()
     dpi_ = 360;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
-    fast_search_dialog_size_ = { -1, -1, 640, 800 };
+    fast_search_dialog_size_ = {-1, -1, 640, 800};
     border_margin_ = 10;
     music_directory_ = "";
     log_level_ = LogLevel::Normal;
@@ -805,7 +815,7 @@ std::string ConfigFile::repr() const
 
     // Serialize open_documents
     j["open_documents"] = json::array();
-    for (const auto &doc : open_documents_) {
+    for (const auto& doc : open_documents_) {
         json doc_json;
         doc_json["filename"] = doc.filename.string();
         doc_json["page"] = doc.page;
@@ -817,7 +827,7 @@ std::string ConfigFile::repr() const
 
     // Serialize recent_documents
     j["recent_documents"] = json::array();
-    for (const auto &path : recent_documents_) {
+    for (const auto& path : recent_documents_) {
         j["recent_documents"].push_back(path.string());
     }
 
@@ -843,22 +853,25 @@ std::string ConfigFile::repr() const
 
 void ConfigFile::filenames_to_os_convention()
 {
-    for (auto &doc : open_documents_) {
+    for (auto& doc : open_documents_) {
         doc.filename = path_to_os_convention(doc.filename);
     }
-    for (auto &path : recent_documents_) {
+    for (auto& path : recent_documents_) {
         path = path_to_os_convention(path);
     }
     music_directory_ = path_to_os_convention(music_directory_);
 }
 
 // Helper functions for validation
-bool ConfigFile::valid_window_rect(const std::array<int, 4> &vec) const
+bool ConfigFile::valid_window_rect(const std::array<int, 4>& vec) const
 {
     // First two can be -1 or >=0
-    if (vec[0] < -1 || vec[1] < -1) return false;
+    if (vec[0] < -1 || vec[1] < -1)
+        return false;
+
     // Last two must be >0
-    if (vec[2] <= 0 || vec[3] <= 0) return false;
+    if (vec[2] <= 0 || vec[3] <= 0)
+        return false;
     return true;
 }
 
@@ -866,24 +879,25 @@ void ConfigFile::remove_duplicate_documents()
 {
     // Remove duplicates in open_documents
     open_documents_.erase(std::unique(open_documents_.begin(), open_documents_.end(),
-                                      [&](const OpenDocument &a, const OpenDocument &b) -> bool {
-        return point_to_same_file(a.filename, b.filename);
-    }), open_documents_.end());
+                                      [&](const OpenDocument& a, const OpenDocument& b) -> bool {
+                                          return point_to_same_file(a.filename, b.filename);
+                                      }),
+                          open_documents_.end());
 
     // Remove duplicates in recent_documents
     recent_documents_.erase(std::unique(recent_documents_.begin(), recent_documents_.end(),
-                                        [&](const std::filesystem::path &a, const std::filesystem::path &b) -> bool {
-        return point_to_same_file(a, b);
-    }), recent_documents_.end());
+                                        [&](const std::filesystem::path& a, const std::filesystem::path& b) -> bool {
+                                            return point_to_same_file(a, b);
+                                        }),
+                            recent_documents_.end());
 }
 
 
-std::vector<std::filesystem::path> ConfigFile::remove_duplicates(const std::vector<std::filesystem::path> &docs) const
+std::vector<std::filesystem::path> ConfigFile::remove_duplicates(const std::vector<std::filesystem::path>& docs) const
 {
     std::vector<std::filesystem::path> unique;
-    for (const auto &doc : docs) {
-        bool exists = std::any_of(unique.begin(), unique.end(),
-                                  [&](const std::filesystem::path &existing) -> bool {
+    for (const auto& doc : docs) {
+        bool exists = std::any_of(unique.begin(), unique.end(), [&](const std::filesystem::path& existing) -> bool {
             return point_to_same_file(doc, existing);
         });
         if (!exists) {
@@ -895,13 +909,14 @@ std::vector<std::filesystem::path> ConfigFile::remove_duplicates(const std::vect
     return unique;
 }
 
+
 bool ConfigFile::remove_missing_documents()
 {
     bool all_exist = true;
 
     // Check open_documents
     std::vector<OpenDocument> valid_open_docs;
-    for (const auto &doc : open_documents_) {
+    for (const auto& doc : open_documents_) {
         if (std::filesystem::exists(doc.filename)) {
             valid_open_docs.push_back(doc);
         } else {
@@ -913,7 +928,7 @@ bool ConfigFile::remove_missing_documents()
 
     // Check recent_documents
     std::vector<std::filesystem::path> valid_recent_docs;
-    for (const auto &path : recent_documents_) {
+    for (const auto& path : recent_documents_) {
         if (std::filesystem::exists(path)) {
             valid_recent_docs.push_back(path);
         } else {
@@ -926,20 +941,20 @@ bool ConfigFile::remove_missing_documents()
     return all_exist;
 }
 
+
 void ConfigFile::remove_recent_in_open_documents()
 {
     std::vector<std::filesystem::path> filtered_recent;
-    for (const auto &recent : recent_documents_) {
+    for (const auto& recent : recent_documents_) {
         bool is_open = false;
-        for (const auto &open_doc : open_documents_) {
+        for (const auto& open_doc : open_documents_) {
             if (point_to_same_file(recent, open_doc.filename)) {
                 is_open = true;
                 break;
             }
         }
-        if (!is_open) {
+        if (!is_open)
             filtered_recent.push_back(recent);
-        }
     }
     recent_documents_ = filtered_recent;
 }

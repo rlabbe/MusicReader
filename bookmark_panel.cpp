@@ -6,7 +6,8 @@
 #include "pdf_viewer.h"
 #include "exception_logger.h"
 
-BookmarkPanel::BookmarkPanel(MusicReader *main_window)
+
+BookmarkPanel::BookmarkPanel(MusicReader* main_window)
     : QWidget(main_window)
     , main_window_(main_window)
     , visible_(true)
@@ -14,20 +15,24 @@ BookmarkPanel::BookmarkPanel(MusicReader *main_window)
     init_ui();
 }
 
-void BookmarkPanel::dropEvent(QDropEvent *event)
+
+void BookmarkPanel::dropEvent(QDropEvent* event)
 {
     SAFE_METHOD;
 
     auto doc = document();
-    if (!doc) return;
+    if (!doc)
+        return;
 
-    auto *target_item = tree_widget_->itemAt(event->position().toPoint());
+    auto* target_item = tree_widget_->itemAt(event->position().toPoint());
     auto selected_items = tree_widget_->selectedItems();
 
-    if (!target_item || selected_items.isEmpty()) return;
+    if (!target_item || selected_items.isEmpty())
+        return;
+
     auto target_handle = handle_of(target_item);
 
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items) {
         auto handle = handle_of(item);
         doc->reparent_bookmark(handle, target_handle);
     }
@@ -40,7 +45,7 @@ void BookmarkPanel::init_ui()
 {
     SAFE_METHOD;
 
-    auto *layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
@@ -54,7 +59,7 @@ void BookmarkPanel::init_ui()
     layout->addWidget(tree_widget_);
 
     button_bar_ = new QWidget();
-    auto *button_layout = new QHBoxLayout(button_bar_);
+    auto* button_layout = new QHBoxLayout(button_bar_);
     button_layout->setContentsMargins(2, 2, 2, 2);
     button_layout->setSpacing(5);
 
@@ -73,7 +78,7 @@ void BookmarkPanel::init_ui()
     button_layout->addWidget(delete_button_);
 
     // Separator
-    QFrame *separator = new QFrame();
+    QFrame* separator = new QFrame();
     separator->setFrameShape(QFrame::VLine);
     separator->setFrameShadow(QFrame::Sunken);
     button_layout->addWidget(separator);
@@ -98,8 +103,8 @@ void BookmarkPanel::init_ui()
     button_layout->addStretch();
     layout->insertWidget(1, button_bar_);
 
-    QWidget *second_button_bar = new QWidget();
-    auto *second_button_layout = new QHBoxLayout(second_button_bar);
+    QWidget* second_button_bar = new QWidget();
+    auto* second_button_layout = new QHBoxLayout(second_button_bar);
     second_button_layout->setContentsMargins(2, 2, 2, 2);
     second_button_layout->setSpacing(5);
 
@@ -111,12 +116,11 @@ void BookmarkPanel::init_ui()
     second_button_layout->addStretch();
     layout->insertWidget(2, second_button_bar);
 
-
     setup_context_menu();
     setup_shortcuts();
     adjust_width();
-    //update_undo_redo_buttons();
 }
+
 
 void BookmarkPanel::update_undo_redo_buttons()
 {
@@ -158,18 +162,18 @@ void BookmarkPanel::toggle_visibility()
 }
 
 
-void BookmarkPanel::show_context_menu(const QPoint &position)
+void BookmarkPanel::show_context_menu(const QPoint& position)
 {
     SAFE_METHOD;
 
     QMenu menu(tree_widget_);
-    auto *add_action = menu.addAction("Create Bookmark");
-    auto *add_nested_action = menu.addAction("Create Nested Bookmark");
+    auto* add_action = menu.addAction("Create Bookmark");
+    auto* add_nested_action = menu.addAction("Create Nested Bookmark");
 
     auto selected_items = tree_widget_->selectedItems();
-    QAction *indent_action = nullptr;
-    QAction *unindent_action = nullptr;
-    QAction *delete_action = nullptr;
+    QAction* indent_action = nullptr;
+    QAction* unindent_action = nullptr;
+    QAction* delete_action = nullptr;
 
     if (!selected_items.isEmpty()) {
         indent_action = menu.addAction("Indent (Ctrl++)");
@@ -177,12 +181,12 @@ void BookmarkPanel::show_context_menu(const QPoint &position)
         delete_action = menu.addAction("Delete (DEL)");
     }
 
-    QAction *action = menu.exec(tree_widget_->viewport()->mapToGlobal(position));
+    QAction* action = menu.exec(tree_widget_->viewport()->mapToGlobal(position));
 
     if (action == add_action)
         add_bookmark();
     else if (action == add_nested_action && !selected_items.isEmpty())
-        ; //TODO add_child_bookmark(selected_items.last());
+        ; // TODO add_child_bookmark(selected_items.last());
     else if (action == indent_action)
         indent_selected_bookmarks();
     else if (action == unindent_action)
@@ -192,15 +196,15 @@ void BookmarkPanel::show_context_menu(const QPoint &position)
 }
 
 
-void BookmarkPanel::add_items(const std::vector<Bookmark> &bookmarks, QTreeWidgetItem *parent)
+void BookmarkPanel::add_items(const std::vector<Bookmark>& bookmarks, QTreeWidgetItem* parent)
 {
     SAFE_METHOD;
 
-    for (const auto &bookmark : bookmarks) {
+    for (const auto& bookmark : bookmarks) {
         QString title = QString::fromStdString(bookmark.title_);
         title.replace('\n', ' ').replace('\r', ' '); // don't allow newlines in titles
 
-        auto *item = new QTreeWidgetItem(QStringList() << title);
+        auto* item = new QTreeWidgetItem(QStringList() << title);
         set_item_info(item, bookmark);
 
         if (parent)
@@ -218,31 +222,15 @@ void BookmarkPanel::populate()
 {
     SAFE_METHOD;
 
-    //update_undo_redo_buttons();
-
     tree_widget_->clear();
     auto doc = document();
-    if (!doc || doc->bookmarks().empty()) return;
+    if (!doc || doc->bookmarks().empty())
+        return;
 
-    add_items(doc->bookmarks(), nullptr);  // Start with top-level bookmarks
+    add_items(doc->bookmarks(), nullptr); // Start with top-level bookmarks
 
     tree_widget_->expandAll();
     adjust_width();
-    return_focus_to_main();
-}
-
-
-
-void BookmarkPanel::return_focus_to_main()
-{
-    SAFE_METHOD;
-
-    /*if (!main_window_)
-        return;
-
-    auto *current_viewer = main_window_->current_viewer();
-    if (current_viewer)
-        current_viewer->setFocus();*/
 }
 
 
@@ -255,13 +243,13 @@ void BookmarkPanel::adjust_width()
     setMinimumWidth(std::max(content_width + 20, 100));
 }
 
-void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem *item, int)
+
+void BookmarkPanel::on_bookmark_clicked(QTreeWidgetItem* item, int)
 {
     SAFE_METHOD;
 
     int page_num = page_num_of(item);
     emit bookmark_clicked(page_num);
-    return_focus_to_main();
 }
 
 
@@ -273,7 +261,7 @@ std::shared_ptr<Document> BookmarkPanel::document() const
 }
 
 
-void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
+void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem* item, int)
 {
     SAFE_METHOD;
 
@@ -284,10 +272,10 @@ void BookmarkPanel::on_bookmark_edited(QTreeWidgetItem *item, int)
     auto new_title = title_of(item);
     auto handle = handle_of(item);
 
-    if (new_title.empty()) return;
+    if (new_title.empty())
+        return;
 
     doc->rename_bookmark(handle, new_title);
-    return_focus_to_main();
 }
 
 
@@ -301,14 +289,14 @@ void BookmarkPanel::delete_selected_bookmark()
 
     auto selected_items = tree_widget_->selectedItems();
 
-    if (selected_items.isEmpty()) return;
+    if (selected_items.isEmpty())
+        return;
 
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items) {
         auto handle = handle_of(item);
         doc->remove_bookmark(handle);
     }
     populate();
-    return_focus_to_main();
 }
 
 
@@ -325,7 +313,6 @@ void BookmarkPanel::add_bookmark()
     setVisible(true);
     populate();
 
-
     if (!save_succcess) {
         logger::error("Failed to save bookmark");
         main_window_->display_error_message("Failed to save bookmark");
@@ -334,7 +321,7 @@ void BookmarkPanel::add_bookmark()
 
     // enter edit mode, because you almost certainly want to change
     // the name from "Untitled"
-    auto *item = find_item_by_handle(handle);
+    auto* item = find_item_by_handle(handle);
     if (item) {
         tree_widget_->setCurrentItem(item);
         tree_widget_->editItem(item, 0);
@@ -342,30 +329,32 @@ void BookmarkPanel::add_bookmark()
 }
 
 
-QTreeWidgetItem *BookmarkPanel::find_item_recursive(QTreeWidgetItem *item, const BookmarkHandle &handle)
+QTreeWidgetItem* BookmarkPanel::find_item_recursive(QTreeWidgetItem* item, const BookmarkHandle& handle)
 {
     SAFE_METHOD;
 
     if (handle_of(item) == handle)
         return item;
+
     for (int i = 0; i < item->childCount(); ++i) {
-        if (auto *found = find_item_recursive(item->child(i), handle))
+        if (auto* found = find_item_recursive(item->child(i), handle))
             return found;
     }
     return nullptr;
 }
 
 
-QTreeWidgetItem *BookmarkPanel::find_item_by_handle(const BookmarkHandle &handle)
+QTreeWidgetItem* BookmarkPanel::find_item_by_handle(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
 
     for (int i = 0; i < tree_widget_->topLevelItemCount(); ++i) {
-        if (auto *found = find_item_recursive(tree_widget_->topLevelItem(i), handle))
+        if (auto* found = find_item_recursive(tree_widget_->topLevelItem(i), handle))
             return found;
     }
     return nullptr;
 }
+
 
 bool BookmarkPanel::can_undo() const
 {
@@ -375,6 +364,7 @@ bool BookmarkPanel::can_undo() const
     return doc && doc->can_undo();
 }
 
+
 bool BookmarkPanel::can_redo() const
 {
     SAFE_METHOD;
@@ -382,6 +372,7 @@ bool BookmarkPanel::can_redo() const
     auto doc = document();
     return doc && doc->can_redo();
 }
+
 
 void BookmarkPanel::undo()
 {
@@ -394,6 +385,7 @@ void BookmarkPanel::undo()
     doc->undo();
     populate();
 }
+
 
 void BookmarkPanel::redo()
 {
@@ -408,27 +400,27 @@ void BookmarkPanel::redo()
 }
 
 
-BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem *item) const
+BookmarkHandle BookmarkPanel::handle_of(QTreeWidgetItem* item) const
 {
     SAFE_METHOD;
 
     if (item)
         return BookmarkHandle(item->data(0, Qt::UserRole + 1).toInt());
 
-
     logger::error("nullptr to item");
     return {};
-
 }
 
-int BookmarkPanel::page_num_of(QTreeWidgetItem *item) const
+
+int BookmarkPanel::page_num_of(QTreeWidgetItem* item) const
 {
     SAFE_METHOD;
 
     return item->data(0, Qt::UserRole).toInt();
 }
 
-std::string BookmarkPanel::title_of(QTreeWidgetItem *item) const
+
+std::string BookmarkPanel::title_of(QTreeWidgetItem* item) const
 {
     SAFE_METHOD;
 
@@ -436,7 +428,7 @@ std::string BookmarkPanel::title_of(QTreeWidgetItem *item) const
 }
 
 
-void BookmarkPanel::set_item_info(QTreeWidgetItem *item, const Bookmark &bookmark)
+void BookmarkPanel::set_item_info(QTreeWidgetItem* item, const Bookmark& bookmark)
 {
     SAFE_METHOD;
 
@@ -451,10 +443,10 @@ QList<int> BookmarkPanel::selected_rows() const
     SAFE_METHOD;
 
     auto selected_items = tree_widget_->selectedItems();
-    auto *parent = selected_items.first()->parent();
+    auto* parent = selected_items.first()->parent();
 
     QList<int> rows;
-    for (auto *item : selected_items)
+    for (auto* item : selected_items)
         rows.append(parent ? parent->indexOfChild(item) : tree_widget_->indexOfTopLevelItem(item));
 
     std::sort(rows.begin(), rows.end());
@@ -471,8 +463,8 @@ bool BookmarkPanel::is_bookmark_selected(bool indent) const
         return false;
 
     // All items must have the same parent
-    auto *parent = selected_items.first()->parent();
-    for (auto *item : selected_items) {
+    auto* parent = selected_items.first()->parent();
+    for (auto* item : selected_items) {
         if (item->parent() != parent)
             return false;
     }
@@ -507,22 +499,19 @@ void BookmarkPanel::indent_selected_bookmarks()
 
     // Store handles of selected bookmarks
     std::vector<BookmarkHandle> selected_handles;
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items)
         selected_handles.push_back(handle_of(item));
-    }
 
-    auto *parent = selected_items.first()->parent();
+    auto* parent = selected_items.first()->parent();
     QList<int> rows = selected_rows();
     int first_row = rows.first();
 
-    QTreeWidgetItem *new_parent =
-        parent ? parent->child(first_row - 1)
-        : tree_widget_->topLevelItem(first_row - 1);
+    QTreeWidgetItem* new_parent = parent ? parent->child(first_row - 1) : tree_widget_->topLevelItem(first_row - 1);
 
     if (!new_parent)
         return;
 
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items) {
         BookmarkHandle handle = handle_of(item);
         BookmarkHandle new_parent_handle = handle_of(new_parent);
         doc->reparent_bookmark(handle, new_parent_handle);
@@ -532,8 +521,8 @@ void BookmarkPanel::indent_selected_bookmarks()
 
     // Restore selection
     tree_widget_->clearSelection();
-    for (const auto &handle : selected_handles) {
-        auto *item = find_item_by_handle(handle);
+    for (const auto& handle : selected_handles) {
+        auto* item = find_item_by_handle(handle);
         if (item) {
             item->setSelected(true);
         }
@@ -553,11 +542,10 @@ void BookmarkPanel::unindent_selected_bookmarks()
 
     // Store handles of selected bookmarks
     std::vector<BookmarkHandle> selected_handles;
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items)
         selected_handles.push_back(handle_of(item));
-    }
 
-    for (auto *item : selected_items) {
+    for (auto* item : selected_items) {
         auto handle = handle_of(item);
         doc->unindent_bookmark(handle);
     }
@@ -566,29 +554,34 @@ void BookmarkPanel::unindent_selected_bookmarks()
 
     // Restore selection
     tree_widget_->clearSelection();
-    for (const auto &handle : selected_handles) {
-        auto *item = find_item_by_handle(handle);
-        if (item) {
+    for (const auto& handle : selected_handles) {
+        auto* item = find_item_by_handle(handle);
+        if (item)
             item->setSelected(true);
-        }
     }
 }
+
 
 void BookmarkPanel::select_page(int page_num)
 {
     SAFE_METHOD;
 
-    if (tracking_paused_) return;
-    if (!follow_page_checkbox_->isChecked()) return;
+    if (tracking_paused_)
+        return;
+    if (!follow_page_checkbox_->isChecked())
+        return;
     auto doc = document();
-    if (!doc) return;
+    if (!doc)
+        return;
 
     BookmarkHandle target_handle = find_bookmark_for_page(page_num, doc->bookmarks());
-    if (!target_handle) return;
+    if (!target_handle)
+        return;
 
     // Find the tree widget item for this bookmark
-    auto *item = find_item_by_handle(target_handle);
-    if (!item) return;
+    auto* item = find_item_by_handle(target_handle);
+    if (!item)
+        return;
 
     // Clear current selection and select the found item
     tree_widget_->clearSelection();
@@ -597,18 +590,18 @@ void BookmarkPanel::select_page(int page_num)
     tree_widget_->setFocus();
 }
 
-std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(const std::vector<Bookmark> &bookmarks)
+
+std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(const std::vector<Bookmark>& bookmarks)
 {
     std::vector<std::pair<int, BookmarkHandle>> flattened;
 
-    std::function<void(const std::vector<Bookmark> &)> flatten = [&](const std::vector<Bookmark> &bmarks) {
-        for (const auto &bookmark : bmarks) {
-            if (bookmark.page_num_.has_value()) {
+    std::function<void(const std::vector<Bookmark>&)> flatten = [&](const std::vector<Bookmark>& bmarks) {
+        for (const auto& bookmark : bmarks) {
+            if (bookmark.page_num_.has_value())
                 flattened.emplace_back(bookmark.page_num_.value(), bookmark.handle_);
-            }
-            if (!bookmark.children_.empty()) {
+
+            if (!bookmark.children_.empty())
                 flatten(bookmark.children_);
-            }
         }
     };
 
@@ -616,13 +609,13 @@ std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(con
     return flattened;
 }
 
-BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
+
+BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark>& bookmarks)
 {
     auto flattened = flatten_bookmarks(bookmarks);
 
     // Find the last bookmark with page <= page_num
-    auto it = std::upper_bound(flattened.begin(), flattened.end(), page_num,
-                              [](int page, const auto &bookmark) {
+    auto it = std::upper_bound(flattened.begin(), flattened.end(), page_num, [](int page, const auto& bookmark) {
         return page < bookmark.first;
     });
 
@@ -634,19 +627,18 @@ BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::ve
     return BookmarkHandle();
 }
 
-BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vector<Bookmark> &bookmarks)
+
+BookmarkHandle BookmarkPanel::find_bookmark_by_page(int page_num, const std::vector<Bookmark>& bookmarks)
 {
     auto flattened = flatten_bookmarks(bookmarks);
 
     // Binary search for the first bookmark with page == page_num
-    auto it = std::lower_bound(flattened.begin(), flattened.end(), page_num,
-                              [](const auto &bookmark, int page) {
+    auto it = std::lower_bound(flattened.begin(), flattened.end(), page_num, [](const auto& bookmark, int page) {
         return bookmark.first < page;
     });
 
-    if (it != flattened.end() && it->first == page_num) {
-        return it->second;  // Exact match - returns first bookmark on this page
-    }
+    if (it != flattened.end() && it->first == page_num)
+        return it->second; // Exact match - returns first bookmark on this page
 
     return BookmarkHandle();
 }

@@ -14,15 +14,23 @@ private:
 
 public:
     AnnotationHandle() = default;
-    explicit AnnotationHandle(int h) : handle_(h) {}
+    explicit AnnotationHandle(int h)
+        : handle_(h)
+    {
+    }
 
-    AnnotationHandle &operator=(int h) { handle_ = h; return *this; }
+    AnnotationHandle& operator=(int h)
+    {
+        handle_ = h;
+        return *this;
+    }
+
     operator int() const { return handle_; }
     operator bool() const { return handle_ != NO_HANDLE; }
     void clear() { handle_ = NO_HANDLE; }
 };
 
-inline bool operator==(const AnnotationHandle &lhs, const AnnotationHandle &rhs)
+inline bool operator==(const AnnotationHandle& lhs, const AnnotationHandle& rhs)
 {
     return static_cast<int>(lhs) == static_cast<int>(rhs);
 }
@@ -30,7 +38,8 @@ inline bool operator==(const AnnotationHandle &lhs, const AnnotationHandle &rhs)
 
 class Annotation {
 public:
-    Annotation(const std::string &text, int page_num, float x, float y, float width, float height, const FontInfo &font_info);
+    Annotation(const std::string& text, int page_num, float x, float y, float width, float height,
+               const FontInfo& font_info);
 
 private:
     int generate_uuid();

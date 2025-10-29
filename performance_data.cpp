@@ -12,7 +12,7 @@ std::filesystem::path PerformanceData::get_filename(std::filesystem::path path) 
 }
 
 
-bool PerformanceData::load(const std::filesystem::path &pdf_path)
+bool PerformanceData::load(const std::filesystem::path& pdf_path)
 {
     auto fname = get_filename(pdf_path);
 
@@ -88,7 +88,7 @@ bool PerformanceData::load(const std::filesystem::path &pdf_path)
 }
 
 
-bool PerformanceData::save(const std::filesystem::path &pdf_path) const
+bool PerformanceData::save(const std::filesystem::path& pdf_path) const
 {
     if (empty())
         return true;
@@ -103,7 +103,7 @@ bool PerformanceData::save(const std::filesystem::path &pdf_path) const
 
     if (!page_breaks_.empty()) {
         file << "[page_breaks]\n";
-        for (const auto &[page_num, positions] : page_breaks_) {
+        for (const auto& [page_num, positions] : page_breaks_) {
             for (double pos : positions)
                 file << "page: " << page_num << ", position: " << pos << "\n";
         }
@@ -115,7 +115,7 @@ bool PerformanceData::save(const std::filesystem::path &pdf_path) const
 
 void PerformanceData::add_page_break(int page_num, double normalized_position)
 {
-    auto &breaks = page_breaks_[page_num];
+    auto& breaks = page_breaks_[page_num];
 
     if (std::find(breaks.begin(), breaks.end(), normalized_position) == breaks.end()) {
         breaks.push_back(normalized_position);
@@ -130,12 +130,13 @@ void PerformanceData::remove_page_break(int page_num, double normalized_position
     if (it == page_breaks_.end())
         return;
 
-    auto &breaks = it->second;
+    auto& breaks = it->second;
     // Use epsilon comparison since we're dealing with floating point
     breaks.erase(std::remove_if(breaks.begin(), breaks.end(),
                                 [normalized_position](double pos) {
-        return std::abs(pos - normalized_position) < 1e-6;
-    }), breaks.end());
+                                    return std::abs(pos - normalized_position) < 1e-6;
+                                }),
+                 breaks.end());
 
     // Remove the page entry entirely if no breaks remain
     if (breaks.empty())
@@ -155,7 +156,7 @@ void PerformanceData::clear()
 }
 
 
-const std::vector<double> &PerformanceData::get_page_breaks(int page_num) const
+const std::vector<double>& PerformanceData::get_page_breaks(int page_num) const
 {
     static const std::vector<double> empty;
     auto it = page_breaks_.find(page_num);

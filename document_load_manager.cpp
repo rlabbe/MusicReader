@@ -8,8 +8,7 @@
 #include "logger.h"
 
 
-
-DocumentLoadManager *DocumentLoadManager::instance_ = nullptr;
+DocumentLoadManager* DocumentLoadManager::instance_ = nullptr;
 
 DocumentLoadManager::DocumentLoadManager(int max_threads)
     : QObject(nullptr)
@@ -25,10 +24,9 @@ DocumentLoadManager::~DocumentLoadManager()
     stop_loading();
 
     // Wait for all active futures to actually finish
-    for (auto &future : active_futures_) {
-        if (!future.isFinished()) {
+    for (auto& future : active_futures_) {
+        if (!future.isFinished())
             future.waitForFinished();
-        }
     }
     instance_ = nullptr;
 }
@@ -39,8 +37,9 @@ void DocumentLoadManager::add_document(std::shared_ptr<Document> doc)
     std::filesystem::path filename = doc->filename();
     logger::debug("ADD_DOCUMENT: " + filename.stem().string());
 
-    auto it = std::find_if(documents_.begin(), documents_.end(),
-                          [&filename](const auto &d) { return d->filename() == filename; });
+    auto it = std::find_if(documents_.begin(), documents_.end(), [&filename](const auto& d) {
+        return d->filename() == filename;
+    });
 
     if (it == documents_.end()) {
         documents_.push_back(doc);
@@ -52,6 +51,7 @@ void DocumentLoadManager::add_document(std::shared_ptr<Document> doc)
         submit_next_jobs();
     }
 }
+
 
 void DocumentLoadManager::end_group_changes()
 {
@@ -65,8 +65,7 @@ void DocumentLoadManager::end_group_changes()
 }
 
 
-
-void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
+void DocumentLoadManager::remove_document(const std::filesystem::path& filename)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -74,29 +73,27 @@ void DocumentLoadManager::remove_document(const std::filesystem::path &filename)
 
     auto filename_str = filename.string();
 
-    auto doc_it = std::find_if(documents_.begin(), documents_.end(),
-                              [&filename_str](const auto &doc) {
+    auto doc_it = std::find_if(documents_.begin(), documents_.end(), [&filename_str](const auto& doc) {
         return doc->filename() == filename_str;
     });
     if (doc_it != documents_.end())
         (*doc_it)->kill_load();
 
     documents_.erase(std::remove_if(documents_.begin(), documents_.end(),
-                                    [&filename_str](const auto &doc) {
-        return doc->filename() == filename_str;
-    }),
-                    documents_.end());
+                                    [&filename_str](const auto& doc) {
+                                        return doc->filename() == filename_str;
+                                    }),
+                     documents_.end());
 
     job_queue_.erase(std::remove_if(job_queue_.begin(), job_queue_.end(),
-                                    [&filename](const PageJob &job) {
-        return job.doc_path == filename;
-    }),
-                    job_queue_.end());
+                                    [&filename](const PageJob& job) {
+                                        return job.doc_path == filename;
+                                    }),
+                     job_queue_.end());
 
-    document_priority_order_.erase(std::remove(document_priority_order_.begin(),
-                                               document_priority_order_.end(),
-                                               filename),
-                                  document_priority_order_.end());
+    document_priority_order_.erase(
+        std::remove(document_priority_order_.begin(), document_priority_order_.end(), filename),
+        document_priority_order_.end());
 
     cancel_all_active_jobs_async();
     submit_next_jobs();
@@ -118,8 +115,9 @@ void DocumentLoadManager::populate_job_queue()
 
     logger::debug("POPULATE_JOB_QUEUE:");
 
-    for (const auto &doc : documents_) {
-        if (!doc) continue;
+    for (const auto& doc : documents_) {
+        if (!doc)
+            continue;
 
         auto pending_pages = doc->get_pending_pages();
         if (pending_pages.size() == 0)
@@ -144,19 +142,14 @@ void DocumentLoadManager::reorder_jobs()
 {
     std::unordered_map<std::filesystem::path, std::vector<int>> doc_page_order;
 
-    for (const auto &job : job_queue_) {
+    for (const auto& job : job_queue_)
         doc_page_order[job.doc_path].push_back(job.page_num);
-    }
+
 
     logger::debug("reorder_jobs call");
-    std::sort(job_queue_.begin(), job_queue_.end(),
-              [this, &doc_page_order](const PageJob &a, const PageJob &b) {
-        auto a_priority = std::find(document_priority_order_.begin(),
-                                  document_priority_order_.end(),
-                                  a.doc_path);
-        auto b_priority = std::find(document_priority_order_.begin(),
-                                  document_priority_order_.end(),
-                                  b.doc_path);
+    std::sort(job_queue_.begin(), job_queue_.end(), [this, &doc_page_order](const PageJob& a, const PageJob& b) {
+        auto a_priority = std::find(document_priority_order_.begin(), document_priority_order_.end(), a.doc_path);
+        auto b_priority = std::find(document_priority_order_.begin(), document_priority_order_.end(), b.doc_path);
 
         if (a_priority != b_priority)
             return a_priority < b_priority;
@@ -164,18 +157,18 @@ void DocumentLoadManager::reorder_jobs()
         if (a.doc_path != b.doc_path)
             return false;
 
-        const auto &page_order = doc_page_order[a.doc_path];
+        const auto& page_order = doc_page_order[a.doc_path];
         auto a_pos = std::find(page_order.begin(), page_order.end(), a.page_num);
         auto b_pos = std::find(page_order.begin(), page_order.end(), b.page_num);
 
         return a_pos < b_pos;
     });
 
-    std::ostringstream  oss;
+    std::ostringstream oss;
 
     logger::debug("JOB_ORDER after reorder");
     if (job_queue_.size() < 100) {
-        for (const auto &job : job_queue_)
+        for (const auto& job : job_queue_)
             oss << job.doc_path.stem().string() << " " << job.page_num << " ";
 
     } else {
@@ -197,7 +190,7 @@ void DocumentLoadManager::submit_next_jobs()
     cleanup_finished_futures();
 
     while (active_jobs_ < max_concurrent_jobs_ && !job_queue_.empty()) {
-        const auto &job = job_queue_.front();
+        const auto& job = job_queue_.front();
 
         if (!job.document) {
             job_queue_.erase(job_queue_.begin());
@@ -223,7 +216,8 @@ void DocumentLoadManager::submit_next_jobs()
     }
 }
 
-void DocumentLoadManager::set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs)
+
+void DocumentLoadManager::set_document_priority_order(const std::vector<std::filesystem::path>& ordered_docs)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -239,7 +233,7 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
 
     std::ostringstream oss;
     oss << "PRIORITY_ORDER_CHANGED: ";
-    for (const auto &doc : ordered_docs)
+    for (const auto& doc : ordered_docs)
         oss << doc.stem().string() << " ";
     logger::debug(oss.str());
 
@@ -253,11 +247,10 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
     // Collect remaining documents with their pending page counts
     std::vector<std::pair<std::filesystem::path, int>> remaining_docs;
     for (size_t i = 1; i < ordered_docs.size(); ++i) {
-        const auto &path = ordered_docs[i];
+        const auto& path = ordered_docs[i];
 
         // Find the document and get its pending page count
-        auto doc_it = std::find_if(documents_.begin(), documents_.end(),
-                                  [&path](const auto &doc) {
+        auto doc_it = std::find_if(documents_.begin(), documents_.end(), [&path](const auto& doc) {
             return doc && std::filesystem::path(doc->filename()) == path;
         });
 
@@ -268,13 +261,12 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
     }
 
     // Sort remaining by pending page count (ascending - fewer pages first)
-    std::sort(remaining_docs.begin(), remaining_docs.end(),
-              [](const auto &a, const auto &b) {
+    std::sort(remaining_docs.begin(), remaining_docs.end(), [](const auto& a, const auto& b) {
         return a.second < b.second;
     });
 
     // Add sorted documents to new order
-    for (const auto &[path, count] : remaining_docs) {
+    for (const auto& [path, count] : remaining_docs) {
         new_order.push_back(path);
     }
 
@@ -289,7 +281,8 @@ void DocumentLoadManager::set_document_priority_order(const std::vector<std::fil
     submit_next_jobs();
 }
 
-void DocumentLoadManager::prioritize_page(const Document &doc)
+
+void DocumentLoadManager::prioritize_page(const Document& doc)
 {
     if (group_changes_)
         return;
@@ -297,7 +290,8 @@ void DocumentLoadManager::prioritize_page(const Document &doc)
     prioritize_page(doc.filename());
 }
 
-void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
+
+void DocumentLoadManager::prioritize_page(const std::filesystem::path& filename)
 {
     if (group_changes_)
         return;
@@ -312,14 +306,14 @@ void DocumentLoadManager::prioritize_page(const std::filesystem::path &filename)
     }
 
     // If final processing is happening, block until it completes
-    while (final_processing_) {
+    while (final_processing_)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
 
     prioritize_page_internal(filename);
 }
 
-void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &filename)
+
+void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path& filename)
 {
 
     final_processing_ = true;
@@ -337,8 +331,7 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
         return;
     }
 
-    auto doc_it = std::find_if(documents_.begin(), documents_.end(),
-                              [&filename](const auto &doc) {
+    auto doc_it = std::find_if(documents_.begin(), documents_.end(), [&filename](const auto& doc) {
         return std::filesystem::path(doc->filename()) == filename;
     });
     if (doc_it == documents_.end()) {
@@ -347,7 +340,6 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
     }
 
     TRACE_FUNCTION_MSG("filename: {}", filename.string());
-
 
     auto doc = *doc_it;
     auto priority_it = std::find(document_priority_order_.begin(), document_priority_order_.end(), filename);
@@ -361,9 +353,10 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
     cancel_all_active_jobs_async();
 
     job_queue_.erase(std::remove_if(job_queue_.begin(), job_queue_.end(),
-                                    [&filename](const PageJob &job) {
-        return job.doc_path == filename;
-    }), job_queue_.end());
+                                    [&filename](const PageJob& job) {
+                                        return job.doc_path == filename;
+                                    }),
+                     job_queue_.end());
 
     std::vector<int> pending = doc->get_pending_pages();
     if (!pending.empty()) {
@@ -374,7 +367,7 @@ void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path &
         }
     }
     if (!job_queue_.empty()) {
-        PageJob &job = job_queue_.front();
+        PageJob& job = job_queue_.front();
         logger::trace("first job in queue: file: {} page: {}", job.doc_path.string(), job.page_num);
     }
     submit_next_jobs();
@@ -390,7 +383,7 @@ void DocumentLoadManager::on_job_completed()
 }
 
 
-DocumentLoadManager *DocumentLoadManager::instance()
+DocumentLoadManager* DocumentLoadManager::instance()
 {
     return instance_;
 }
@@ -407,7 +400,7 @@ void DocumentLoadManager::cancel_all_active_jobs_async()
 
     logger::debug("CANCEL_ALL_ACTIVE_JOBS: canceling " + std::to_string(active_futures_.size()) + " jobs");
 
-    for (auto &future : active_futures_) {
+    for (auto& future : active_futures_) {
         if (!future.isFinished())
             future.cancel();
     }
@@ -436,13 +429,14 @@ void DocumentLoadManager::cancel_all_active_jobs_async()
     });
 }
 
+
 void DocumentLoadManager::cleanup_finished_futures()
 {
     active_futures_.erase(std::remove_if(active_futures_.begin(), active_futures_.end(),
-                                         [](const QFuture<void> &future) {
-        return future.isFinished();
-    }),
-                         active_futures_.end());
+                                         [](const QFuture<void>& future) {
+                                             return future.isFinished();
+                                         }),
+                          active_futures_.end());
 
     active_jobs_ = static_cast<int>(active_futures_.size());
 }
@@ -482,18 +476,19 @@ DocumentLoadManager::LoadingSummary DocumentLoadManager::get_loading_summary() c
     std::unordered_map<std::string, std::vector<int>> doc_pending_pages;
 
     // Add pages from job queue
-    for (const auto &job : job_queue_copy)
+    for (const auto& job : job_queue_copy)
         doc_pending_pages[job.doc_path.stem().string()].push_back(job.page_num);
 
     // Add pages from documents that might not be in queue yet
-    for (const auto &doc : documents_copy) {
-        if (!doc) continue;
+    for (const auto& doc : documents_copy) {
+        if (!doc)
+            continue;
 
         auto doc_name = std::filesystem::path(doc->filename()).stem().string();
         auto pending = doc->get_pending_pages();
 
         // Merge with existing pages from job queue
-        auto &existing_pages = doc_pending_pages[doc_name];
+        auto& existing_pages = doc_pending_pages[doc_name];
         for (int page : pending)
             if (std::find(existing_pages.begin(), existing_pages.end(), page) == existing_pages.end())
                 existing_pages.push_back(page);
@@ -503,9 +498,9 @@ DocumentLoadManager::LoadingSummary DocumentLoadManager::get_loading_summary() c
     }
 
     // Convert to summary format
-    for (const auto &[doc_name, pages] : doc_pending_pages)
+    for (const auto& [doc_name, pages] : doc_pending_pages)
         if (!pages.empty())
-            summary.documents.push_back({ doc_name, pages });
+            summary.documents.push_back({doc_name, pages});
 
     return summary;
 }

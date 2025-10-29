@@ -16,12 +16,14 @@ private:
 
 public:
     BookmarkHandle() = default;
-    explicit BookmarkHandle(int h) : handle_(h) 
+
+    explicit BookmarkHandle(int h)
+        : handle_(h)
     {
         assert(h != NO_HANDLE);
     }
 
-    BookmarkHandle &operator=(int h)
+    BookmarkHandle& operator=(int h)
     {
         handle_ = h;
         return *this;
@@ -32,15 +34,15 @@ public:
     void clear() { handle_ = NO_HANDLE; }
 };
 
-inline bool operator==(const BookmarkHandle &lhs, const BookmarkHandle &rhs)
+
+inline bool operator==(const BookmarkHandle& lhs, const BookmarkHandle& rhs)
 {
     return static_cast<int>(lhs) == static_cast<int>(rhs);
 }
 
 
 // A class representing a PDF bookmark.
-class Bookmark
-{
+class Bookmark {
 public:
     // Constructor for a folder-style bookmark (no page number).
     //
@@ -59,7 +61,7 @@ public:
     //
     // Parameters:
     // bookmark - The child bookmark to add.
-    void add_child(const Bookmark &bookmark);
+    void add_child(const Bookmark& bookmark);
 
     // Recursively removes a child bookmark by handle and returns it.
     //
@@ -68,7 +70,7 @@ public:
     //
     // Returns:
     // True if the bookmark was removed, False if not found.
-    bool remove_child(const BookmarkHandle &handle);
+    bool remove_child(const BookmarkHandle& handle);
 
     // Searches for a bookmark by handle.
     //
@@ -77,7 +79,7 @@ public:
     //
     // Returns:
     // The found Bookmark object if it exists, otherwise std::nullopt.
-    Bookmark *find(const BookmarkHandle &handle);
+    Bookmark* find(const BookmarkHandle& handle);
 
 
     // Moves this bookmark to a new parent or to the top level.
@@ -88,7 +90,7 @@ public:
     //
     // Returns:
     // True if reparenting was successful, False otherwise.
-    bool reparent(const BookmarkHandle& parent_handle, std::vector<Bookmark> &top_level_bookmarks);
+    bool reparent(const BookmarkHandle& parent_handle, std::vector<Bookmark>& top_level_bookmarks);
 
 private:
     // Generates a unique handle for bookmarks.
@@ -123,32 +125,32 @@ public:
 // Returns:
 // A vector of Bookmark objects representing the outline structure.
 struct fz_outline;
-std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline *outline);
+std::vector<Bookmark> convert_outline_to_bookmarks(fz_outline* outline);
 
 
-std::string to_json(std::vector<Bookmark> &bookmarks) noexcept;
-std::vector<Bookmark> json_to_bookmark(const std::string &bookmarks);
+std::string to_json(std::vector<Bookmark>& bookmarks) noexcept;
+std::vector<Bookmark> json_to_bookmark(const std::string& bookmarks);
 
 
-inline bool bookmark_sort(const Bookmark &a, const Bookmark &b)
+inline bool bookmark_sort(const Bookmark& a, const Bookmark& b)
 {
     bool a_is_folder = !a.page_num_.has_value();
     bool b_is_folder = !b.page_num_.has_value();
 
     if (a_is_folder != b_is_folder) {
-        return !a_is_folder;  // Bookmarks with pages come first
+        return !a_is_folder; // Bookmarks with pages come first
     }
     if (!a_is_folder && !b_is_folder) {
-        return a.page_num_.value() < b.page_num_.value();  // Compare page numbers
+        return a.page_num_.value() < b.page_num_.value(); // Compare page numbers
     }
-    return false;  // Both are folders, maintain insertion order
+    return false; // Both are folders, maintain insertion order
 }
 
-inline void flatten_bookmarks(const std::vector<Bookmark> &bookmarks,
-                                const BookmarkHandle &parent,
-                                std::vector<std::pair<int, BookmarkHandle>> &result)
+
+inline void flatten_bookmarks(const std::vector<Bookmark>& bookmarks, const BookmarkHandle& parent,
+                              std::vector<std::pair<int, BookmarkHandle>>& result)
 {
-    for (const auto &bookmark : bookmarks) {
+    for (const auto& bookmark : bookmarks) {
         if (bookmark.page_num_.has_value()) {
             result.emplace_back(bookmark.page_num_.value(), parent);
         }

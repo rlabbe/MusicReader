@@ -3,12 +3,11 @@
 #include <QPixmap>
 #include <QImage>
 #include <QSize>
-//#include <iostream>
 #include "border.h"
 #include "logger.h"
 
-QPixmap resize_by_border(QPixmap img, Border border, int relief);
-QImage resize_by_border(QImage img, Border border, int relief);
+QPixmap resize_by_border(const QPixmap& img, const Border& border, int relief);
+QImage resize_by_border(const QImage& img, const Border& border, int relief);
 
 
 // This is used to store a page as a QImage. The QImage can be of any format,
@@ -17,15 +16,20 @@ QImage resize_by_border(QImage img, Border border, int relief);
 // display the page.
 struct Page {
     QImage img;
-    int page_num{ 1 };
+    int page_num {1};
     Border border;
-    bool double_page{ false }; // use if constructed from 2 pages for viewing
+    bool double_page {false}; // use if constructed from 2 pages for viewing
 
     Page() {}
-    explicit Page(int num) : page_num(num) {}
+    explicit Page(int num)
+        : page_num(num)
+    {
+    }
 
-    Page(const QImage &image, int page_number, bool doubled)
-        : img(image), page_num(page_number), double_page(doubled)
+    Page(const QImage& image, int page_number, bool doubled)
+        : img(image)
+        , page_num(page_number)
+        , double_page(doubled)
     {
         border = find_content_edges(img);
     }
@@ -36,15 +40,13 @@ struct Page {
     int width() const { return shape().width(); }
     int height() const { return shape().height(); }
 
-    QPixmap as_pixmap() const
-    {
-        return as_pixmap(img);
-    }
+    QPixmap as_pixmap() const { return as_pixmap(img); }
 
-    static QPixmap as_pixmap(const QImage &image)
+    static QPixmap as_pixmap(const QImage& image)
     {
         TRACE_FUNCTION;
-        if (image.isNull()) return QPixmap();
+        if (image.isNull())
+            return QPixmap();
         QPixmap pixmap = QPixmap::fromImage(image);
         pixmap.setDevicePixelRatio(image.devicePixelRatio());
         return pixmap;
@@ -62,29 +64,31 @@ struct Page {
 struct PixmapPage : public Page {
     QPixmap pixmap;
     PixmapPage() {}
-    PixmapPage(const Page &page)
-        : Page(page), pixmap(Page::as_pixmap(page.img))
+    PixmapPage(const Page& page)
+        : Page(page)
+        , pixmap(Page::as_pixmap(page.img))
     {
     }
 
 
-    PixmapPage(const QImage &image, int page_number, bool doubled)
-        : Page(image, page_number, doubled), pixmap(Page::as_pixmap(image))
+    PixmapPage(const QImage& image, int page_number, bool doubled)
+        : Page(image, page_number, doubled)
+        , pixmap(Page::as_pixmap(image))
     {
     }
 
-    PixmapPage(const QPixmap &pixmap, int page_number, bool doubled)
-        : Page(pixmap.toImage(), page_number, doubled), pixmap(pixmap)
+    PixmapPage(const QPixmap& pixmap, int page_number, bool doubled)
+        : Page(pixmap.toImage(), page_number, doubled)
+        , pixmap(pixmap)
     {
     }
 };
 
 
-
-
-inline QPixmap resize_by_border(QPixmap img, Border border, int relief = 0)
+inline QPixmap resize_by_border(const QPixmap& img, const Border& border, int relief = 0)
 {
-    if (img.isNull()) return img;
+    if (img.isNull())
+        return img;
 
     int left = std::max(0, border.left - relief);
     int top = std::max(0, border.top - relief);
@@ -95,9 +99,11 @@ inline QPixmap resize_by_border(QPixmap img, Border border, int relief = 0)
     return img.copy(left, top, width, height);
 }
 
-inline QImage resize_by_border(QImage img, Border border, int relief = 0)
+
+inline QImage resize_by_border(const QImage& img, const Border& border, int relief = 0)
 {
-    if (img.isNull()) return img;
+    if (img.isNull())
+        return img;
 
     int left = std::max(0, border.left - relief);
     int top = std::max(0, border.top - relief);
@@ -108,11 +114,9 @@ inline QImage resize_by_border(QImage img, Border border, int relief = 0)
 }
 
 
-inline QRect border_to_qrect(const Border &border, int relief)
+inline QRect border_to_qrect(const Border& border, int relief)
 {
-    return QRect(border.left - relief,
-                 border.top - relief,
-                 border.right - border.left + (2 * relief),
+    return QRect(border.left - relief, border.top - relief, border.right - border.left + (2 * relief),
                  border.bottom - border.top + (2 * relief));
 }
 
@@ -127,10 +131,11 @@ inline QRect border_to_qrect(const Border &border, int relief)
 // returns true if the source image is not null, false otherwise,
 // but stil works if source is null, it then just ensures the target
 // is also null.
-inline bool copy_blank_image(const Page &source, Page &target)
+inline bool copy_blank_image(const Page& source, Page& target)
 {
     if (source.img.isNull()) {
-        if (!target.img.isNull()) target.img = QImage();
+        if (!target.img.isNull())
+            target.img = QImage();
         return false;
     }
 

@@ -8,7 +8,7 @@
 #include "fitz_utils.h"
 #include "bookmark.h"
 #include "document_load_manager.h"
-#pragma warning(push,1)
+#pragma warning(push, 1)
 #include <mupdf/pdf.h>
 #pragma warning(pop)
 #include "document_helpers.h"
@@ -35,10 +35,13 @@ Document::~Document()
         return;
     }
 
-    if (!modified_) return;
+    if (!modified_)
+        return;
 
     std::unique_lock<std::mutex> lock(save_state_mutex_);
-    save_cv_.wait(lock, [this]() { return !is_saving_; });
+    save_cv_.wait(lock, [this]() {
+        return !is_saving_;
+    });
 
     save();
     being_destroyed_ = true;
@@ -56,8 +59,7 @@ Page Document::get_page(int page_num, bool is_current) const
     auto count = page_count();
 
     if (page_num < 1 || page_num > count) {
-        logger::error(std::format("Invalid page number: {} for {}",
-                                  page_num, filename_.string()));
+        logger::error(std::format("Invalid page number: {} for {}", page_num, filename_.string()));
         if (count == 0)
             return Page(page_num);
         else
@@ -83,7 +85,7 @@ void Document::prioritize() const
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (auto *manager = DocumentLoadManager::instance())
+    if (auto* manager = DocumentLoadManager::instance())
         manager->prioritize_page(filename_);
 }
 
@@ -102,7 +104,7 @@ void Document::initialize_document()
     }
 
     int total_pages = 0;
-    fz_outline *outline = nullptr;
+    fz_outline* outline = nullptr;
 
     fz_try(ctx)
     {
@@ -114,7 +116,8 @@ void Document::initialize_document()
     }
     fz_catch(ctx)
     {
-        logger::error("MuPDF exception while loading bookmarks{}: {}", filename_.string(), std::string(fz_caught_message(ctx)));
+        logger::error("MuPDF exception while loading bookmarks{}: {}", filename_.string(),
+                      std::string(fz_caught_message(ctx)));
         bookmarks_.clear();
         modified_ = true; // this will make it save the bookmarks changes at the end of this function
     }
@@ -131,18 +134,19 @@ void Document::initialize_document()
 
     page_info_.resize(total_pages);
     for (int i = 0; i < total_pages; ++i) {
-        fz_page *page = nullptr;
+        fz_page* page = nullptr;
         fz_try(ctx)
         {
             page = fz_load_page(ctx, doc, i);
             fz_rect bounds = fz_bound_page(ctx, page);
-            page_info_[i] = { i + 1, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0 };
+            page_info_[i] = {i + 1, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0};
             fz_drop_page(ctx, page);
         }
         fz_catch(ctx)
         {
-            if (page) fz_drop_page(ctx, page);
-            page_info_[i] = { i + 1, 612.0f, 792.0f }; // Default letter size
+            if (page)
+                fz_drop_page(ctx, page);
+            page_info_[i] = {i + 1, 612.0f, 792.0f}; // Default letter size
         }
     }
 
@@ -198,7 +202,8 @@ std::vector<int> Document::get_pending_pages() const
             pending.push_back(i + 1);
     }
 
-    if (pending.empty()) return pending;
+    if (pending.empty())
+        return pending;
 
     // Convert to set for fast lookups
     std::unordered_set<int> pending_set(pending.begin(), pending.end());
@@ -262,9 +267,10 @@ void Document::load_page(int page_num)
 
     close_fitz(ctx, doc);
 
-    if (kill_loading_) return;
+    if (kill_loading_)
+        return;
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(15000));
 
     {
         std::lock_guard lock(read_mutex_);
@@ -281,45 +287,49 @@ std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
     TRACE_FUNCTION;
 
     if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
-        return { 0.0f, 0.0f };
+        return {0.0f, 0.0f};
 
-    const auto &info = page_info_[page_num - 1];
-    return { info.width_points, info.height_points };
+    const auto& info = page_info_[page_num - 1];
+    return {info.width_points, info.height_points};
 }
 
 
-Bookmark *Document::find_bookmark(const BookmarkHandle &handle)
+Bookmark* Document::find_bookmark(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    for (auto &bookmark : bookmarks_) {
-        if (bookmark.handle_ == handle) return &bookmark;
+    for (auto& bookmark : bookmarks_) {
+        if (bookmark.handle_ == handle)
+            return &bookmark;
         auto child = bookmark.find(handle);
-        if (child) return child;
+        if (child)
+            return child;
     }
     return nullptr;
 }
 
 
-bool Document::reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle)
+bool Document::reparent_bookmark(const BookmarkHandle& handle, const BookmarkHandle& new_parent_handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    auto *bookmark = find_bookmark(handle);
-    if (!bookmark) return false;
+    auto* bookmark = find_bookmark(handle);
+    if (!bookmark)
+        return false;
     return reparent_bookmark(*bookmark, new_parent_handle, false);
 }
 
 
-bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_parent_handle, bool internal_call)
+bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle& new_parent_handle, bool internal_call)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    if (bookmarks_.empty()) return false;
+    if (bookmarks_.empty())
+        return false;
 
     if (!internal_call) {
         undo_stack_.push_back(bookmarks_);
@@ -327,18 +337,21 @@ bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_pa
 
     // Remove from current parent if it had one
     if (bookmark.parent_handle_) {
-        auto *old_parent = find_bookmark(bookmark.parent_handle_);
-        if (old_parent) old_parent->remove_child(bookmark.handle_);
+        auto* old_parent = find_bookmark(bookmark.parent_handle_);
+        if (old_parent)
+            old_parent->remove_child(bookmark.handle_);
     } else {
-        auto it = std::remove_if(bookmarks_.begin(), bookmarks_.end(),
-                                 [&](const Bookmark &b) { return b.handle_ == bookmark.handle_; });
+        auto it = std::remove_if(bookmarks_.begin(), bookmarks_.end(), [&](const Bookmark& b) {
+            return b.handle_ == bookmark.handle_;
+        });
         bookmarks_.erase(it, bookmarks_.end());
     }
 
     // Assign to new parent or move to top level
     if (new_parent_handle) {
-        auto *new_parent = find_bookmark(new_parent_handle);
-        if (!new_parent) return false;
+        auto* new_parent = find_bookmark(new_parent_handle);
+        if (!new_parent)
+            return false;
         new_parent->add_child(bookmark);
         bookmark.parent_handle_ = new_parent_handle;
         std::sort(new_parent->children_.begin(), new_parent->children_.end(), bookmark_sort);
@@ -352,18 +365,20 @@ bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_pa
 }
 
 
-bool Document::indent_bookmark(const BookmarkHandle &handle)
+bool Document::indent_bookmark(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    if (bookmarks_.empty()) return false;
+    if (bookmarks_.empty())
+        return false;
 
     undo_stack_.push_back(bookmarks_);
 
     auto bookmark = find_bookmark(handle);
-    if (!bookmark) return false;
+    if (!bookmark)
+        return false;
 
     // make a copy before we start deleting things!
     Bookmark bookmark_copy = *bookmark;
@@ -372,53 +387,63 @@ bool Document::indent_bookmark(const BookmarkHandle &handle)
 
     // If the bookmark is already top-level, find its previous sibling
     if (!bookmark->parent_handle_) {
-        auto it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
-                               [&](const Bookmark &b) { return b.handle_ == handle; });
-        if (it == bookmarks_.begin()) return false;  // Cannot indent first item (no previous sibling)
+        auto it = std::find_if(bookmarks_.begin(), bookmarks_.end(), [&](const Bookmark& b) {
+            return b.handle_ == handle;
+        });
+        if (it == bookmarks_.begin())
+            return false; // Cannot indent first item (no previous sibling)
 
-        auto new_parent = std::prev(it);  // Move under previous sibling
-        bookmarks_.erase(it);              // Remove from top-level list before reparenting
+        auto new_parent = std::prev(it); // Move under previous sibling
+        bookmarks_.erase(it);            // Remove from top-level list before reparenting
         return reparent_bookmark(bookmark_copy, new_parent->handle_, true);
     } else {
         // Find the current parent and locate the previous sibling within that parent
         auto parent = find_bookmark(bookmark->parent_handle_);
-        if (!parent) return false;  // Parent not found (shouldn't happen)
+        if (!parent)
+            return false; // Parent not found (shouldn't happen)
 
-        auto it = std::find_if(parent->children_.begin(), parent->children_.end(),
-                               [&](const Bookmark &b) { return b.handle_ == handle; });
-        if (it == parent->children_.begin()) return false;  // Cannot indent first child (no previous sibling)
+        auto it = std::find_if(parent->children_.begin(), parent->children_.end(), [&](const Bookmark& b) {
+            return b.handle_ == handle;
+        });
+        if (it == parent->children_.begin())
+            return false; // Cannot indent first child (no previous sibling)
 
-        auto new_parent = std::prev(it);   // Move under previous sibling
-        parent->children_.erase(it);       // Remove from old parent before reparenting
+        auto new_parent = std::prev(it); // Move under previous sibling
+        parent->children_.erase(it);     // Remove from old parent before reparenting
         return reparent_bookmark(bookmark_copy, new_parent->handle_, true);
     }
     return false;
 }
 
 
-bool Document::unindent_bookmark(const BookmarkHandle &handle)
+bool Document::unindent_bookmark(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    if (bookmarks_.empty()) return false;
+    if (bookmarks_.empty())
+        return false;
 
     auto bookmark_ptr = find_bookmark(handle);
-    if (!bookmark_ptr) return false;
+    if (!bookmark_ptr)
+        return false;
 
     // make a copy before we start deleting things!
     Bookmark bookmark = *bookmark_ptr;
 
-    if (!bookmark.parent_handle_) return false;  // Already top-level, can't unindent
+    if (!bookmark.parent_handle_)
+        return false; // Already top-level, can't unindent
 
     undo_stack_.push_back(bookmarks_);
 
     auto parent = find_bookmark(bookmark.parent_handle_);
-    if (!parent) return false;
+    if (!parent)
+        return false;
 
     // Remove the bookmark from its current parent
-    if (!parent->remove_child(handle)) return false;
+    if (!parent->remove_child(handle))
+        return false;
 
     // Unindent means: become a sibling of your current parent
     // So new parent is your current parent's parent
@@ -427,12 +452,14 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
 
     if (new_parent_handle) {
         // Insert as child of grandparent, right after current parent
-        auto *grandparent = find_bookmark(new_parent_handle);
-        if (!grandparent) return false;
+        auto* grandparent = find_bookmark(new_parent_handle);
+        if (!grandparent)
+            return false;
 
-        auto parent_it = std::find_if(grandparent->children_.begin(),
-                                     grandparent->children_.end(),
-                                     [&](const Bookmark &b) { return b.handle_ == parent->handle_; });
+        auto parent_it =
+            std::find_if(grandparent->children_.begin(), grandparent->children_.end(), [&](const Bookmark& b) {
+                return b.handle_ == parent->handle_;
+            });
 
         if (parent_it != grandparent->children_.end())
             grandparent->children_.insert(parent_it + 1, bookmark);
@@ -440,27 +467,28 @@ bool Document::unindent_bookmark(const BookmarkHandle &handle)
             grandparent->children_.push_back(bookmark);
     } else {
         // Parent was top-level, so insert at top level right after parent
-        auto parent_it = std::find_if(bookmarks_.begin(), bookmarks_.end(),
-                                     [&](const Bookmark &b) { return b.handle_ == parent->handle_; });
+        auto parent_it = std::find_if(bookmarks_.begin(), bookmarks_.end(), [&](const Bookmark& b) {
+            return b.handle_ == parent->handle_;
+        });
 
         if (parent_it != bookmarks_.end())
             bookmarks_.insert(parent_it + 1, bookmark);
         else
             bookmarks_.push_back(bookmark);
-
     }
 
     modified_ = true;
     return true;
 }
 
-bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &title)
+bool Document::rename_bookmark(const BookmarkHandle& handle, const std::string& title)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    if (bookmarks_.empty()) return false;
+    if (bookmarks_.empty())
+        return false;
 
     auto bookmark = find_bookmark(handle);
     if (bookmark && bookmark->title_ != title) {
@@ -473,13 +501,14 @@ bool Document::rename_bookmark(const BookmarkHandle &handle, const std::string &
 }
 
 
-bool Document::remove_bookmark(const BookmarkHandle &handle)
+bool Document::remove_bookmark(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    if (bookmarks_.empty()) return false;
+    if (bookmarks_.empty())
+        return false;
 
     for (auto it = bookmarks_.begin(); it != bookmarks_.end(); ++it) {
         if (it->handle_ == handle) {
@@ -498,15 +527,14 @@ bool Document::remove_bookmark(const BookmarkHandle &handle)
 }
 
 
-std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title, int page_num)
+std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string& title, int page_num)
 {
     return add_bookmark(title, page_num, BookmarkHandle());
 }
 
 
-std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
-                                                       int page_num,
-                                                       const BookmarkHandle &parent_handle)
+std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string& title, int page_num,
+                                                       const BookmarkHandle& parent_handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -520,7 +548,8 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
         new_bookmark.parent_handle_ = parent_handle;
         auto parent = find_bookmark(parent_handle);
         if (parent) {
-            auto insert_pos = std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
+            auto insert_pos =
+                std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
             parent->children_.insert(insert_pos, new_bookmark);
         }
     } else {
@@ -530,7 +559,8 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
         if (best_parent) {
             new_bookmark.parent_handle_ = best_parent;
             auto parent = find_bookmark(best_parent);
-            auto insert_pos = std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
+            auto insert_pos =
+                std::upper_bound(parent->children_.begin(), parent->children_.end(), new_bookmark, bookmark_sort);
             parent->children_.insert(insert_pos, new_bookmark);
         } else {
             // Add to top level
@@ -540,12 +570,11 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string &title,
     }
 
     modified_ = true;
-    return { new_bookmark.handle_, true };
+    return {new_bookmark.handle_, true};
 }
 
 
-
-BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks)
+BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::vector<Bookmark>& bookmarks)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -555,7 +584,7 @@ BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::v
     flatten_bookmarks(bookmarks, BookmarkHandle(), flattened);
 
     // Find where page_num fits in the sequence
-    for (const auto &[page, parent] : flattened) {
+    for (const auto& [page, parent] : flattened) {
         if (page >= page_num) {
             // Found first bookmark with page >= page_num
             // New bookmark should have same parent
@@ -565,14 +594,11 @@ BookmarkHandle Document::find_deepest_parent_for_page(int page_num, const std::v
 
     // Page number is higher than all existing bookmarks
     // Use same parent as last bookmark, or top level if empty
-    if (!flattened.empty()) {
+    if (!flattened.empty())
         return flattened.back().second;
-    }
 
     return BookmarkHandle(); // Top level
 }
-
-
 
 
 bool Document::save()
@@ -580,7 +606,8 @@ bool Document::save()
     SAFE_METHOD;
 
     // Don't allow save if we're being destroyed or not modified
-    if (being_destroyed_ || !modified_) return false;
+    if (being_destroyed_ || !modified_)
+        return false;
 
     {
         std::lock_guard<std::mutex> lock(save_state_mutex_);
@@ -605,12 +632,11 @@ bool Document::save()
 
     if (success) {
         success = save_annotations_to_pdf();
-        if (!success) {
+        if (!success)
             logger::error("Failed to save annotations to {}", filename_.string());
-        }
     } else {
-        logger::error("Failed to save bookmarks to {}: error code {}",
-                     filename_.string(), static_cast<int>(bookmark_result));
+        logger::error("Failed to save bookmarks to {}: error code {}", filename_.string(),
+                      static_cast<int>(bookmark_result));
     }
 
     // Save performance data (independent of PDF save success)
@@ -640,10 +666,10 @@ void Document::clear_completed_features()
 
     // Remove completed futures
     save_futures_.erase(std::remove_if(save_futures_.begin(), save_futures_.end(),
-                                       [](std::future<void> &f) {
-        return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-    }),
-        save_futures_.end());
+                                       [](std::future<void>& f) {
+                                           return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+                                       }),
+                        save_futures_.end());
 }
 
 
@@ -666,7 +692,8 @@ void Document::undo()
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    if (undo_stack_.empty()) return;
+    if (undo_stack_.empty())
+        return;
 
     redo_stack_.push_back(bookmarks_);
     bookmarks_ = std::move(undo_stack_.back());
@@ -683,7 +710,8 @@ void Document::redo()
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    if (redo_stack_.empty()) return;
+    if (redo_stack_.empty())
+        return;
 
     undo_stack_.push_back(bookmarks_);
     bookmarks_ = std::move(redo_stack_.back());
@@ -693,19 +721,20 @@ void Document::redo()
 }
 
 
-Annotation *Document::find_annotation(const AnnotationHandle &handle)
+Annotation* Document::find_annotation(const AnnotationHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
 
-    for (auto &annotation : annotations_) {
-        if (annotation.handle_ == handle) return &annotation;
+    for (auto& annotation : annotations_) {
+        if (annotation.handle_ == handle)
+            return &annotation;
     }
     return nullptr;
 }
 
-bool Document::add_annotation(const Annotation &annotation)
+bool Document::add_annotation(const Annotation& annotation)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -719,15 +748,16 @@ bool Document::add_annotation(const Annotation &annotation)
     return save_success;
 }
 
-bool Document::remove_annotation(const AnnotationHandle &handle)
+bool Document::remove_annotation(const AnnotationHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    auto it = std::remove_if(annotations_.begin(), annotations_.end(),
-                            [&](const Annotation &a) { return a.handle_ == handle; });
+    auto it = std::remove_if(annotations_.begin(), annotations_.end(), [&](const Annotation& a) {
+        return a.handle_ == handle;
+    });
     if (it != annotations_.end()) {
         int page_num = it->page_num_;
         annotations_.erase(it, annotations_.end());
@@ -739,14 +769,14 @@ bool Document::remove_annotation(const AnnotationHandle &handle)
     return false;
 }
 
-bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::string &new_text)
+bool Document::edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    auto *annotation = find_annotation(handle);
+    auto* annotation = find_annotation(handle);
     if (annotation) {
         annotation->text_ = new_text;
         modified_ = true;
@@ -758,14 +788,14 @@ bool Document::edit_text_annotation(const AnnotationHandle &handle, const std::s
 }
 
 
-bool Document::move_annotation(const AnnotationHandle &handle, float new_x, float new_y)
+bool Document::move_annotation(const AnnotationHandle& handle, float new_x, float new_y)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    auto *annotation = find_annotation(handle);
+    auto* annotation = find_annotation(handle);
     if (annotation) {
         annotation->x_ = new_x;
         annotation->y_ = new_y;
@@ -778,16 +808,17 @@ bool Document::move_annotation(const AnnotationHandle &handle, float new_x, floa
 }
 
 
-
 void Document::reload_page(int page_num)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (page_num < 1 || page_num > page_count()) return;
+    if (page_num < 1 || page_num > page_count())
+        return;
 
     auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc) return;
+    if (!ctx || !doc)
+        return;
 
     QImage img;
     fz_try(ctx)
@@ -811,62 +842,67 @@ void Document::reload_page(int page_num)
 }
 
 
-std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_document *doc)
+std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_document* doc)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     std::vector<Annotation> annotations;
-    if (!ctx || !doc) return annotations;
+    if (!ctx || !doc)
+        return annotations;
 
-    pdf_document *pdf = pdf_specifics(ctx, doc);
-    if (!pdf) return annotations;
+    pdf_document* pdf = pdf_specifics(ctx, doc);
+    if (!pdf)
+        return annotations;
 
     fz_try(ctx)
     {
         int page_count = fz_count_pages(ctx, doc);
 
         for (int page_idx = 0; page_idx < page_count; ++page_idx) {
-            pdf_obj *page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
-            if (!page_obj) continue;
+            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
+            if (!page_obj)
+                continue;
 
-            pdf_obj *annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
-            if (!annots) continue;
+            pdf_obj* annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+            if (!annots)
+                continue;
 
             int annot_count = pdf_array_len(ctx, annots);
             for (int i = 0; i < annot_count; ++i) {
-                pdf_obj *annot = pdf_array_get(ctx, annots, i);
-                if (!annot) continue;
+                pdf_obj* annot = pdf_array_get(ctx, annots, i);
+                if (!annot)
+                    continue;
 
-                pdf_obj *subtype = pdf_dict_get(ctx, annot, PDF_NAME(Subtype));
+                pdf_obj* subtype = pdf_dict_get(ctx, annot, PDF_NAME(Subtype));
                 if (pdf_name_eq(ctx, subtype, PDF_NAME(FreeText))) {
                     // Extract annotation properties
-                    pdf_obj *rect = pdf_dict_get(ctx, annot, PDF_NAME(Rect));
-                    pdf_obj *contents = pdf_dict_get(ctx, annot, PDF_NAME(Contents));
+                    pdf_obj* rect = pdf_dict_get(ctx, annot, PDF_NAME(Rect));
+                    pdf_obj* contents = pdf_dict_get(ctx, annot, PDF_NAME(Contents));
 
                     if (rect && contents) {
                         // PDF rect format: [x0, y0, x1, y1] = [left, bottom, right, top]
-                        float x0 = pdf_array_get_real(ctx, rect, 0);  // left
-                        float y0 = pdf_array_get_real(ctx, rect, 1);  // bottom
-                        float x1 = pdf_array_get_real(ctx, rect, 2);  // right
-                        float y1 = pdf_array_get_real(ctx, rect, 3);  // top
+                        float x0 = pdf_array_get_real(ctx, rect, 0); // left
+                        float y0 = pdf_array_get_real(ctx, rect, 1); // bottom
+                        float x1 = pdf_array_get_real(ctx, rect, 2); // right
+                        float y1 = pdf_array_get_real(ctx, rect, 3); // top
 
-                        float x = x0;                    // left edge
-                        float y = y1;                    // top edge (for consistency with UI)
-                        float width = x1 - x0;          // right - left
-                        float height = y1 - y0;         // top - bottom
+                        float x = x0;           // left edge
+                        float y = y1;           // top edge (for consistency with UI)
+                        float width = x1 - x0;  // right - left
+                        float height = y1 - y0; // top - bottom
 
-                        const char *text = pdf_to_text_string(ctx, contents);
+                        const char* text = pdf_to_text_string(ctx, contents);
 
                         // Extract font, size, and color from default appearance
-                        std::string font_name = "Consolas";  // default
-                        float font_size = 12.0f;  // default
-                        int r = 0, g = 0, b = 0;  // default black
+                        std::string font_name = "Consolas"; // default
+                        float font_size = 12.0f;            // default
+                        int r = 0, g = 0, b = 0;            // default black
 
                         // Parse DA (Default Appearance) string
-                        pdf_obj *da = pdf_dict_get(ctx, annot, PDF_NAME(DA));
+                        pdf_obj* da = pdf_dict_get(ctx, annot, PDF_NAME(DA));
                         if (da) {
-                            const char *da_str = pdf_to_text_string(ctx, da);
+                            const char* da_str = pdf_to_text_string(ctx, da);
                             if (da_str) {
                                 // Parse DA string format: "/FontName FontSize Tf r g b rg"
                                 std::string da_string(da_str);
@@ -887,7 +923,8 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
                                     if (size_start != std::string::npos) {
                                         size_start = da_string.rfind(' ', size_start - 1);
                                         if (size_start != std::string::npos) {
-                                            std::string size_str = da_string.substr(size_start + 1, tf_pos - size_start - 1);
+                                            std::string size_str =
+                                                da_string.substr(size_start + 1, tf_pos - size_start - 1);
                                             font_size = std::stof(size_str);
                                         }
                                     }
@@ -918,20 +955,19 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
                         if (text && strlen(text) > 0) {
                             Annotation annotation(
                                 std::string(text),
-                                page_idx + 1,  // Convert to 1-based page
-                                x,
-                                y,
-                                width, height,
-                                FontInfo(QString::fromStdString(font_name), font_size, QColor(r, g, b))
-                            );
+                                page_idx + 1, // Convert to 1-based page
+                                x, y, width, height,
+                                FontInfo(QString::fromStdString(font_name), font_size, QColor(r, g, b)));
 
-                            /*logger::debug("LOAD: page={}, x={:.3f}, y={:.3f}, w={:.3f}, h={:.3f}, text='{}', font='{}' {}pt, color=({},{},{})",
-                                          annotation.page_num_, annotation.x_, annotation.y_, annotation.width_, annotation.height_,
-                                          annotation.text_, annotation.font_info_.family.toStdString(), annotation.font_info_.size,
-                                          annotation.font_info_.color.red(), annotation.font_info_.color.green(), annotation.font_info_.color.blue());
+                            /*logger::debug("LOAD: page={}, x={:.3f}, y={:.3f}, w={:.3f}, h={:.3f}, text='{}', font='{}'
+                            {}pt, color=({},{},{})", annotation.page_num_, annotation.x_, annotation.y_,
+                            annotation.width_, annotation.height_, annotation.text_,
+                            annotation.font_info_.family.toStdString(), annotation.font_info_.size,
+                                          annotation.font_info_.color.red(), annotation.font_info_.color.green(),
+                            annotation.font_info_.color.blue());
 
-                            logger::debug("RAW RECT: [{:.3f}, {:.3f}, {:.3f}, {:.3f}] -> x={:.3f}, y={:.3f}(top), w={:.3f}, h={:.3f}",
-                                x0, y0, x1, y1, x, y, width, height);*/
+                            logger::debug("RAW RECT: [{:.3f}, {:.3f}, {:.3f}, {:.3f}] -> x={:.3f}, y={:.3f}(top),
+                            w={:.3f}, h={:.3f}", x0, y0, x1, y1, x, y, width, height);*/
                             annotations.push_back(annotation);
                         }
                     }
@@ -948,7 +984,6 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context *ctx, fz_
 }
 
 
-
 bool Document::save_annotations_to_pdf()
 {
     SAFE_METHOD;
@@ -960,7 +995,7 @@ bool Document::save_annotations_to_pdf()
         return false;
     }
 
-    pdf_document *pdf = pdf_specifics(ctx, doc);
+    pdf_document* pdf = pdf_specifics(ctx, doc);
     if (!pdf) {
         logger::error("Not a PDF document: {}", filename_.string());
         close_fitz(ctx, doc);
@@ -974,18 +1009,18 @@ bool Document::save_annotations_to_pdf()
         [[maybe_unused]] bool deleted_any = delete_all_freetext_annotations(ctx, pdf);
 
         // Add all our annotations
-        for (const auto &annotation : annotations_) {
-            pdf_page *page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
+        for (const auto& annotation : annotations_) {
+            pdf_page* page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
             if (!page) {
                 logger::error("Failed to load page {} for annotation", annotation.page_num_);
                 continue;
             }
 
             // Check page bounds to understand coordinate system
-            fz_rect page_bounds = fz_bound_page(ctx, (fz_page *)page);
+            fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
 
             // Create new annotation
-            pdf_annot *new_annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
+            pdf_annot* new_annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
             if (!new_annot) {
                 logger::error("Failed to create annotation on page {}", annotation.page_num_);
                 pdf_drop_page(ctx, page);
@@ -999,27 +1034,21 @@ bool Document::save_annotations_to_pdf()
             float page_height = page_bounds.y1 - page_bounds.y0;
 
             fz_rect rect;
-            rect.x0 = annotation.x_;                                          // left
-            rect.y0 = page_height - annotation.y_;                           // bottom = page_height - y_from_top
-            rect.x1 = annotation.x_ + annotation.width_;                      // right
-            rect.y1 = page_height - annotation.y_ + annotation.height_;      // top = bottom + height
+            rect.x0 = annotation.x_;                                    // left
+            rect.y0 = page_height - annotation.y_;                      // bottom = page_height - y_from_top
+            rect.x1 = annotation.x_ + annotation.width_;                // right
+            rect.y1 = page_height - annotation.y_ + annotation.height_; // top = bottom + height
 
             pdf_set_annot_rect(ctx, new_annot, rect);
             pdf_set_annot_contents(ctx, new_annot, annotation.text_.c_str());
 
             // Set default appearance
-            auto &font = annotation.font_info_;
-            float color[3] = {
-                font.color.red() / 255.0f,
-                font.color.green() / 255.0f,
-                font.color.blue() / 255.0f
-            };
+            auto& font = annotation.font_info_;
+            float color[3] = {font.color.red() / 255.0f, font.color.green() / 255.0f, font.color.blue() / 255.0f};
 
-            pdf_set_annot_default_appearance(ctx, new_annot,
-                                           font.family.toUtf8().constData(),
-                                           font.size,
-                                           3, // RGB color space
-                                           color);
+            pdf_set_annot_default_appearance(ctx, new_annot, font.family.toUtf8().constData(), font.size,
+                                             3, // RGB color space
+                                             color);
             pdf_set_annot_quadding(ctx, new_annot, 0); // Left aligned
 
             // Set border style (no border)
@@ -1031,10 +1060,11 @@ bool Document::save_annotations_to_pdf()
             /*logger::debug("Final rect without update: x0={:.3f}, y0={:.3f}, x1={:.3f}, y1={:.3f}",
                          final_rect.x0, final_rect.y0, final_rect.x1, final_rect.y1);
 
-            logger::debug("SAVE: page={}, x={:.1f}, y={:.1f}, w={:.1f}, h={:.1f}, text='{}', font='{}' {:.1f}pt, color=({},{},{})",
-                         annotation.page_num_, annotation.x_, annotation.y_, annotation.width_, annotation.height_,
-                         annotation.text_, annotation.font_info_.family.toStdString(), annotation.font_info_.size,
-                         annotation.font_info_.color.red(), annotation.font_info_.color.green(), annotation.font_info_.color.blue());*/
+            logger::debug("SAVE: page={}, x={:.1f}, y={:.1f}, w={:.1f}, h={:.1f}, text='{}', font='{}' {:.1f}pt,
+            color=({},{},{})", annotation.page_num_, annotation.x_, annotation.y_, annotation.width_,
+            annotation.height_, annotation.text_, annotation.font_info_.family.toStdString(),
+            annotation.font_info_.size, annotation.font_info_.color.red(), annotation.font_info_.color.green(),
+            annotation.font_info_.color.blue());*/
 
             pdf_drop_page(ctx, page);
         }
@@ -1047,8 +1077,8 @@ bool Document::save_annotations_to_pdf()
     }
     fz_catch(ctx)
     {
-        logger::error("MuPDF exception while saving annotations for {}: {}",
-                     filename_.string(), fz_caught_message(ctx));
+        logger::error("MuPDF exception while saving annotations for {}: {}", filename_.string(),
+                      fz_caught_message(ctx));
     }
 
     close_fitz(ctx, doc);
@@ -1056,11 +1086,6 @@ bool Document::save_annotations_to_pdf()
 }
 
 
-
-// Add to document.h in the public section:
-bool set_bookmarks_from_txt_file();
-
-// Add to document.cpp (also need #include <QMessageBox>):
 bool Document::set_bookmarks_from_txt_file()
 {
     SAFE_METHOD;
@@ -1115,7 +1140,7 @@ bool Document::set_bookmarks_from_txt_file()
         int page_num;
         try {
             page_num = std::stoi(page_str);
-        } catch (const std::exception &) {
+        } catch (const std::exception&) {
             std::string error_msg = std::format("Line {}: Invalid page number '{}'", line_num, page_str);
             logger::error(error_msg);
             QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
@@ -1130,14 +1155,16 @@ bool Document::set_bookmarks_from_txt_file()
         }
 
         if (page_num < prev_page) {
-            std::string error_msg = std::format("Line {}: Page numbers must be in order, got {} after {}", line_num, page_num, prev_page);
+            std::string error_msg =
+                std::format("Line {}: Page numbers must be in order, got {} after {}", line_num, page_num, prev_page);
             logger::error(error_msg);
             QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
             return false;
         }
 
         if (page_num > page_count()) {
-            std::string error_msg = std::format("Line {}: Page {} does not exist (PDF has {} pages)", line_num, page_num, page_count());
+            std::string error_msg =
+                std::format("Line {}: Page {} does not exist (PDF has {} pages)", line_num, page_num, page_count());
             logger::error(error_msg);
             QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
             return false;
@@ -1192,9 +1219,9 @@ bool Document::set_bookmarks_from_txt_file()
     undo_stack_.push_back(bookmarks_);
     bookmarks_.clear();
 
-    std::vector<Bookmark *> bookmark_level_stack; // Track parent at each level
+    std::vector<Bookmark*> bookmark_level_stack; // Track parent at each level
 
-    for (const auto &[level, page_num, title] : parsed_bookmarks) {
+    for (const auto& [level, page_num, title] : parsed_bookmarks) {
         Bookmark bookmark(title, page_num);
 
         // Adjust stack size to current level
@@ -1209,11 +1236,11 @@ bool Document::set_bookmarks_from_txt_file()
             bookmark_level_stack.push_back(&bookmarks_.back());
         } else {
             // Child bookmark - add to parent at level-1
-            Bookmark *parent = bookmark_level_stack.back();
+            Bookmark* parent = bookmark_level_stack.back();
             parent->add_child(bookmark);
 
             // Update the newly added child's parent handle
-            auto &new_child = parent->children_.back();
+            auto& new_child = parent->children_.back();
             new_child.parent_handle_ = parent->handle_;
 
             bookmark_level_stack.push_back(&new_child);

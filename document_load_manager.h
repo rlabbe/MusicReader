@@ -12,36 +12,36 @@
 
 
 /*
-* DocumentLoadManager - Non-blocking PDF page loading with prioritization
-*
-* OVERVIEW:
-* Manages background loading of PDF pages across multiple documents using a thread pool.
-* Provides non-blocking prioritization to keep UI responsive during page navigation.
-*
-* KEY BEHAVIORS:
-* 1. Thread Pool: Uses QtConcurrent to load pages in background threads
-* 2. Priority Ordering: Documents can be reordered to prioritize loading
-* 3. Non-blocking Prioritization: Page up/down navigation returns immediately
-* 4. Smart Queuing: Only loads pending (empty) pages, skips already loaded ones
-* 5. Cancellation: Can cancel active jobs when priorities change
-*
-* PRIORITIZATION LOGIC:
-* - prioritize_page() called on page navigation (up/down arrow keys)
-* - If cancellation in progress: remembers filename, returns immediately
-* - If final processing happening: blocks briefly (about 1ms) to avoid races
-* - Otherwise: processes immediately with full priority reordering
-* - Multiple rapid calls during cancellation -> only latest filename processed
-*
-* THREAD SAFETY:
-* - Uses recursive_mutex to allow reentrant locking (e.g., add_document -> prioritize)
-* - Atomic flags track cancellation and processing states
-* - QtConcurrent futures provide cancellation support
-*
-* PERFORMANCE NOTES:
-* - Expensive operation: waiting for active jobs to cancel (non-blocking)
-* - Cheap operation: priority reordering and job queue manipulation (can block briefly)
-* - Load order within document: current page, next page, previous page, then outward
-*/
+  DocumentLoadManager - Non-blocking PDF page loading with prioritization
+
+  OVERVIEW:
+  Manages background loading of PDF pages across multiple documents using a thread pool.
+  Provides non-blocking prioritization to keep UI responsive during page navigation.
+
+  KEY BEHAVIORS:
+  1. Thread Pool: Uses QtConcurrent to load pages in background threads
+  2. Priority Ordering: Documents can be reordered to prioritize loading
+  3. Non-blocking Prioritization: Page up/down navigation returns immediately
+  4. Smart Queuing: Only loads pending (empty) pages, skips already loaded ones
+  5. Cancellation: Can cancel active jobs when priorities change
+
+  PRIORITIZATION LOGIC:
+  - prioritize_page() called on page navigation (up/down arrow keys)
+  - If cancellation in progress: remembers filename, returns immediately
+  - If final processing happening: blocks briefly (about 1ms) to avoid races
+  - Otherwise: processes immediately with full priority reordering
+  - Multiple rapid calls during cancellation -> only latest filename processed
+
+  THREAD SAFETY:
+  - Uses recursive_mutex to allow reentrant locking (e.g., add_document -> prioritize)
+  - Atomic flags track cancellation and processing states
+  - QtConcurrent futures provide cancellation support
+
+  PERFORMANCE NOTES:
+  - Expensive operation: waiting for active jobs to cancel (non-blocking)
+  - Cheap operation: priority reordering and job queue manipulation (can block briefly)
+  - Load order within document: current page, next page, previous page, then outward
+ */
 
 class Document;
 class DocumentLoadManager;
@@ -52,7 +52,9 @@ struct PageJob {
     std::filesystem::path doc_path;
 
     PageJob(std::shared_ptr<Document> doc, int page, std::filesystem::path path)
-        : document(std::move(doc)), page_num(page), doc_path(std::move(path))
+        : document(std::move(doc))
+        , page_num(page)
+        , doc_path(std::move(path))
     {
     }
 };
@@ -66,17 +68,17 @@ public:
     ~DocumentLoadManager();
 
     void add_document(std::shared_ptr<Document> doc);
-    void remove_document(const std::filesystem::path &filename);
-    void set_document_priority_order(const std::vector<std::filesystem::path> &ordered_docs);
-    void prioritize_page(const std::filesystem::path &filename);
-    void prioritize_page(const Document &doc);
+    void remove_document(const std::filesystem::path& filename);
+    void set_document_priority_order(const std::vector<std::filesystem::path>& ordered_docs);
+    void prioritize_page(const std::filesystem::path& filename);
+    void prioritize_page(const Document& doc);
 
     void start_group_changes() { group_changes_ = true; }
     void end_group_changes();
 
     void stop_loading();
 
-    static DocumentLoadManager *instance();
+    static DocumentLoadManager* instance();
 
 
     // For debugging and monitoring
@@ -97,7 +99,7 @@ private slots:
     void on_job_completed();
 
 private:
-    void prioritize_page_internal(const std::filesystem::path &filename);
+    void prioritize_page_internal(const std::filesystem::path& filename);
 
     void populate_job_queue();
     void reorder_jobs();
@@ -116,33 +118,35 @@ private:
     std::atomic<bool> group_changes_ = false;
 
     // Non-blocking prioritization support
-    std::atomic<bool> cancellation_in_progress_{ false };
-    std::atomic<bool> final_processing_{ false };
+    std::atomic<bool> cancellation_in_progress_ {false};
+    std::atomic<bool> final_processing_ {false};
     std::filesystem::path pending_priority_doc_;
     bool has_pending_prioritization_ = false;
 
-    static DocumentLoadManager *instance_;
+    static DocumentLoadManager* instance_;
 };
 
 
-template <typename T>
-class GroupChangesGuard {
+template<typename T> class GroupChangesGuard {
 public:
-    GroupChangesGuard(T &manager) : manager_(manager)
+    GroupChangesGuard(T& manager)
+        : manager_(manager)
     {
         manager_.start_group_changes();
     }
-    ~GroupChangesGuard()
-    {
-        manager_.end_group_changes();
-    }
+    ~GroupChangesGuard() { manager_.end_group_changes(); }
+
 private:
-    T &manager_;
+    T& manager_;
 };
 
 
 class DocumentLoadManagerGuard : public GroupChangesGuard<DocumentLoadManager> {
 public:
-    DocumentLoadManagerGuard() : GroupChangesGuard<DocumentLoadManager>(*DocumentLoadManager::instance()) {}
+    DocumentLoadManagerGuard()
+        : GroupChangesGuard<DocumentLoadManager>(*DocumentLoadManager::instance())
+    {
+    }
+
     ~DocumentLoadManagerGuard() = default;
 };

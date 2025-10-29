@@ -1,0 +1,30 @@
+﻿---
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures : Right
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine : false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine : false
+AllowShortLambdasOnASingleLine : false
+BreakConstructorInitializers: BeforeComma
+SortIncludes: false
+ColumnLimit: 120
+IndentCaseLabels: true
+IndentWidth: 4
+MaxEmptyLinesToKeep: 2
+SpaceAfterTemplateKeyword: false
+SpaceBeforeCpp11BracedList: true
+UseTab: Never
+PointerAlignment: Left 
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: false
+  AfterStruct: false
+  AfterFunction: true
+  SplitEmptyFunction: true
+
+...

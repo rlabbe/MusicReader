@@ -13,13 +13,9 @@
 #include "musicreader.h"
 #include "bookmark_panel.h"
 
-PDFViewer::PDFViewer(std::shared_ptr<Document> document,
-                     ConfigFile *config,
-                     int page,
-                     StatusBar *sbar,
-                     QWidget *parent,
-                     MusicReader *reader,
-                     BookmarkPanel *panel)
+
+PDFViewer::PDFViewer(std::shared_ptr<Document> document, ConfigFile* config, int page, StatusBar* sbar, QWidget* parent,
+                     MusicReader* reader, BookmarkPanel* panel)
     : QWidget(parent)
     , document_(document)
     , status_bar_(sbar)
@@ -55,8 +51,10 @@ void PDFViewer::update_status_bar()
     REQUIRES(document_);
     REQUIRES(status_bar_);
 
-    if (!status_bar_) return;
-    if (!isVisible()) return;
+    if (!status_bar_)
+        return;
+    if (!isVisible())
+        return;
 }
 
 
@@ -76,15 +74,14 @@ void PDFViewer::refresh()
     REQUIRES(document_);
 
     const int count = renderer_.page_count();
-    if (count == 0) return;
+    if (count == 0)
+        return;
 
     int current_idx = renderer_.current_index();
 
     const bool is_double = in_double_page_view();
 
-    PrefetchEntry entry = is_double
-        ? make_double_page_entry(current_idx)
-        : make_single_page_entry(current_idx);
+    PrefetchEntry entry = is_double ? make_double_page_entry(current_idx) : make_single_page_entry(current_idx);
 
     int physical_page = entry.p1.page_num;
 
@@ -159,24 +156,23 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (!document || document == document_) return;
+    if (!document || document == document_)
+        return;
     document_ = document;
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
     get_page(page);
 }
 
 
-void PDFViewer::keyPressEvent(QKeyEvent *event)
+void PDFViewer::keyPressEvent(QKeyEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     // Handle selection-related keys first
     if (event->key() == Qt::Key_Delete && has_selection_) {
-        // Delete selected annotation
-        if (document_->remove_annotation(selected_annotation_)) {
+        if (document_->remove_annotation(selected_annotation_))
             clear_selection();
-        }
         event->accept();
         return;
     }
@@ -189,33 +185,32 @@ void PDFViewer::keyPressEvent(QKeyEvent *event)
     }
 
     switch (event->key()) {
-    case Qt::Key_PageUp:
-    case Qt::Key_Up:
-        page_up();
-        event->accept();
-        break;
-    case Qt::Key_PageDown:
-    case Qt::Key_Down:
-    case Qt::Key_Space:
-        page_down();
-        event->accept();
-        break;
-    case Qt::Key_Left:
-        change_page(-1);
-        event->accept();
+        case Qt::Key_PageUp:
+        case Qt::Key_Up:
+            page_up();
+            event->accept();
+            break;
+        case Qt::Key_PageDown:
+        case Qt::Key_Down:
+        case Qt::Key_Space:
+            page_down();
+            event->accept();
+            break;
+        case Qt::Key_Left:
+            change_page(-1);
+            event->accept();
 
-        break;
-    case Qt::Key_Right:
-        change_page(1);
-        event->accept();
-        break;
-    default:
-        QWidget::keyPressEvent(event);
+            break;
+        case Qt::Key_Right:
+            change_page(1);
+            event->accept();
+            break;
+        default: QWidget::keyPressEvent(event);
     }
 }
 
 
-void PDFViewer::wheelEvent(QWheelEvent *event)
+void PDFViewer::wheelEvent(QWheelEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -227,26 +222,25 @@ void PDFViewer::wheelEvent(QWheelEvent *event)
 }
 
 
-bool PDFViewer::event(QEvent *event)
+bool PDFViewer::event(QEvent* event)
 {
     SAFE_METHOD;
 
     if (event->type() == QEvent::Gesture) {
         TRACE_FUNCTION;
 
-        auto *gesture = dynamic_cast<QSwipeGesture *>(static_cast<QGestureEvent *>(event)->gesture(Qt::SwipeGesture));
-        if (gesture->horizontalDirection() == QSwipeGesture::Left) {
+        auto* gesture = dynamic_cast<QSwipeGesture*>(static_cast<QGestureEvent*>(event)->gesture(Qt::SwipeGesture));
+        if (gesture->horizontalDirection() == QSwipeGesture::Left)
             page_down();
-        } else {
+        else
             page_up();
-        }
         return true;
     }
     return QWidget::event(event);
 }
 
 
-void PDFViewer::resizeEvent(QResizeEvent *event)
+void PDFViewer::resizeEvent(QResizeEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -284,23 +278,23 @@ void PDFViewer::init_ui(int page)
 
     label_->setAlignment(Qt::AlignTop | page_alignment());
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    label_->setMinimumSize(1, 1);  // Prevent weird shrinking issues
+    label_->setMinimumSize(1, 1); // Prevent weird shrinking issues
     label_->setScaledContents(false);
     label_->setContentsMargins(0, 0, 0, 0);
 
-    layout_->addWidget(label_, 1);  // Stretch document display
+    layout_->addWidget(label_, 1); // Stretch document display
     layout_->addWidget(scrollbar_);
 
     annotation_editor_ = new InPlaceAnnotationEditor(annotation_font_, this);
-    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_finished,
-            this, &PDFViewer::on_annotation_text_finished);
-    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_cancelled,
-            this, &PDFViewer::on_annotation_text_cancelled);
+    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_finished, this,
+            &PDFViewer::on_annotation_text_finished);
+    connect(annotation_editor_, &InPlaceAnnotationEditor::editing_cancelled, this,
+            &PDFViewer::on_annotation_text_cancelled);
 
     setLayout(layout_);
     update_scrollbar_visibility();
 
-    QShortcut *delete_shortcut = new QShortcut(QKeySequence::Delete, this);
+    QShortcut* delete_shortcut = new QShortcut(QKeySequence::Delete, this);
     delete_shortcut->setContext(Qt::WidgetShortcut); // Only when this widget has focus
     connect(delete_shortcut, &QShortcut::activated, this, &PDFViewer::delete_shortcut);
 }
@@ -320,7 +314,8 @@ void PDFViewer::on_scrollbar_value_changed(int new_index)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (manual_scrollbar_change_) return;
+    if (manual_scrollbar_change_)
+        return;
 
     if (new_index != renderer_.current_index())
         get_page(new_index);
@@ -357,29 +352,25 @@ void PDFViewer::prefetch_async(int index)
         if (index < 1 || index > count)
             return;
 
-
         // dummy sleep for 5 seconds
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-
 
         const bool is_double = in_double_page_view();
         int current_idx = renderer_.current_index();
 
         // Choose correct slot
-        PrefetchEntry &slot = (index > current_idx) ? prefetch_.next : prefetch_.prev;
+        PrefetchEntry& slot = (index > current_idx) ? prefetch_.next : prefetch_.prev;
         if (slot.index == index && slot.double_page == is_double)
             return; // Already prefetched, matching mode
 
-        PrefetchEntry entry = is_double
-            ? make_double_page_entry(index)
-            : make_single_page_entry(index);
+        PrefetchEntry entry = is_double ? make_double_page_entry(index) : make_single_page_entry(index);
 
         if (entry.rendered.isNull())
             return;
 
         {
             std::lock_guard lock(prefetch_mutex_);
-            PrefetchEntry &dest = (entry.index > current_idx) ? prefetch_.next : prefetch_.prev;
+            PrefetchEntry& dest = (entry.index > current_idx) ? prefetch_.next : prefetch_.prev;
             dest = std::move(entry);
             logger::info("Prefetched page index {}", index);
         }
@@ -416,9 +407,8 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
     if (index + 1 <= count) {
         Page page2 = renderer_.get_page_at_index(index + 1);
         entry.p2 = PixmapPage(page2);
-    } else {
+    } else
         copy_blank_image(entry.p1, entry.p2);
-    }
 
     if (!entry.p1.is_empty() && !entry.p2.is_empty())
         entry.rendered = compose_double_page(entry.p1, entry.p2);
@@ -464,7 +454,6 @@ void PDFViewer::goto_physical_page(int page_num)
 }
 
 
-
 void PDFViewer::get_page(int index)
 {
     SAFE_METHOD;
@@ -472,8 +461,10 @@ void PDFViewer::get_page(int index)
     REQUIRES(document_);
 
     const int count = renderer_.page_count();
-    if (count == 0) return;
-    if (index < 1 || index > count) return;
+    if (count == 0)
+        return;
+    if (index < 1 || index > count)
+        return;
 
     // Update renderer position
     renderer_.goto_index(index);
@@ -500,11 +491,8 @@ void PDFViewer::get_page(int index)
     }
 
     // If not in cache, render it now
-    if (!found_in_cache) {
-        entry = is_double
-            ? make_double_page_entry(index)
-            : make_single_page_entry(index);
-    }
+    if (!found_in_cache)
+        entry = is_double ? make_double_page_entry(index) : make_single_page_entry(index);
 
     // Get physical page from the entry
     int physical_page = entry.p1.page_num;
@@ -533,7 +521,7 @@ void PDFViewer::get_page(int index)
 }
 
 
-QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p2) const
+QPixmap PDFViewer::compose_double_page(const PixmapPage& p1, const PixmapPage& p2) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -557,7 +545,8 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage &p1, const PixmapPage &p
 
     QPainter painter(&combined_image);
     painter.drawPixmap(0, p1_offset, p1.pixmap, p1_crop.x(), p1_crop.y(), p1_crop.width(), p1_crop.height());
-    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(), p2_crop.height());
+    painter.drawPixmap(p1_crop.width() + line_width, p2_offset, p2.pixmap, p2_crop.x(), p2_crop.y(), p2_crop.width(),
+                       p2_crop.height());
     painter.setPen(QPen(Qt::black, line_width));
     painter.drawLine(p1_crop.width() + line_width / 2, 0, p1_crop.width() + line_width / 2, max_height);
     painter.end();
@@ -608,8 +597,6 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
 }
 
 
-// Convert normalized position (0.0-1.0 relative to full page) to display Y coordinate
-// Accounts for zoom-to-content cropping
 int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height) const
 {
     // Get the FULL uncropped page to get proper dimensions and border
@@ -626,11 +613,9 @@ int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height
     } else
         // When not zoomed, direct mapping from full image to display
         return static_cast<int>((static_cast<float>(break_y_full) / full_height) * display_height);
-
 }
 
-// Convert display Y coordinate to normalized position (0.0-1.0 relative to full page)
-// Accounts for zoom-to-content cropping
+
 double PDFViewer::display_y_to_normalized(int display_y, int display_height) const
 {
     // Get the FULL uncropped page to get proper dimensions and border
@@ -652,7 +637,8 @@ double PDFViewer::display_y_to_normalized(int display_y, int display_height) con
     }
 }
 
-void PDFViewer::update_image(const QString &message)
+
+void PDFViewer::update_image(const QString& message)
 {
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("{} {} page:{}", document_->filename(), message.toStdString(), page_.page_num);
@@ -682,7 +668,7 @@ void PDFViewer::update_image(const QString &message)
         QPainter painter(&scaled_pixmap);
 
         // Find the selected annotation and draw dotted red box
-        for (const auto &annotation : document_->annotations()) {
+        for (const auto& annotation : document_->annotations()) {
             if (annotation.handle_ == selected_annotation_) {
                 QRect bounding_box = calculate_annotation_bounding_box(annotation);
                 if (!bounding_box.isEmpty()) {
@@ -697,7 +683,7 @@ void PDFViewer::update_image(const QString &message)
 
     // Draw page break lines in edit mode
     if (page_break_edit_mode_) {
-        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        const auto& breaks = document_->performance_data().get_page_breaks(current_page());
         if (!breaks.empty() || dragging_page_break_) {
             QPainter painter(&scaled_pixmap);
             painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
@@ -741,10 +727,12 @@ void PDFViewer::adjust_initial_subwindow_size()
     TRACE_FUNCTION;
     REQUIRES(label_);
 
-    if (page_.is_empty()) return;
+    if (page_.is_empty())
+        return;
 
     static bool first_time = true;
-    if (!first_time) return;
+    if (!first_time)
+        return;
     first_time = false;
 
     QSize max_size = parentWidget()->size();
@@ -762,21 +750,19 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
     REQUIRES_RET(config_, Qt::AlignmentFlag::AlignLeft);
 
     switch (config_->page_location()) {
-    case PageLocation::Left: return Qt::AlignmentFlag::AlignLeft;
-    default:  return Qt::AlignmentFlag::AlignHCenter;
+        case PageLocation::Left: return Qt::AlignmentFlag::AlignLeft;
+        default: return Qt::AlignmentFlag::AlignHCenter;
     };
 }
 
 
-bool PDFViewer::PrefetchEntry::valid(int target_index, ConfigFile &config) const
+bool PDFViewer::PrefetchEntry::valid(int target_index, ConfigFile& config) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    return index == target_index &&
-        double_page == (config.page_view_count() == 2) &&
-        border_margin == config.border_margin() &&
-        !rendered.isNull();
+    return index == target_index && double_page == (config.page_view_count() == 2) &&
+           border_margin == config.border_margin() && !rendered.isNull();
 }
 
 
@@ -787,6 +773,7 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
     text_annotation_mode_ = enabled;
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
+
 
 void PDFViewer::set_page_break_edit_mode(bool enabled)
 {
@@ -799,13 +786,14 @@ void PDFViewer::set_page_break_edit_mode(bool enabled)
 }
 
 
-
-void PDFViewer::mousePressEvent(QMouseEvent *event)
+void PDFViewer::mousePressEvent(QMouseEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
-    if (!document_) return;
-    if (page_.is_empty()) return;
+    if (!document_)
+        return;
+    if (page_.is_empty())
+        return;
 
     setFocus();
 
@@ -824,13 +812,14 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
         // Handle page break editing - left button to add/move
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
-        if (displayed.isNull()) return;
+        if (displayed.isNull())
+            return;
 
         int display_height = displayed.height();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
 
         // Check if clicking near an existing break (within 5 pixels)
-        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        const auto& breaks = document_->performance_data().get_page_breaks(current_page());
         double clicked_break = -1.0;
         for (double break_pos : breaks) {
             int break_y_display = normalized_to_display_y(break_pos, display_height);
@@ -861,12 +850,13 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
         // Handle page break deletion - right button
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
-        if (displayed.isNull()) return;
+        if (displayed.isNull())
+            return;
 
         int display_height = displayed.height();
 
         // Find and delete the break
-        const auto &breaks = document_->performance_data().get_page_breaks(current_page());
+        const auto& breaks = document_->performance_data().get_page_breaks(current_page());
         for (double break_pos : breaks) {
             int break_y_display = normalized_to_display_y(break_pos, display_height);
 
@@ -882,7 +872,6 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
         return;
     } else if (event->button() == Qt::LeftButton) {
         // Handle annotation selection
-
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);
         if (clicked_annotation) {
             // Clicked on an annotation - select it
@@ -891,9 +880,8 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
             return;
         } else {
             // Clicked elsewhere - clear selection
-            if (has_selection_) {
+            if (has_selection_)
                 clear_selection();
-            }
         }
     }
 
@@ -901,9 +889,7 @@ void PDFViewer::mousePressEvent(QMouseEvent *event)
 }
 
 
-
-
-void PDFViewer::mouseMoveEvent(QMouseEvent *event)
+void PDFViewer::mouseMoveEvent(QMouseEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -911,7 +897,8 @@ void PDFViewer::mouseMoveEvent(QMouseEvent *event)
     if (dragging_page_break_) {
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
-        if (displayed.isNull()) return;
+        if (displayed.isNull())
+            return;
 
         int display_height = displayed.height();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
@@ -929,7 +916,7 @@ void PDFViewer::mouseMoveEvent(QMouseEvent *event)
 }
 
 
-void PDFViewer::mouseReleaseEvent(QMouseEvent *event)
+void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -955,7 +942,7 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mouseReleaseEvent(event);
 }
 
-void PDFViewer::on_annotation_text_finished(const QString &text)
+void PDFViewer::on_annotation_text_finished(const QString& text)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -964,18 +951,18 @@ void PDFViewer::on_annotation_text_finished(const QString &text)
 
         QSize size = calculate_text_size(text, annotation_font_);
 
-        Annotation annotation(text.toStdString(), last_click_target_.page_num,
-                            last_click_target_.points_x, last_click_target_.points_y,
-                            static_cast<float>(size.width()), static_cast<float>(size.height()),  // Back to pixels
-                            annotation_font_);
+        Annotation annotation(text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
+                              last_click_target_.points_y, static_cast<float>(size.width()),
+                              static_cast<float>(size.height()), // Back to pixels
+                              annotation_font_);
 
         // In on_annotation_text_finished(), replace the existing debug with:
-       // QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
-        //QFontMetrics fm(font);
-        //int fm_width = fm.horizontalAdvance(text);
-        //int fm_height = fm.height();
-        //int calculated_width = fm_width + 4;
-        //int calculated_height = fm_height + 4;
+        // QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
+        // QFontMetrics fm(font);
+        // int fm_width = fm.horizontalAdvance(text);
+        // int fm_height = fm.height();
+        // int calculated_width = fm_width + 4;
+        // int calculated_height = fm_height + 4;
 
         document_->add_annotation(annotation);
     }
@@ -997,17 +984,17 @@ void PDFViewer::on_annotation_text_cancelled()
 }
 
 
-PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
+PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     if (!document_ || page_.is_empty())
-        return { 0, 0.0f, 0.0f };
+        return {0, 0.0f, 0.0f};
 
     QPixmap displayed = label_->pixmap();
     if (displayed.isNull())
-        return { 0, 0.0f, 0.0f };
+        return {0, 0.0f, 0.0f};
 
     int target_page = current_page();
     int mouse_x = event->pos().x();
@@ -1032,15 +1019,14 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent *event) const
     int scaled_mouse_y = int(mouse_y * scale_y);
 
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(target_page);
-    auto [points_x, points_y] = pixels_to_pdf_points(scaled_mouse_x, scaled_mouse_y,
-                                                     pixel_width, pixel_height,
+    auto [points_x, points_y] = pixels_to_pdf_points(scaled_mouse_x, scaled_mouse_y, pixel_width, pixel_height,
                                                      pdf_width_points, pdf_height_points);
 
-    return { target_page, points_x, points_y };
+    return {target_page, points_x, points_y};
 }
 
 
-QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation) const
+QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -1082,17 +1068,18 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation &annotation)
 }
 
 
-AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
+AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (!document_) return AnnotationHandle();
+    if (!document_)
+        return AnnotationHandle();
 
     QPoint click_point = event->pos();
 
     // Check all annotations on current page
-    for (const auto &annotation : document_->annotations()) {
+    for (const auto& annotation : document_->annotations()) {
         QRect bounding_box = calculate_annotation_bounding_box(annotation);
         if (!bounding_box.isEmpty() && bounding_box.contains(click_point)) {
             return annotation.handle_;
@@ -1103,7 +1090,7 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent *event) const
 }
 
 
-void PDFViewer::select_annotation(const AnnotationHandle &handle)
+void PDFViewer::select_annotation(const AnnotationHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;

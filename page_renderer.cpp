@@ -3,11 +3,12 @@
 #include "performance_mode.h"
 #include <algorithm>
 
-PageRenderer::PageRenderer(Document *document)
+PageRenderer::PageRenderer(Document* document)
     : document_(document)
     , current_index_(1)
 {
 }
+
 
 int PageRenderer::page_count() const
 {
@@ -23,16 +24,19 @@ int PageRenderer::page_count() const
     return count;
 }
 
+
 int PageRenderer::current_index() const
 {
     return current_index_;
 }
+
 
 std::string PageRenderer::current_page_display() const
 {
     Position pos = index_to_position(current_index_);
     return format_display(pos.physical_page, pos.segment_index);
 }
+
 
 std::vector<std::string> PageRenderer::get_all_page_displays() const
 {
@@ -50,11 +54,13 @@ std::vector<std::string> PageRenderer::get_all_page_displays() const
     return displays;
 }
 
+
 void PageRenderer::next()
 {
     if (can_go_next())
         current_index_++;
 }
+
 
 void PageRenderer::prev()
 {
@@ -62,15 +68,18 @@ void PageRenderer::prev()
         current_index_--;
 }
 
+
 bool PageRenderer::can_go_next() const
 {
     return current_index_ < page_count();
 }
 
+
 bool PageRenderer::can_go_prev() const
 {
     return current_index_ > 1;
 }
+
 
 void PageRenderer::goto_index(int index)
 {
@@ -78,6 +87,7 @@ void PageRenderer::goto_index(int index)
     if (index >= 1 && index <= count)
         current_index_ = index;
 }
+
 
 void PageRenderer::goto_physical_page(int physical_page)
 {
@@ -87,6 +97,7 @@ void PageRenderer::goto_physical_page(int physical_page)
 
     current_index_ = position_to_index(physical_page, 0);
 }
+
 
 Page PageRenderer::get_current_page() const
 {
@@ -108,7 +119,7 @@ Page PageRenderer::get_current_page() const
 
 PageRenderer::Position PageRenderer::index_to_position(int index) const
 {
-    Position pos{ 1, 0 };
+    Position pos {1, 0};
 
     if (!document_)
         return pos;
@@ -136,6 +147,7 @@ PageRenderer::Position PageRenderer::index_to_position(int index) const
     return pos;
 }
 
+
 int PageRenderer::position_to_index(int physical_page, int segment_index) const
 {
     if (!document_)
@@ -149,29 +161,32 @@ int PageRenderer::position_to_index(int physical_page, int segment_index) const
 
     index += segment_index;
 
-    return index + 1;  // Convert to 1-based
+    return index + 1; // Convert to 1-based
 }
+
 
 int PageRenderer::segment_count(int physical_page) const
 {
     if (!document_ || !PerformanceMode::is_performance())
         return 1;
 
-    const auto &breaks = document_->performance_data().get_page_breaks(physical_page);
+    const auto& breaks = document_->performance_data().get_page_breaks(physical_page);
     return static_cast<int>(breaks.size()) + 1;
 }
+
 
 int PageRenderer::physical_page_count() const
 {
     return document_ ? document_->page_count() : 0;
 }
 
-Page PageRenderer::crop_page(const Page &page, int physical_page, int segment_index) const
+
+Page PageRenderer::crop_page(const Page& page, int physical_page, int segment_index) const
 {
     if (!document_)
         return page;
 
-    const auto &breaks = document_->performance_data().get_page_breaks(physical_page);
+    const auto& breaks = document_->performance_data().get_page_breaks(physical_page);
     if (breaks.empty())
         return page;
 
@@ -205,6 +220,7 @@ Page PageRenderer::crop_page(const Page &page, int physical_page, int segment_in
     return result;
 }
 
+
 std::string PageRenderer::format_display(int physical_page, int segment_index) const
 {
     int seg_count = segment_count(physical_page);
@@ -214,6 +230,7 @@ std::string PageRenderer::format_display(int physical_page, int segment_index) c
     char letter = 'a' + static_cast<char>(segment_index);
     return std::to_string(physical_page) + letter;
 }
+
 
 Page PageRenderer::get_page_at_index(int index) const
 {

@@ -49,31 +49,32 @@ public:
     void undo();
     void redo();
 
-    bool reparent_bookmark(const BookmarkHandle &handle, const BookmarkHandle &new_parent_handle);
-    bool indent_bookmark(const BookmarkHandle &handle);
-    bool unindent_bookmark(const BookmarkHandle &handle);
-    bool rename_bookmark(const BookmarkHandle &handle, const std::string &title);
-    bool remove_bookmark(const BookmarkHandle &handle);
+    bool reparent_bookmark(const BookmarkHandle& handle, const BookmarkHandle& new_parent_handle);
+    bool indent_bookmark(const BookmarkHandle& handle);
+    bool unindent_bookmark(const BookmarkHandle& handle);
+    bool rename_bookmark(const BookmarkHandle& handle, const std::string& title);
+    bool remove_bookmark(const BookmarkHandle& handle);
 
-    std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title, int page_num);
-    std::pair<BookmarkHandle, bool> add_bookmark(const std::string &title, int page_num, const BookmarkHandle &parent_handle);
+    std::pair<BookmarkHandle, bool> add_bookmark(const std::string& title, int page_num);
+    std::pair<BookmarkHandle, bool> add_bookmark(const std::string& title, int page_num,
+                                                 const BookmarkHandle& parent_handle);
 
     // looks for a file named filename.txt in current directory, uses it to set bookmarks
     bool set_bookmarks_from_txt_file();
 
-    std::vector<Bookmark> &bookmarks() { return bookmarks_; }
-    std::vector<Annotation> &annotations() { return annotations_; }
+    std::vector<Bookmark>& bookmarks() { return bookmarks_; }
+    std::vector<Annotation>& annotations() { return annotations_; }
 
-    bool add_annotation(const Annotation &annotation);
-    bool remove_annotation(const AnnotationHandle &handle);
-    bool edit_text_annotation(const AnnotationHandle &handle, const std::string &new_text);
-    bool move_annotation(const AnnotationHandle &handle, float new_x, float new_y);
+    bool add_annotation(const Annotation& annotation);
+    bool remove_annotation(const AnnotationHandle& handle);
+    bool edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text);
+    bool move_annotation(const AnnotationHandle& handle, float new_x, float new_y);
 
     void reload_page(int page_num);
 
 
-    const PerformanceData &performance_data() const { return performance_data_; }
-    PerformanceData &performance_data() { return performance_data_; }
+    const PerformanceData& performance_data() const { return performance_data_; }
+    PerformanceData& performance_data() { return performance_data_; }
 
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);
@@ -96,16 +97,12 @@ private:
 
     std::vector<PageInfo> page_info_;
 
-    void request_page(int page_num) const;
-
-
-
     void initialize_document();
-    static std::vector<Annotation> load_annotations_from_pdf(fz_context *ctx, fz_document *doc);
-    BookmarkHandle find_deepest_parent_for_page(int page_num, const std::vector<Bookmark> &bookmarks);
-    bool reparent_bookmark(Bookmark bookmark, const BookmarkHandle &new_parent_handle, bool internal_call);
-    Bookmark *find_bookmark(const BookmarkHandle &handle);
-    Annotation *find_annotation(const AnnotationHandle &handle);
+    static std::vector<Annotation> load_annotations_from_pdf(fz_context* ctx, fz_document* doc);
+    BookmarkHandle find_deepest_parent_for_page(int page_num, const std::vector<Bookmark>& bookmarks);
+    bool reparent_bookmark(Bookmark bookmark, const BookmarkHandle& new_parent_handle, bool internal_call);
+    Bookmark* find_bookmark(const BookmarkHandle& handle);
+    Annotation* find_annotation(const AnnotationHandle& handle);
     bool save_annotations_to_pdf();
     void clear_completed_features();
 
@@ -122,8 +119,8 @@ private:
 
     std::mutex save_state_mutex_;
     std::condition_variable save_cv_;
-    std::atomic<bool> is_saving_{ false };
-    std::atomic<bool> being_destroyed_{ false };
+    std::atomic<bool> is_saving_ {false};
+    std::atomic<bool> being_destroyed_ {false};
 
     std::vector<std::vector<Bookmark>> undo_stack_;
     std::vector<std::vector<Bookmark>> redo_stack_;
@@ -132,7 +129,7 @@ private:
 
     std::recursive_mutex bookmark_mutex_;
     mutable std::mutex read_mutex_;
-    std::atomic<bool> kill_loading_{ false };
+    std::atomic<bool> kill_loading_ {false};
 
     PerformanceData performance_data_;
 };

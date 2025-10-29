@@ -28,12 +28,12 @@ public:
     // Load playback data from the .perf file associated with the given PDF path.
     // Returns true if file exists and was loaded successfully, false otherwise.
     // If no .perf file exists, this is not an error - just means no playback data.
-    bool load(const std::filesystem::path &pdf_path);
+    bool load(const std::filesystem::path& pdf_path);
 
     // Save playback data to the .perf file associated with the given PDF path.
     // If data is empty, still returns true (but creates no file).
     // Returns false only on write errors.
-    bool save(const std::filesystem::path &pdf_path) const;
+    bool save(const std::filesystem::path& pdf_path) const;
 
     // Add a page break at the specified normalized position (0.0-1.0) on the page.
     // Breaks are automatically kept sorted. Duplicate positions are ignored.
@@ -50,7 +50,7 @@ public:
 
     // Get all page breaks for a specific page, sorted in ascending order.
     // Returns empty vector if no breaks exist for this page.
-    const std::vector<double> &get_page_breaks(int page_num) const;
+    const std::vector<double>& get_page_breaks(int page_num) const;
 
     // Check if a specific page has any breaks.
     bool has_breaks(int page_num) const;

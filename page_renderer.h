@@ -10,7 +10,7 @@ class Document;
 
 class PageRenderer {
 public:
-    PageRenderer(Document *document);
+    PageRenderer(Document* document);
 
     // ==================== QUERY CURRENT STATE ====================
 
@@ -63,13 +63,13 @@ public:
 
     // Map an index to physical page and segment (for UI callbacks)
     struct Position {
-        int physical_page;  // 1-based physical page number
-        int segment_index;  // 0-based segment within the page
+        int physical_page; // 1-based physical page number
+        int segment_index; // 0-based segment within the page
     };
     Position index_to_position(int index) const;
 
 private:
-    Document *document_;
+    Document* document_;
 
     // The single source of truth: current position in the virtual page sequence
     int current_index_;
@@ -85,7 +85,7 @@ private:
     int physical_page_count() const;
 
     // Crop a page to a specific segment
-    Page crop_page(const Page &page, int physical_page, int segment_index) const;
+    Page crop_page(const Page& page, int physical_page, int segment_index) const;
 
     // Format display string for a position
     std::string format_display(int physical_page, int segment_index) const;

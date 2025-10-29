@@ -12,15 +12,17 @@
 class LogTimer {
 public:
     explicit LogTimer(std::string label)
-        : label_(std::move(label)), start_time_(std::chrono::steady_clock::now()), stopped_(false)
+        : label_(std::move(label))
+        , start_time_(std::chrono::steady_clock::now())
+        , stopped_(false)
     {
     }
 
 
-
     ~LogTimer()
     {
-        if (!stopped_) stop();
+        if (!stopped_)
+            stop();
     }
 
     void stop()
@@ -32,11 +34,11 @@ public:
         stopped_ = true;
     }
 
-    void start(const std::string &label="")
+    void start(const std::string& label = "")
     {
         stopped_ = false;
         start_time_ = std::chrono::steady_clock::now();
-        if (label.size() > 0) 
+        if (label.size() > 0)
             label_ = label;
     }
 
@@ -56,18 +58,21 @@ private:
             return std::to_string(duration_cast<microseconds>(ns).count()) + " us";
         else if (ns < 1s)
             return std::to_string(duration_cast<milliseconds>(ns).count()) + " ms";
-        else 
-            return std::format("{:.2f} s", duration_cast<duration<double>>(ns).count());;
+        else
+            return std::format("{:.2f} s", duration_cast<duration<double>>(ns).count());
+        ;
     }
 };
 
 
-#define CONCATENATE_DETAIL(x, y) x ## y
+#define CONCATENATE_DETAIL(x, y) x##y
 #define CONCATENATE(x, y) CONCATENATE_DETAIL(x, y)
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-#define LOG_TIMER(...) LogTimer CONCATENATE(log_timer_, __LINE__)(CONCATENATE_OPTIONAL(__VA_ARGS__) __FILE__ ":" TOSTRING(__LINE__) ":" __FUNCTION__)
+#define LOG_TIMER(...)                                                                                                 \
+    LogTimer CONCATENATE(log_timer_,                                                                                   \
+                         __LINE__)(CONCATENATE_OPTIONAL(__VA_ARGS__) __FILE__ ":" TOSTRING(__LINE__) ":" __FUNCTION__)
 
 #define CONCATENATE_OPTIONAL(...) CONCATENATE_OPTIONAL_IMPL(__VA_ARGS__, "", "")
 #define CONCATENATE_OPTIONAL_IMPL(x, ...) x
@@ -77,11 +82,10 @@ private:
 
 class LogTimer {
 public:
-    explicit LogTimer([[maybe_unused]] const std::string &label) {}
+    explicit LogTimer([[maybe_unused]] const std::string& label) {}
     void stop() {}
-    void start([[maybe_unused]] const std::string &label = "") {}
-
+    void start([[maybe_unused]] const std::string& label = "") {}
 };
 
-#define LOG_TIMER(...) 
+#define LOG_TIMER(...)
 #endif

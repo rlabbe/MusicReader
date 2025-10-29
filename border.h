@@ -5,16 +5,15 @@
 #include <QRect>
 
 struct Border {
-    int top{ 0 };
-    int bottom{ 0 };
-    int left{ 0 };
-    int right{ 0 };
+    int top {0};
+    int bottom {0};
+    int left {0};
+    int right {0};
 
-    Border adjust(const QPixmap &img, int top_margin, int side_margin) const
+    Border adjust(const QPixmap& img, int top_margin, int side_margin) const
     {
-        if (top_margin == 0 && side_margin == 0) {
+        if (top_margin == 0 && side_margin == 0)
             return *this;
-        }
 
         int width = img.width();
         int height = img.height();
@@ -24,29 +23,17 @@ struct Border {
         int new_left = std::max(0, left - side_margin);
         int new_right = std::min(width, right + side_margin);
 
-        return Border {
-            .top = new_top, 
-            .bottom = new_bottom, 
-            .left = new_left, 
-            .right = new_right };
-
+        return Border {.top = new_top, .bottom = new_bottom, .left = new_left, .right = new_right};
     }
 
-    static Border from_qrect(const QRect &qrect)
+    static Border from_qrect(const QRect& qrect)
     {
-        return Border {
-            .top = qrect.top(),
-            .bottom = qrect.bottom(),
-            .left = qrect.left(),
-            .right = qrect.right() 
-        };
-
+        return Border {.top = qrect.top(), .bottom = qrect.bottom(), .left = qrect.left(), .right = qrect.right()};
     }
 };
 
-Border find_content_edges(const QImage &img, int black_pixel_threshold = 5);
-inline Border find_content_edges(const QPixmap &img, int black_pixel_threshold = 5)
+Border find_content_edges(const QImage& img, int black_pixel_threshold = 5);
+inline Border find_content_edges(const QPixmap& img, int black_pixel_threshold = 5)
 {
     return find_content_edges(img.toImage(), black_pixel_threshold);
 }
-

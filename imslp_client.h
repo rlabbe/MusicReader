@@ -24,12 +24,14 @@ public:
     IMSLPClient();
     ~IMSLPClient();
 
-    std::vector<std::string> search_works(const std::string &search_term, int namespace_id = 0);
-    std::vector<FileInfo> get_page_files(const std::string &page_title,
-                                        const std::vector<std::string> &extensions = { ".pdf" });
-    FileInfo get_file_info(const std::string &file_title, int thumb_width = 200);
-    std::vector<FileInfo> get_work_pdfs(const std::string &search_term);
-    std::vector<uint8_t> get_thumbnail_data(const std::string &thumb_url);
+    std::vector<std::string> search_works(const std::string& search_term, int namespace_id = 0);
+
+    std::vector<FileInfo> get_page_files(const std::string& page_title,
+                                         const std::vector<std::string>& extensions = {".pdf"});
+
+    FileInfo get_file_info(const std::string& file_title, int thumb_width = 200);
+    std::vector<FileInfo> get_work_pdfs(const std::string& search_term);
+    std::vector<uint8_t> get_thumbnail_data(const std::string& thumb_url);
 
     HINTERNET getSession() const { return hSession; }
 };

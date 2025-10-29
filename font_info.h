@@ -14,7 +14,6 @@ struct FontInfo {
 };
 
 
-
 /*
 inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
 {
@@ -46,7 +45,7 @@ inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
     return QSize(width, height);
 }*/
 
-inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
+inline QSize calculate_text_size(const QString& text, const FontInfo& font_info)
 {
     QFont font(font_info.family, static_cast<int>(font_info.size));
     QFontMetrics fm(font);
@@ -62,7 +61,7 @@ inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
     return QSize(width, height);
 }
 
-inline QPoint calculate_adjusted_position(const QPoint &click_pos, const FontInfo &font_info)
+inline QPoint calculate_adjusted_position(const QPoint& click_pos, const FontInfo& font_info)
 {
     QTextDocument doc;
     QFont font(font_info.family, static_cast<int>(font_info.size));

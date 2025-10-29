@@ -4,13 +4,6 @@
 
 class WaitCursor {
 public:
-    WaitCursor()
-    {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    }
-
-    ~WaitCursor()
-    {
-        QGuiApplication::restoreOverrideCursor();
-    }
+    WaitCursor() { QGuiApplication::setOverrideCursor(Qt::WaitCursor); }
+    ~WaitCursor() { QGuiApplication::restoreOverrideCursor(); }
 };
