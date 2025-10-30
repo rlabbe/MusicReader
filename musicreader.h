@@ -68,6 +68,7 @@ private:
     void on_page_up();
 
     void set_bookmarks_from_file();
+    void save_bookmarks_to_file();
 
     void closeEvent(QCloseEvent* event) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;

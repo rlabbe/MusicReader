@@ -1252,3 +1252,37 @@ bool Document::set_bookmarks_from_txt_file()
     logger::info("Successfully loaded {} bookmarks from {}", parsed_bookmarks.size(), txt_path.string());
     return true;
 }
+
+bool Document::save_bookmarks_to_txt_file()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto txt_path = filename_;
+    txt_path.replace_extension(".txt");
+
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    std::ofstream file(txt_path);
+    if (!file.is_open()) {
+        std::string error_msg = std::format("Failed to open bookmark file for writing: {}", txt_path.string());
+        logger::error(error_msg);
+        return false;
+    }
+
+    std::function<void(const Bookmark&, int)> write_bookmark = [&](const Bookmark& bm, int depth) {
+        if (bm.page_num_.has_value()) {
+            std::string indent(depth * 4, ' ');
+            file << indent << bm.page_num_.value() << " " << bm.title_ << "\n";
+        }
+        for (const auto& child : bm.children_)
+            write_bookmark(child, depth + 1);
+    };
+
+    for (const auto& bm : bookmarks_)
+        write_bookmark(bm, 0);
+
+    file.close();
+    logger::info("Successfully saved bookmarks to {}", txt_path.string());
+    return true;
+}

@@ -551,6 +551,9 @@ void MusicReader::create_edit_menu(auto* menu_bar)
     QAction* set_bookmarks_action = new QAction("Set bookmarks from txt file", this);
     connect(set_bookmarks_action, &QAction::triggered, this, &MusicReader::set_bookmarks_from_file);
     edit_menu_->addAction(set_bookmarks_action);
+    QAction* save_bookmarks_action = new QAction("Save bookmarks to txt file", this);
+    connect(save_bookmarks_action, &QAction::triggered, this, &MusicReader::save_bookmarks_to_file);
+    edit_menu_->addAction(save_bookmarks_action);
 
     connect(edit_menu_, &QMenu::aboutToShow, this, [this]() {
         auto doc = current_document();
@@ -565,6 +568,16 @@ void MusicReader::set_bookmarks_from_file()
     auto doc = current_document();
     if (doc && doc->set_bookmarks_from_txt_file())
         update_bookmarks_for_doc();
+}
+
+
+
+void MusicReader::save_bookmarks_to_file()
+{
+    auto doc = current_document();
+    if (doc) {
+        doc->save_bookmarks_to_txt_file();
+    }
 }
 
 
