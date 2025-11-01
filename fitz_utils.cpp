@@ -86,6 +86,7 @@ inline std::pair<fz_context*, fz_document*> open_fitz(const std::filesystem::pat
         return {nullptr, nullptr};
     fz_try(ctx)
     {
+        fz_set_aa_level(ctx, 0);
         fz_register_document_handlers(ctx);
     }
     fz_catch(ctx)
@@ -322,6 +323,7 @@ TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename, const std:
     pdf_document* pdf = nullptr;
 
     ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    fz_set_aa_level(ctx, 0);
     if (!ctx) {
         logger::error("Failed to create MuPDF context");
         return TextResult::ContextCreationFailed;
