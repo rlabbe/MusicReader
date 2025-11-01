@@ -662,6 +662,8 @@ void PDFViewer::update_image(const QString& message)
 
     label_->setAlignment(Qt::AlignTop | page_alignment());
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    //scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
+
 
     // Draw selection box around selected annotation only
     if (has_selection_) {

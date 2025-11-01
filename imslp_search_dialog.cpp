@@ -1,6 +1,7 @@
 #include "imslp_search_dialog.h"
 #include "imslp_client.h"
 #include <QtWidgets/QtWidgets>
+#include <QtWidgets/QWhatsThis>
 #include <QtNetwork/QtNetwork>
 #include <QtConcurrent/QtConcurrent>
 #include <QtWebEngineWidgets/QWebEngineView>
@@ -638,6 +639,15 @@ QString IMSLPSearchDialog::get_temp_file_path(const QString& filename) const
     return QDir(temp_dir).filePath(filename);
 }
 
+
+
+void IMSLPSearchDialog::contextMenuEvent(QContextMenuEvent* event)
+{
+    if (!QWhatsThis::inWhatsThisMode())
+        event->ignore();
+    else
+        QDialog::contextMenuEvent(event);
+}
 
 bool IMSLPSearchDialog::eventFilter(QObject* watched, QEvent* event)
 {

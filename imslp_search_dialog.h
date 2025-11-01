@@ -25,6 +25,7 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    void contextMenuEvent(QContextMenuEvent* event);
     void setup_ui();
     void setup_web_engine();
     void clear_results();
