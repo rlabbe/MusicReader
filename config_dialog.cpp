@@ -28,7 +28,7 @@ ConfigDialog::ConfigDialog(ConfigFile& config, QWidget* parent)
 void ConfigDialog::setup_ui()
 {
     spin_dpi_ = new QSpinBox(this);
-    spin_dpi_->setRange(72, 360);
+    spin_dpi_->setRange(72, 1480);
     spin_dpi_->setWhatsThis("PDF rendering resolution in dots per inch. Higher values provide sharper images but use "
                             "more memory. 360 for 4K display is good");
 
