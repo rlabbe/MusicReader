@@ -571,7 +571,6 @@ void MusicReader::set_bookmarks_from_file()
 }
 
 
-
 void MusicReader::save_bookmarks_to_file()
 {
     auto doc = current_document();
@@ -656,12 +655,18 @@ void MusicReader::create_imslp_menu(auto* menu_bar)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    QMenu* imslp_menu = menu_bar->addMenu("&IMSLP");
-
-    QAction* action = new QAction("&Search...", this);
+    QAction* action = new QAction(config_.show_menu() ? "&IMSLP" : "&IMSLP Search", this);
     action->setShortcut(QKeySequence("I"));
     connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
-    imslp_menu->addAction(action);
+
+    if (config_.show_menu()) {
+        QMenu* imslp_menu = menu_bar->addMenu("&IMSLP");
+        QAction* search_action = new QAction("&Search...", this);
+        search_action->setShortcut(QKeySequence("I"));
+        connect(search_action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
+        imslp_menu->addAction(search_action);
+    } else
+        menu_bar->addAction(action);
 }
 
 
@@ -939,6 +944,7 @@ void MusicReader::show_titlebar_menu()
 
     create_file_menu(&menu);
     create_edit_menu(&menu);
+    create_imslp_menu(&menu);
     create_view_menu(&menu);
 
 
@@ -2310,6 +2316,8 @@ void MusicReader::on_config_saved()
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
+    menuBar()->clear();
+    create_menus();
     bookmark_panel_->resume_tracking();
 }
 
