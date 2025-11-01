@@ -571,6 +571,7 @@ void MusicReader::set_bookmarks_from_file()
 }
 
 
+
 void MusicReader::save_bookmarks_to_file()
 {
     auto doc = current_document();
@@ -655,18 +656,19 @@ void MusicReader::create_imslp_menu(auto* menu_bar)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    QAction* action = new QAction(config_.show_menu() ? "&IMSLP" : "&IMSLP Search", this);
-    action->setShortcut(QKeySequence("I"));
-    connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
-
     if (config_.show_menu()) {
         QMenu* imslp_menu = menu_bar->addMenu("&IMSLP");
         QAction* search_action = new QAction("&Search...", this);
         search_action->setShortcut(QKeySequence("I"));
         connect(search_action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
         imslp_menu->addAction(search_action);
-    } else
+    } else {
+        QAction* action = new QAction("&IMSLP Search", this);
+        action->setShortcut(QKeySequence("I"));
+        connect(action, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
         menu_bar->addAction(action);
+        addAction(action);
+    }
 }
 
 
@@ -2316,6 +2318,9 @@ void MusicReader::on_config_saved()
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
+    for (QAction* action : actions())
+        if (action->shortcut() == QKeySequence("I"))
+            removeAction(action);
     menuBar()->clear();
     create_menus();
     bookmark_panel_->resume_tracking();
