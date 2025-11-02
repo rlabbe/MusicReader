@@ -491,21 +491,18 @@ void MusicReader::create_file_menu(auto* menu_bar)
 
     // File menu
     QMenu* file_menu = menu_bar->addMenu("&File");
-
-    QAction* action = new QAction("&Open...", this);
-    action->setShortcut(shortcuts_["open_file"]);
-    file_menu->addAction(action);
-    connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
+    QAction* action;
 
     action = new QAction("&Fast Search...", this);
     action->setShortcut(shortcuts_["fast_search"]);
     connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
     file_menu->addAction(action);
 
-    action = new QAction("&Settings...", this);
-    action->setShortcut(shortcuts_["settings"]);
-    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+    action = new QAction("&Open...", this);
+    action->setShortcut(shortcuts_["open_file"]);
     file_menu->addAction(action);
+    connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
+
 
     open_recent_menu_ = new QMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
@@ -513,12 +510,10 @@ void MusicReader::create_file_menu(auto* menu_bar)
 
     file_menu->addSeparator();
 
-    action = new QAction("Copy log to clipboard", this);
-    action->setShortcut(shortcuts_["open_file"]);
-    connect(action, &QAction::triggered, this, &MusicReader::copy_log_to_clipboard);
+    action = new QAction("&Settings...", this);
+    action->setShortcut(shortcuts_["settings"]);
+    connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
     file_menu->addAction(action);
-
-    file_menu->addSeparator();
 
     QAction* exit_action = new QAction("E&xit", this);
     connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
@@ -635,16 +630,23 @@ void MusicReader::create_view_menu(auto* menu_bar)
         view_menu->addAction(dev_action);
     }
 
+    view_menu->addSeparator();
     auto* action = new QAction("View Log...", this);
     connect(action, &QAction::triggered, this, &MusicReader::show_log_file);
     view_menu->addAction(action);
+
+    action = new QAction("Copy log to clipboard", this);
+    action->setShortcut(shortcuts_["open_file"]);
+    connect(action, &QAction::triggered, this, &MusicReader::copy_log_to_clipboard);
+    view_menu->addAction(action);
+
+    view_menu->addSeparator();
 
     QAction* goto_action = new QAction("&Goto Page...", this);
     goto_action->setShortcut(QKeySequence("Ctrl+G"));
     connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
     view_menu->addAction(goto_action);
 
-    view_menu->addSeparator();
 
     QAction* tour_action = new QAction("Tour...", this);
     connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
