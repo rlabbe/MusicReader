@@ -279,6 +279,11 @@ void ConfigFile::read(bool reset_on_error)
     else
         do_async_loads_ = true;
 
+    if (j.contains("dev_trace_while_debug_logging"))
+        trace_while_debug_logging_ = j["dev_trace_while_debug_logging"].get<bool>();
+    else
+        trace_while_debug_logging_ = false;
+
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         int default_tab_order = 0;
@@ -583,6 +588,7 @@ json ConfigFile::to_json() const
     j["append_to_log"] = append_to_log_;
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
+    j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;
     return j;
 }
 
@@ -863,6 +869,7 @@ std::string ConfigFile::repr() const
     j["append_to_log"] = append_to_log_;
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
+    j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;
 
     return j.dump(4); // Pretty print with 4 spaces indentation
 }

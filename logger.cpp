@@ -185,7 +185,14 @@ void logger::debug(const std::string& message)
         return;
 
     auto level = config_file_->log_level();
-    if (level == LogLevel::Diagnostic)// || level==LogLevel::Trace)
+    bool log = false;
+
+    if (ConfigFile::instance().trace_while_debug_logging())
+        log = (level == LogLevel::Diagnostic || level == LogLevel::Trace);
+    else
+        log = (level == LogLevel::Diagnostic);
+
+    if (log)
         logger_->debug(message);
 }
 

@@ -86,6 +86,7 @@ private:
     // developer only.
     int page_load_delay_ = 0;
     bool do_async_loads_ = true;
+    bool trace_while_debug_logging_ = false;
 
 
 private:
@@ -328,6 +329,7 @@ public:
 
     int page_load_delay() const { return page_load_delay_; }
     bool do_async_loads() const { return do_async_loads_; }
+    bool trace_while_debug_logging() const { return trace_while_debug_logging_; }
 
 
     // Method to read configuration from file
