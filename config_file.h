@@ -82,8 +82,25 @@ private:
     std::filesystem::path music_directory_;
     LogLevel log_level_;
 
+
+    // developer only.
+    int page_load_delay_ = 0;
+    bool do_async_loads_ = true;
+
+
+private:
+    ConfigFile();
+    ConfigFile(const ConfigFile&) = delete;
+    ConfigFile(const ConfigFile&&) = delete;
+    ConfigFile& operator=(const ConfigFile&) = delete;
+
+
+
 public:
-    explicit ConfigFile(bool reset_on_error = true);
+    static ConfigFile& instance() {
+        static ConfigFile instance;
+        return instance;
+    }
 
     void start_group_changes() { save_operation_enabled_ = false; }
     void end_group_changes()
@@ -307,6 +324,11 @@ public:
         append_to_log_ = value;
         save();
     }
+
+
+    int page_load_delay() const { return page_load_delay_; }
+    bool do_async_loads() const { return do_async_loads_; }
+
 
     // Method to read configuration from file
     void read(bool reset_on_error = true);

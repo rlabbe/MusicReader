@@ -12,6 +12,8 @@ class PageRenderer {
 public:
     PageRenderer(Document* document);
 
+    void replace_document(Document* document) { document_ = document; }
+
     // ==================== QUERY CURRENT STATE ====================
 
     // Get the total number of pages (virtual count in performance mode)

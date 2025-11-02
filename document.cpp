@@ -15,6 +15,8 @@
 #include "exception_logger.h"
 #include <fstream>
 #include <qmessagebox.h>
+#include "config_file.h"
+
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
@@ -22,12 +24,19 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
     , start_page_(start_page)
     , current_page_(start_page)
 {
+    ++unique_id;
+    id = unique_id;
+
+    TRACE_FUNCTION_MSG("document({})", id);
+
     initialize_document();
 }
 
 
 Document::~Document()
 {
+    TRACE_FUNCTION_MSG("document({})", id);
+
     kill_loading_ = true;
 
     if (is_temporary()) {
@@ -51,7 +60,7 @@ Document::~Document()
 Page Document::get_page(int page_num, bool is_current) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("Requesting page {} of {}, is_current={}", page_num, filename_.string(), is_current);
+    TRACE_FUNCTION_MSG("Document({}) Requesting page {} of {}, is_current={} ptr={}", id, page_num, filename_.string(), is_current, (void*)this);
 
     if (is_current)
         current_page_ = page_num;
@@ -93,13 +102,13 @@ void Document::prioritize() const
 void Document::initialize_document()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("Document({}) Initializing", id);
 
     modified_ = false;
 
     auto [ctx, doc] = open_fitz(filename_.string());
     if (!ctx || !doc) {
-        logger::error("Failed to open document: {}", filename_.string());
+        logger::error("Failed to open document({}): {}", id, filename_.string());
         return;
     }
 
@@ -123,7 +132,7 @@ void Document::initialize_document()
     }
 
     if (total_pages == 0) {
-        logger::debug("Document has no pages: {}", filename_.string());
+        logger::debug("Document({}) has no pages: {}", id, filename_.string());
         close_fitz(ctx, doc);
         return;
     }
@@ -238,7 +247,7 @@ std::vector<int> Document::get_pending_pages() const
 void Document::load_page(int page_num)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("file: {} page: {}", filename_.string(), page_num);
+    TRACE_FUNCTION_MSG("doc {} file: {} page: {}", id, filename_.string(), page_num);
 
     if (kill_loading_ || page_num < 1 || page_num > page_count())
         return;
@@ -270,14 +279,23 @@ void Document::load_page(int page_num)
     if (kill_loading_)
         return;
 
-    // std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+    int sleep = ConfigFile::instance().page_load_delay();
+    if (sleep > 0) {
+        static bool warned = false;
+        if (!warned) {
+            logger::info("Page load delay of {} ms enabled", sleep);
+            warned = true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+    }
+
 
     {
         std::lock_guard lock(read_mutex_);
         pages_[page_num - 1] = Page(img, page_num, false);
     }
 
-    logger::debug("emiting page_loader {} {}", filename_.string(), page_num);
+    logger::debug("emiting page_loaded {} {}", filename_.string(), page_num);
     emit page_loaded(filename_.string(), page_num);
 }
 

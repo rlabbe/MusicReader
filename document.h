@@ -23,6 +23,10 @@ struct fz_document;
 class Document : public QObject {
     Q_OBJECT
 public:
+
+    static int inline unique_id = 0;
+    int id;
+
     Document(std::filesystem::path filename, int dpi, int start_page);
     ~Document();
 

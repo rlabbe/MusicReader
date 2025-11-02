@@ -35,6 +35,7 @@ constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
 MusicReader::MusicReader(QWidget* parent)
     : QMainWindow(parent)
+    , config_(ConfigFile::instance())
     , load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
 {
 #if !defined(NDEBUG)

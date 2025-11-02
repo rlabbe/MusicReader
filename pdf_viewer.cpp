@@ -159,6 +159,7 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
     if (!document || document == document_)
         return;
     document_ = document;
+    renderer_.replace_document(document_.get());
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
     get_page(page);
 }
@@ -347,13 +348,14 @@ void PDFViewer::prefetch_async(int index)
     TRACE_FUNCTION;
     REQUIRES(document_);
 
+
+    if (!config_->do_async_loads())
+        return;
+
     std::jthread([this, index]() {
         const int count = renderer_.page_count();
         if (index < 1 || index > count)
             return;
-
-        // dummy sleep for 5 seconds
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
         const bool is_double = in_double_page_view();
         int current_idx = renderer_.current_index();
@@ -646,12 +648,16 @@ void PDFViewer::update_image(const QString& message)
     REQUIRES(config_);
 
     if (page_.is_empty()) {
+        logger::info("page is empty");
         label_->setText(message.isEmpty() ? "Loading..." : message);
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
-    } else
+    } else {
+        logger::info("page ain't empty");
         label_->setStyleSheet("");
+        label_->setAlignment(Qt::AlignTop | page_alignment());
+    }
 
     REQUIRES(document_);
     QSize max_size;
@@ -660,7 +666,6 @@ void PDFViewer::update_image(const QString& message)
     else
         max_size = page_.pixmap.size().boundedTo(label_->size());
 
-    label_->setAlignment(Qt::AlignTop | page_alignment());
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     //scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
 

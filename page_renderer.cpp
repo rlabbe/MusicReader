@@ -21,6 +21,7 @@ int PageRenderer::page_count() const
     for (int page = 1; page <= total_physical; ++page)
         count += segment_count(page);
 
+    logger::debug("document({}) has {} pages", document_->id, count);
     return count;
 }
 

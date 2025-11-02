@@ -227,7 +227,7 @@ private:
 
     bool tabs_visible_ = true; // we can show/hide the tabs with T key
 
-    ConfigFile config_;
+    ConfigFile& config_;
     std::map<std::string, QKeySequence> shortcuts_;
 
     FastFileSearchDialog* fast_search_dialog_ = nullptr;

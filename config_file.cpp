@@ -175,12 +175,12 @@ static bool string_to_page_location(const std::string& str, PageLocation& locati
 
 
 // Constructor
-ConfigFile::ConfigFile(bool reset_on_error)
+ConfigFile::ConfigFile()
     : filename_(get_persistent_config_path("MusicReader.config"))
     , save_operation_enabled_(true)
 {
     set_defaults();
-    read(reset_on_error);
+    read(true);
 }
 
 
@@ -267,6 +267,17 @@ void ConfigFile::read(bool reset_on_error)
         append_to_log_ = j["append_to_log"].get<bool>();
     else
         logger::error("Invalid or missing 'append_to_log'");
+
+    // developer only
+    if (j.contains("dev_page_load_delay"))
+        page_load_delay_ = j["dev_page_load_delay"].get<int>();
+    else
+        page_load_delay_ = 0;
+
+    if (j.contains("dev_do_async_loads"))
+        do_async_loads_ = j["dev_do_async_loads"].get<bool>();
+    else
+        do_async_loads_ = true;
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
@@ -570,9 +581,10 @@ json ConfigFile::to_json() const
     j["log_level"] = log_level_to_string(log_level_);
     j["tour_has_run"] = tour_has_run_;
     j["append_to_log"] = append_to_log_;
+    j["dev_page_load_delay"] = page_load_delay_;
+    j["dev_do_async_loads"] = do_async_loads_;
     return j;
 }
-
 
 // Method to save configuration to file
 void ConfigFile::save() const
@@ -847,6 +859,10 @@ std::string ConfigFile::repr() const
     j["border_margin"] = border_margin_;
     j["music_directory"] = music_directory_.string();
     j["log_level"] = log_level_to_string(log_level_);
+    j["tour_has_run"] = tour_has_run_;
+    j["append_to_log"] = append_to_log_;
+    j["dev_page_load_delay"] = page_load_delay_;
+    j["dev_do_async_loads"] = do_async_loads_;
 
     return j.dump(4); // Pretty print with 4 spaces indentation
 }

@@ -92,8 +92,13 @@ void logger::initialize(bool log_to_console, ConfigFile& cf, size_t max_size_kb)
     log_file_path_ = get_persistent_config_path("MusicReader.log");
     std::cout << "opening log file: " << log_file_path_ << std::endl;
 
-    if (!cf.append_to_log())
-        std::filesystem::remove(log_file_path_);
+    if (!cf.append_to_log()) {
+        try {
+            std::filesystem::remove(log_file_path_);
+        } catch (const std::exception&) {
+            ; // ignore, this just means the file doesn't exist
+        }
+    }
 
     configure_logger(log_file_path_, max_size_kb, log_to_console);
     logged_error_ = false;
@@ -176,7 +181,11 @@ void logger::error(const std::u8string& message)
 
 void logger::debug(const std::string& message)
 {
-    if (logger_ && config_file_->log_level() == LogLevel::Diagnostic)
+    if (!logger_)
+        return;
+
+    auto level = config_file_->log_level();
+    if (level == LogLevel::Diagnostic)// || level==LogLevel::Trace)
         logger_->debug(message);
 }
 
