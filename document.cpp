@@ -295,7 +295,7 @@ void Document::load_page(int page_num)
         pages_[page_num - 1] = Page(img, page_num, false);
     }
 
-    logger::debug("emiting page_loaded {} {}", filename_.string(), page_num);
+    logger::debug("emitting page_loaded {} {}", filename_.string(), page_num);
     emit page_loaded(filename_.string(), page_num);
 }
 

@@ -247,7 +247,8 @@ void PDFViewer::resizeEvent(QResizeEvent* event)
     TRACE_FUNCTION;
 
     QWidget::resizeEvent(event);
-    update_image();
+    if (!skip_resize_update_)
+        update_image();
 }
 
 
@@ -586,6 +587,8 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     if (!relevant)
         return;
 
+    skip_resize_update_ = true;
+
     int count = page_count();
     if (in_single_page_view() || count == 1) {
         PrefetchEntry entry = make_single_page_entry(current_idx);
@@ -596,6 +599,8 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
         page_ = PixmapPage(entry.rendered, current_pos.physical_page, true);
         update_image();
     }
+
+    skip_resize_update_ = false;
 }
 
 
@@ -667,7 +672,7 @@ void PDFViewer::update_image(const QString& message)
         max_size = page_.pixmap.size().boundedTo(label_->size());
 
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    //scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
+    // scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
 
 
     // Draw selection box around selected annotation only

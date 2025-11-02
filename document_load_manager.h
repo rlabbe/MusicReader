@@ -151,4 +151,4 @@ public:
     }
 
     ~DocumentLoadManagerGuard() = default;
-};
+};

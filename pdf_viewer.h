@@ -169,6 +169,7 @@ private:
     FontInfo annotation_font_;
     AnnotationHandle selected_annotation_;
     bool has_selection_ = false;
+    bool skip_resize_update_ = false;
 
     BookmarkPanel* bookmark_panel_ = nullptr;
 
