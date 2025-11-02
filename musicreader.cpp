@@ -362,10 +362,6 @@ void MusicReader::restore_open_documents()
     }
 
     update_document_priority_order();
-
-    logger::debug("cleaning up");
-    update_document_priority_order();
-
     bookmark_panel_->adjust_width();
     update_background();
 }
