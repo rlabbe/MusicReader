@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <set>
 #include <QObject>
 #include <QFuture>
 #include <QPromise>
@@ -111,6 +112,7 @@ private:
     std::vector<std::filesystem::path> document_priority_order_;
     std::vector<std::shared_ptr<Document>> documents_;
     std::vector<QFuture<void>> active_futures_;
+    std::set<std::pair<std::filesystem::path, int>> active_jobs_set_;
 
     mutable std::recursive_mutex mutex_;
     int max_concurrent_jobs_;
@@ -149,4 +151,4 @@ public:
     }
 
     ~DocumentLoadManagerGuard() = default;
-};
+};

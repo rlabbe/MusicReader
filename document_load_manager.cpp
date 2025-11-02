@@ -129,7 +129,8 @@ void DocumentLoadManager::populate_job_queue()
         oss << "  " << doc_path.stem().string() << " pending pages: ";
         for (int page_num : pending_pages) {
             oss << page_num << " ";
-            job_queue_.emplace_back(doc, page_num, doc_path);
+            if (active_jobs_set_.find({doc_path, page_num}) == active_jobs_set_.end())
+                job_queue_.emplace_back(doc, page_num, doc_path);
         }
         logger::debug(oss.str());
     }
@@ -199,6 +200,8 @@ void DocumentLoadManager::submit_next_jobs()
 
         logger::debug("SUBMIT: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
 
+        active_jobs_set_.insert({job.doc_path, job.page_num});
+
         auto future = QtConcurrent::run([this, job]() {
             logger::debug("LOAD_START: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
 
@@ -206,6 +209,11 @@ void DocumentLoadManager::submit_next_jobs()
                 job.document->load_page(job.page_num);
 
             logger::debug("LOAD_DONE: " + job.doc_path.stem().string() + " page " + std::to_string(job.page_num));
+
+            {
+                std::lock_guard<std::recursive_mutex> lock(mutex_);
+                active_jobs_set_.erase({job.doc_path, job.page_num});
+            }
 
             QMetaObject::invokeMethod(this, &DocumentLoadManager::on_job_completed, Qt::QueuedConnection);
         });
