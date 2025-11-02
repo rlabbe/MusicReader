@@ -39,8 +39,8 @@ public:
 public slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
-    void browse_folder();
-    void on_tab_changed();
+    void on_browse_folder();
+    void on_tab_current_changed();
     void copy_log_to_clipboard();
     void goto_page_dialog();
     void on_annotation_mode_changed(bool enabled);
@@ -130,7 +130,6 @@ private:
     void save_config();
     void save_open_documents_to_config();
     void restore_window_state();
-    void on_page_selected(int index);
     void show_page_count();
 
     void restore_open_documents();
@@ -159,8 +158,8 @@ private:
     void update_menu_bookmark_visibility();
     void show_context_menu(const QPoint& pos);
 
-    void reload_document();
-    void edit_document(); // edit with external viewer
+    void on_reload_document();
+    void on_external_edit_document(); // edit with external viewer
     void on_document_loaded(std::string name, int page);
 
     // Check if the given document is open in a tab, returning either the tab index or None
