@@ -228,6 +228,7 @@ PDFViewer* MusicReader::open_pdf_in_tab(const std::filesystem::path& filename, i
 
 std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::path& filename, int page_num)
 {
+    SAFE_METHOD;
     TRACE_FUNCTION;
     try {
 
@@ -242,13 +243,13 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
             update_background();
         });
         load_manager_.add_document(doc);
-    }  catch (const std::exception& e) {
-        logger::error("Error opening document {}: {}", filename.u8string(), e.what());
-        display_error_message("Error opening document " + filename.u8string() + ": " + e.what());
+        return doc;
+    } catch (const std::exception& e) {
+        logger::error("Error opening document {}: {}", filename.string(), e.what());
+        display_error_message("Error opening document " + filename.string() + ": " + std::string(e.what()));
         return {};
     }
 
-    return doc;
 }
 
 
@@ -1586,7 +1587,7 @@ void MusicReader::show_about_dialog()
     QLabel* info = new QLabel(&dialog);
     info->setWordWrap(true);
     info->setTextFormat(Qt::RichText);
-    /*info->setText("PDF music reader application with IMSLP integration.<br><br>"
+    info->setText("PDF music reader application with IMSLP integration.<br><br>"
                   "This application is free and open source software.<br><br>"
                   "<b>License:</b> GNU Affero General Public License v3.0 (AGPL V3)<br><br>"
                   "<b>Third-party libraries and data:</b>"
@@ -1598,7 +1599,7 @@ void MusicReader::show_about_dialog()
                   "and download limits.<br>https://imslp.org</li>"
                   "</ul>"
                   "Built with Qt " QT_VERSION_STR "<br><br>"
-                  "Source code and license information available at github.com/rlabbe/MusicReader.");*/
+                  "Source code and license information available at github.com/rlabbe/MusicReader.");
     layout.addWidget(info);
 
     QHBoxLayout button_layout;
