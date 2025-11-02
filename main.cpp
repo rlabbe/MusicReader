@@ -1,4 +1,4 @@
-#include "musicreader.h"
+#include "music_reader.h"
 #include <QtWidgets/QApplication>
 #include "logger.h"
 #include <iostream>

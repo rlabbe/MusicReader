@@ -10,7 +10,7 @@
 #include "requires.h"
 #include "fitz_utils.h"
 #include "in_place_annotation_editor.h"
-#include "musicreader.h"
+#include "music_reader.h"
 #include "bookmark_panel.h"
 
 

@@ -29,12 +29,6 @@
     <QtUic Include="musicreader.ui">
       <Filter>Form Files</Filter>
     </QtUic>
-    <QtMoc Include="musicreader.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <ClCompile Include="musicreader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bookmark_panel.cpp">
@@ -100,6 +94,9 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="music_reader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h">
@@ -151,6 +148,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="tour_dialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="music_reader.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

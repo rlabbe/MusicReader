@@ -1,7 +1,7 @@
 #include "bookmark_treewidget.h"
 #include <iostream>
 #include "bookmark_panel.h"
-#include "musicreader.h"
+#include "music_reader.h"
 
 
 BookmarkTreeWidget::BookmarkTreeWidget(BookmarkPanel* parent, MusicReader* main_window)

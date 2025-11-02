@@ -230,20 +230,19 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="music_reader.cpp" />
     <ClCompile Include="page_renderer.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
     <ClCompile Include="performance_data.cpp" />
     <ClCompile Include="tour_dialog.cpp" />
     <QtRcc Include="musicreader.qrc" />
     <QtUic Include="musicreader.ui" />
-    <QtMoc Include="musicreader.h" />
     <ClCompile Include="bookmark.cpp" />
     <ClCompile Include="bookmark_panel.cpp" />
     <ClCompile Include="bookmark_treewidget.cpp" />
     <ClCompile Include="config_file.cpp" />
     <ClCompile Include="document.cpp" />
     <ClCompile Include="logger.cpp" />
-    <ClCompile Include="musicreader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h" />
@@ -276,6 +275,7 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClInclude Include="imslp_client.h" />
     <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
+    <QtMoc Include="music_reader.h" />
     <ClInclude Include="page.h" />
     <ClInclude Include="page_renderer.h" />
     <ClInclude Include="performance_data.h" />

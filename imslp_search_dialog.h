@@ -2,7 +2,7 @@
 
 #include <QtWidgets>
 #include <memory>
-#include "musicreader.h"
+#include "music_reader.h"
 
 class IMSLPClient;
 struct FileInfo;
