@@ -37,16 +37,16 @@ public:
     const ConfigFile& config() const { return config_; }
 
 public slots:
+    void on_annotation_mode_changed(bool enabled);
+
+private slots:
     void show_titlebar_menu();
     void update_bookmarks_for_doc();
     void on_browse_folder();
     void on_tab_current_changed();
     void copy_log_to_clipboard();
     void goto_page_dialog();
-    void on_annotation_mode_changed(bool enabled);
     void on_tab_moved(int from, int to);
-
-private slots:
     void on_application_state_changed(Qt::ApplicationState state);
     void on_screen_geometry_changed(const QRect& geometry);
     void on_screen_dpi_changed(qreal dpi);

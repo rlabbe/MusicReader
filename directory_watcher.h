@@ -97,6 +97,9 @@ private:
 
     void on_directory_changed()
     {
+        if (!supported_ || !event_handler_)
+            return;
+
         // Rescan the entire tree to handle new/deleted directories
         if (!directory_.isEmpty()) {
             QStringList current_dirs = watcher_.directories();
@@ -110,5 +113,5 @@ private:
     QString file_ending_;
     QString directory_;
     QFileSystemWatcher watcher_;
-    EventHandler* event_handler_;
+    EventHandler* event_handler_ = nullptr;
 };

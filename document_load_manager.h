@@ -89,8 +89,8 @@ public:
 
     struct LoadingSummary {
         std::vector<DocumentLoadInfo> documents;
-        int total_active_jobs;
-        int total_queued_jobs;
+        int total_active_jobs = 0;
+        int total_queued_jobs = 0;
     };
 
     LoadingSummary get_loading_summary() const;

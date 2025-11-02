@@ -85,8 +85,8 @@ private:
 
     struct ClickTarget {
         int page_num = -1;
-        float points_x;
-        float points_y;
+        float points_x = 0;
+        float points_y = 0;
     };
 
     ClickTarget get_click_target(QMouseEvent* event) const;

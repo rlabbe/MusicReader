@@ -10,7 +10,7 @@ struct FileInfo {
     std::string filename;
     std::string url;
     std::string thumb_url;
-    long size;
+    long size = 0;
     std::string mime;
     std::string thumb_mime;
 };

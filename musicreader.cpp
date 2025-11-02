@@ -29,12 +29,7 @@
 #include "tour_dialog.h"
 #include "wait_cursor.h"
 
-
-
-
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
-
-
 
 MusicReader::MusicReader(QWidget* parent)
     : QMainWindow(parent)
@@ -50,7 +45,6 @@ MusicReader::MusicReader(QWidget* parent)
     update_logging_level();
     setup_UI();
 }
-
 
 // DOCUMENT AND TABS
 void MusicReader::on_document_loaded(std::string name, int page)
@@ -281,7 +275,7 @@ void MusicReader::restore_open_documents()
     REQUIRES(tab_widget_);
 
     logger::debug("Restoring open documents...");
-    SaveState(restoring_documents_, true);
+    SaveState state(restoring_documents_, true);
 
     const auto docs_info = config_.open_documents();
     int num_docs = static_cast<int>(docs_info.size());
