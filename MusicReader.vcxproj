@@ -9,10 +9,6 @@
       <Configuration>ReleaseDbgInfo</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="ReleaseWDebInfo|x64">
-      <Configuration>ReleaseWDebInfo</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
@@ -24,7 +20,6 @@
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">10.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">10.0</WindowsTargetPlatformVersion>
     <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -43,13 +38,6 @@
     <UseDynamicDebugging>false</UseDynamicDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -75,11 +63,6 @@
     <QtModules>core;gui;widgets;network;concurrent;webenginewidgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'" Label="QtSettings">
-    <QtInstall>$(QtInstall)</QtInstall>
-    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets</QtModules>
-    <QtBuildConfig>release</QtBuildConfig>
-  </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
     <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
   </Target>
@@ -100,11 +83,6 @@
     <Import Project="$(QtMsBuild)\Qt.props" />
     <Import Project="spdlog.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$(QtMsBuild)\Qt.props" />
-    <Import Project="spdlog.props" />
-  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <IntDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</IntDir>
@@ -118,17 +96,13 @@
     <IntDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">
-    <IntDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</OutDir>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalLibraryDirectories>.\mupdf-1.25.4-source\platform\win32\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\mupdf-1.25.4-source\platform\win32\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -142,12 +116,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
-      <AdditionalLibraryDirectories>.\mupdf-1.25.4-source\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>...\mupdf-1.25.4-source\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -173,12 +147,12 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">
     <Link>
-      <AdditionalLibraryDirectories>.\mupdf-1.25.4-source\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\mupdf-1.25.4-source\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -199,27 +173,6 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <QtMoc>
       <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </QtMoc>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">
-    <Link>
-      <AdditionalLibraryDirectories>C:\smusic\MusicReader\mupdf-1.25.4-source\platform\win32\x64\Release;.\qpdf\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib;qpdf.lib</AdditionalDependencies>
-      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-    </Link>
-    <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);.\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
-      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <DebugInformationFormat>OldStyle</DebugInformationFormat>
-      <Optimization>Disabled</Optimization>
-      <TreatSpecificWarningsAsErrors>4715</TreatSpecificWarningsAsErrors>
-      <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
-    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -265,22 +218,6 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'" Label="Configuration">
-    <ClCompile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <WarningLevel>Level4</WarningLevel>
-      <SDLCheck>false</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
-      <FunctionLevelLinking>false</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
-  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="annotation.cpp" />
     <ClCompile Include="border.cpp" />
@@ -292,6 +229,7 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClCompile Include="imslp_client.cpp" />
     <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="page_renderer.cpp" />
     <ClCompile Include="pdf_viewer.cpp" />
     <ClCompile Include="performance_data.cpp" />
@@ -306,13 +244,6 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
     <ClCompile Include="document.cpp" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="musicreader.cpp" />
-    <ClCompile Include="main.cpp">
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Level3</WarningLevel>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">Level3</WarningLevel>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='ReleaseWDebInfo|x64'">Level4</WarningLevel>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Level3</WarningLevel>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</TreatWarningAsError>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h" />

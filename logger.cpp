@@ -387,7 +387,7 @@ std::string strip_extra_call_info(const std::string& funcsig, bool log)
     // Remove template parameters
     size_t template_start = func_name.find('<');
     if (template_start != std::string::npos)
-        func_name = func_name.substr(0, template_start);
+        func_name.resize(template_start);
 
     // Remove class scope prefix (Class::)
     size_t scope_op = func_name.rfind("::");

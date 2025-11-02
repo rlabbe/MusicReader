@@ -3,6 +3,7 @@ qpdf/
 tmp/
 build/
 dist/
+musicreader-cppcheck*/
 qpdf_wrapper/
 *.pdf
 *.txt

@@ -37,9 +37,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="bookmark_panel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -98,6 +95,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="performance_data.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
