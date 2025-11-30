@@ -172,10 +172,10 @@ void Document::initialize_document()
 }
 
 
-std::vector<int> get_page_load_order(int start_page, int total_pages)
+std::vector<int> get_page_load_order(int start_page, int total_pages, const std::string& doc_name)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_FUNCTION_MSG("{}", doc_name);
 
     std::vector<int> load_order;
     load_order.push_back(start_page);
@@ -218,7 +218,7 @@ std::vector<int> Document::get_pending_pages() const
     std::unordered_set<int> pending_set(pending.begin(), pending.end());
 
     // Get load order starting from start_page
-    auto load_order = get_page_load_order(current_page_, page_count());
+    auto load_order = get_page_load_order(current_page_, page_count(), filename());
 
     // Return pending pages in load order
     std::vector<int> ordered_pending;
@@ -1105,15 +1105,28 @@ bool Document::save_annotations_to_pdf()
     return success;
 }
 
+// Generate txt filename from pdf filename
+static std::filesystem::path get_bookmarks_txt_path(const std::filesystem::path& pdf_path)
+{
+    auto txt_path = pdf_path;
+    txt_path.replace_extension(".txt");
+    return txt_path;
+}
+
+
+bool Document::bookmarks_file_exists() const
+{
+    auto txt_path = get_bookmarks_txt_path(filename_);
+    return std::filesystem::exists(txt_path);
+}
+
 
 bool Document::set_bookmarks_from_txt_file()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    // Generate txt filename from pdf filename
-    auto txt_path = filename_;
-    txt_path.replace_extension(".txt");
+    auto txt_path = get_bookmarks_txt_path(filename_);
 
     if (!std::filesystem::exists(txt_path)) {
         std::string error_msg = std::format("Bookmark file does not exist: {}", txt_path.string());
@@ -1277,6 +1290,9 @@ bool Document::save_bookmarks_to_txt_file()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
+
+    if (bookmarks_.size() == 0)
+        return false;
 
     auto txt_path = filename_;
     txt_path.replace_extension(".txt");

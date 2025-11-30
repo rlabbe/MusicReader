@@ -249,7 +249,6 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
         display_error_message("Error opening document " + filename.string() + ": " + std::string(e.what()));
         return {};
     }
-
 }
 
 
@@ -385,7 +384,7 @@ void MusicReader::update_document_priority_order()
         if (doc_is_open(doc_path))
             ordered_docs.push_back(doc_path);
     }
-
+    logger::trace("first doc in priority order: {}", ordered_docs.empty() ? "none" : ordered_docs[0].string());
     load_manager_.set_document_priority_order(ordered_docs);
 }
 
@@ -413,11 +412,20 @@ void MusicReader::on_screen_dpi_changed(qreal dpi)
 void MusicReader::closeEvent(QCloseEvent* event)
 {
     SAFE_METHOD;
+    TRACE_FUNCTION;
+
 
     load_manager_.stop_loading();
     DevStatusDialog::close_if_open();
-    save_window_state_to_config();
     save_config();
+
+    int num_open_docs = tab_widget_ ? tab_widget_->count() : 0;
+    for (int i = 0; i < num_open_docs; ++i) {
+        auto viewer = viewer_tab(i);
+        if (viewer)
+            viewer->closing();
+    }
+
 
     QMainWindow::closeEvent(event); // Call base class implementation
     check_for_errors_on_exit();
@@ -743,16 +751,18 @@ void MusicReader::show_log_content()
 void MusicReader::set_bookmarks_from_file()
 {
     auto doc = current_document();
-    if (doc && doc->set_bookmarks_from_txt_file())
-        update_bookmarks_for_doc();
+    if (!doc)
+        return;
+
+    doc->set_bookmarks_from_txt_file();
+    update_bookmarks_for_doc();
 }
 
 void MusicReader::save_bookmarks_to_file()
 {
     auto doc = current_document();
-    if (doc) {
+    if (doc)
         doc->save_bookmarks_to_txt_file();
-    }
 }
 
 void MusicReader::update_recent_files_list()
@@ -932,25 +942,25 @@ void MusicReader::toggle_tab_visibility()
 void MusicReader::on_tab_current_changed()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    auto viewer = current_viewer();
+    TRACE_FUNCTION_MSG("{}", viewer ? "no tabs" : viewer->document()->filename());
 
     update_title();
     update_bookmark_panel();
     show_page_count();
+    if (!viewer)
+        return;
 
-    auto viewer = current_viewer();
-    if (viewer) {
-        viewer->update_status_bar();
+    viewer->update_status_bar();
 
-        // Update page break edit button state based on current viewer
-        page_break_edit_action_->setChecked(viewer->in_page_break_edit_mode());
+    // Update page break edit button state based on current viewer
+    page_break_edit_action_->setChecked(viewer->in_page_break_edit_mode());
 
-        if (!restoring_documents_) {
-            auto doc = current_document();
-            if (doc) {
-                config_.update_document_access(doc->filename());
-                update_document_priority_order();
-            }
+    if (!restoring_documents_) {
+        auto doc = current_document();
+        if (doc) {
+            config_.update_document_access(doc->filename());
+            update_document_priority_order();
         }
     }
 }
@@ -1008,6 +1018,7 @@ void MusicReader::save_config()
     TRACE_FUNCTION;
 
     save_open_documents_to_config();
+    save_window_state_to_config();
     update_logging_level();
 }
 
@@ -1357,9 +1368,6 @@ void MusicReader::on_config_saved()
     refresh_all_documents();
     set_statusbar_visibility();
     set_menu_visibility();
-    for (QAction* action : actions())
-        if (action->shortcut() == QKeySequence("I"))
-            removeAction(action);
     menuBar()->clear();
     create_menus();
     bookmark_panel_->resume_tracking();
@@ -1990,8 +1998,9 @@ void MusicReader::create_edit_menu(auto* menu_bar)
         undo_action_->setEnabled(doc && doc->can_undo());
         redo_action_->setEnabled(doc && doc->can_redo());
 
-        set_bookmarks_action->setEnabled(doc);
-        save_bookmarks_action->setEnabled(doc);
+        // keep it safe, only enable if the action is possible
+        set_bookmarks_action->setEnabled(doc && doc->bookmarks_file_exists());
+        save_bookmarks_action->setEnabled(doc && doc->bookmarks().size() > 0);
     });
 }
 
@@ -2061,9 +2070,10 @@ void MusicReader::create_view_menu(auto* menu_bar)
     view_menu->addSeparator();
 
     QAction* goto_action = new QAction("&Goto Page...", this);
-    goto_action->setShortcut(QKeySequence("Ctrl+G"));
+    goto_action->setShortcut(QKeySequence(Qt::Key_G));
     connect(goto_action, &QAction::triggered, this, &MusicReader::goto_page_dialog);
     view_menu->addAction(goto_action);
+    addAction(goto_action); // make it global
 
     connect(view_menu, &QMenu::aboutToShow, this, [this, goto_action]() {
         auto doc = current_document().get();
@@ -2160,10 +2170,6 @@ void MusicReader::create_global_shortcuts()
     shortcut = new QShortcut(Qt::Key_B, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
-
-    shortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
-    shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::goto_page_dialog);
 
     shortcut = new QShortcut(Qt::Key_1, this);
     shortcut->setContext(Qt::WindowShortcut);

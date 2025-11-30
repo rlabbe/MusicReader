@@ -53,6 +53,8 @@ public:
     void undo();
     void redo();
 
+    bool bookmarks_file_exists() const;
+
     bool reparent_bookmark(const BookmarkHandle& handle, const BookmarkHandle& new_parent_handle);
     bool indent_bookmark(const BookmarkHandle& handle);
     bool unindent_bookmark(const BookmarkHandle& handle);

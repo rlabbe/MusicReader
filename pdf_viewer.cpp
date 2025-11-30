@@ -563,6 +563,9 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("page_index={}", page_index);
 
+    if (closing_)
+        return;
+
     if (name != document_->filename())
         return;
 

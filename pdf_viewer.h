@@ -28,6 +28,11 @@ public:
 
     ~PDFViewer();
 
+
+    // call if the application is closing - this object may receive page_loaded events
+    // after the close event, and we want to ignore them. 
+    void closing() { closing_ = true; }
+
     int page_count() const { return renderer_.page_count(); }
     int current_page() const { return page_.page_num; }
     int current_index() const { return renderer_.current_index(); }
@@ -170,6 +175,7 @@ private:
     AnnotationHandle selected_annotation_;
     bool has_selection_ = false;
     bool skip_resize_update_ = false;
+    bool closing_ = false;
 
     BookmarkPanel* bookmark_panel_ = nullptr;
 
