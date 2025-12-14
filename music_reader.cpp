@@ -801,7 +801,7 @@ void MusicReader::on_browse_folder()
     if (!file_info.exists())
         return;
 
-    QString folder_path = file_info.absolutePath();
+    QString folder_path = QDir::toNativeSeparators(file_info.absolutePath());
     QProcess::startDetached("explorer", {folder_path});
 }
 
