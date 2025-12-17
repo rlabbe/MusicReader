@@ -278,7 +278,7 @@ void PDFViewer::init_ui(int page)
     label_ = new QLabel(this);
     label_->setStyleSheet("border: 0px;");
 
-    label_->setAlignment(Qt::AlignTop | page_alignment());
+    label_->setAlignment(page_vertical_alignment() | page_alignment());
     label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     label_->setMinimumSize(1, 1); // Prevent weird shrinking issues
     label_->setScaledContents(false);
@@ -664,7 +664,7 @@ void PDFViewer::update_image(const QString& message)
     } else {
         logger::info("page ain't empty");
         label_->setStyleSheet("");
-        label_->setAlignment(Qt::AlignTop | page_alignment());
+        label_->setAlignment(page_vertical_alignment() | page_alignment());
     }
 
     REQUIRES(document_);
@@ -767,6 +767,19 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
     switch (config_->page_location()) {
         case PageLocation::Left: return Qt::AlignmentFlag::AlignLeft;
         default: return Qt::AlignmentFlag::AlignHCenter;
+    };
+}
+
+
+Qt::AlignmentFlag PDFViewer::page_vertical_alignment() const
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+    REQUIRES_RET(config_, Qt::AlignmentFlag::AlignTop);
+
+    switch (config_->page_vertical_location()) {
+        case PageVerticalLocation::Bottom: return Qt::AlignmentFlag::AlignBottom;
+        default: return Qt::AlignmentFlag::AlignTop;
     };
 }
 

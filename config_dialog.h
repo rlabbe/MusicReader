@@ -32,7 +32,8 @@ private:
     QComboBox* combo_theme_;
     QComboBox* combo_log_level_;
 
-    QCheckBox* check_center_;
+    QComboBox* combo_horiz_alignment_;
+    QComboBox* combo_vert_alignment_;
     QCheckBox* check_restore_window_position_;
     QCheckBox* check_restore_documents_;
     QCheckBox* check_allow_oversize_;

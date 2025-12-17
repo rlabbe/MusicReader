@@ -151,6 +151,7 @@ private:
     double display_y_to_normalized(int display_y, int display_height) const;
     void update_image(const QString& message = QString());
     Qt::AlignmentFlag page_alignment() const;
+    Qt::AlignmentFlag page_vertical_alignment() const;
 
     QLabel* label_;
     StatusBar* status_bar_;

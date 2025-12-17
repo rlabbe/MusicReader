@@ -34,6 +34,11 @@ enum class PageLocation {
     Center
 };
 
+enum class PageVerticalLocation {
+    Top,
+    Bottom
+};
+
 
 // Struct to represent each open document
 struct OpenDocument {
@@ -69,6 +74,7 @@ private:
     std::array<int, 4> dev_dialog_size_;
     ToolbarLocation toolbar_location_;
     PageLocation page_location_;
+    PageVerticalLocation page_vertical_location_;
     int page_view_count_;
     int page_step_size_; // when in 2 page view, this is the number of pages to step on page up/down.
     int open_tab_;
@@ -96,9 +102,9 @@ private:
     ConfigFile& operator=(const ConfigFile&) = delete;
 
 
-
 public:
-    static ConfigFile& instance() {
+    static ConfigFile& instance()
+    {
         static ConfigFile instance;
         return instance;
     }
@@ -216,6 +222,13 @@ public:
     void set_page_location(PageLocation value)
     {
         page_location_ = value;
+        save();
+    }
+
+    PageVerticalLocation page_vertical_location() const { return page_vertical_location_; }
+    void set_page_vertical_location(PageVerticalLocation value)
+    {
+        page_vertical_location_ = value;
         save();
     }
 

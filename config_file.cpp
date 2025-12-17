@@ -174,6 +174,30 @@ static bool string_to_page_location(const std::string& str, PageLocation& locati
 }
 
 
+static std::string page_vertical_location_to_string(PageVerticalLocation location)
+{
+    switch (location) {
+        case PageVerticalLocation::Top: return "top";
+        case PageVerticalLocation::Bottom: return "bottom";
+        default: return "top";
+    }
+}
+
+
+static bool string_to_page_vertical_location(const std::string& str, PageVerticalLocation& location)
+{
+    if (str == "top") {
+        location = PageVerticalLocation::Top;
+        return true;
+    } else if (str == "bottom") {
+        location = PageVerticalLocation::Bottom;
+        return true;
+    }
+    location = PageVerticalLocation::Top;
+    return false;
+}
+
+
 // Constructor
 ConfigFile::ConfigFile()
     : filename_(get_persistent_config_path("MusicReader.config"))
@@ -433,6 +457,15 @@ void ConfigFile::read(bool reset_on_error)
     } else
         logger::error("Invalid or missing 'page_location'");
 
+    if (j.contains("page_vertical_location") && j["page_vertical_location"].is_number_integer()) {
+        int loc_int = j["page_vertical_location"].get<int>();
+        if (loc_int < 0 || loc_int > 1)
+            logger::error("Invalid value for 'page_vertical_location': " + std::to_string(loc_int));
+        else
+            page_vertical_location_ = (PageVerticalLocation)loc_int;
+    } else
+        logger::info("Invalid or missing 'page_vertical_location'");
+
     if (j.contains("page_view_count") && j["page_view_count"].is_number_integer())
         page_view_count_ = j["page_view_count"].get<int>();
     else
@@ -572,6 +605,7 @@ json ConfigFile::to_json() const
     j["dev_dialog_size"] = dev_dialog_size_;
     j["toolbar_location"] = static_cast<int>(toolbar_location_);
     j["page_location"] = static_cast<int>(page_location_);
+    j["page_vertical_location"] = static_cast<int>(page_vertical_location_);
     j["page_view_count"] = page_view_count_;
     j["page_step_size"] = page_step_size_;
     j["open_tab"] = open_tab_;
@@ -800,6 +834,7 @@ void ConfigFile::set_defaults()
 
     toolbar_location_ = ToolbarLocation::Left;
     page_location_ = PageLocation::Center;
+    page_vertical_location_ = PageVerticalLocation::Top;
     page_view_count_ = 2;
     page_step_size_ = 2;
     open_tab_ = -1;
@@ -853,6 +888,7 @@ std::string ConfigFile::repr() const
     j["dev_dialog_size"] = dev_dialog_size_;
     j["toolbar_location"] = (int)(toolbar_location_);
     j["page_location"] = (int)(page_location_);
+    j["page_vertical_location"] = (int)(page_vertical_location_);
     j["page_view_count"] = page_view_count_;
     j["page_step_size"] = page_step_size_;
     j["open_tab"] = open_tab_;

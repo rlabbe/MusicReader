@@ -55,9 +55,15 @@ void ConfigDialog::setup_ui()
         "Logging verbosity level. Normal for standard operation, Diagnostic for troubleshooting and detailed debugging "
         "information, Trace only if you need to trace every function call..");
 
-    check_center_ = new QCheckBox("Center Document in window", this);
-    check_center_->setWhatsThis(
-        "Center the PDF document in the view area. When unchecked, documents are aligned to the left side.");
+    combo_horiz_alignment_ = new QComboBox(this);
+    combo_horiz_alignment_->addItem("Left", static_cast<int>(PageLocation::Left));
+    combo_horiz_alignment_->addItem("Center", static_cast<int>(PageLocation::Center));
+    combo_horiz_alignment_->setWhatsThis("Horizontal alignment of the PDF page in the view area.");
+
+    combo_vert_alignment_ = new QComboBox(this);
+    combo_vert_alignment_->addItem("Top", static_cast<int>(PageVerticalLocation::Top));
+    combo_vert_alignment_->addItem("Bottom", static_cast<int>(PageVerticalLocation::Bottom));
+    combo_vert_alignment_->setWhatsThis("Vertical alignment of the PDF page in the view area.");
 
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_window_position_->setWhatsThis(
@@ -119,8 +125,13 @@ void ConfigDialog::setup_ui()
     group_show->setLayout(group_layout);
     form_layout->addRow(group_show);
 
-    // Checkboxes
-    form_layout->addRow(check_center_);
+    QGroupBox* group_alignment = new QGroupBox("Page Alignment", this);
+    group_alignment->setWhatsThis("Controls how the PDF page is positioned in the view area.");
+    QFormLayout* alignment_layout = new QFormLayout;
+    alignment_layout->addRow("Horizontal:", combo_horiz_alignment_);
+    alignment_layout->addRow("Vertical:", combo_vert_alignment_);
+    group_alignment->setLayout(alignment_layout);
+    form_layout->addRow(group_alignment);
     form_layout->addRow(check_restore_window_position_);
     form_layout->addRow(check_restore_documents_);
     form_layout->addRow(check_allow_oversize_);
@@ -187,7 +198,8 @@ void ConfigDialog::load_settings()
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_save_cadence_->setValue(config_.save_cadence_secs());
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
-    check_center_->setChecked(config_.page_location() == PageLocation::Center);
+    combo_horiz_alignment_->setCurrentIndex(combo_horiz_alignment_->findData(static_cast<int>(config_.page_location())));
+    combo_vert_alignment_->setCurrentIndex(combo_vert_alignment_->findData(static_cast<int>(config_.page_vertical_location())));
     check_restore_window_position_->setChecked(config_.restore_window_position());
     check_restore_documents_->setChecked(config_.restore_documents());
     check_allow_oversize_->setChecked(config_.allow_oversize());
@@ -228,7 +240,8 @@ void ConfigDialog::save_settings()
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
     config_.set_save_cadence_secs(spin_save_cadence_->value());
     config_.set_log_level(static_cast<LogLevel>(combo_log_level_->currentData().toInt()));
-    config_.set_page_location(check_center_->isChecked() ? PageLocation::Center : PageLocation::Left);
+    config_.set_page_location(static_cast<PageLocation>(combo_horiz_alignment_->currentData().toInt()));
+    config_.set_page_vertical_location(static_cast<PageVerticalLocation>(combo_vert_alignment_->currentData().toInt()));
     config_.set_restore_window_position(check_restore_window_position_->isChecked());
     config_.set_restore_documents(check_restore_documents_->isChecked());
     config_.set_allow_oversize(check_allow_oversize_->isChecked());
