@@ -192,6 +192,8 @@ private:
     QAction* edit_margin_action_ = nullptr;
     QAction* undo_action_ = nullptr;
     QAction* redo_action_ = nullptr;
+    QAction* goto_action_ = nullptr;
+    QAction* imslp_action_ = nullptr;
     QAction* bookmark_menu_action_ = nullptr;
     QAction* light_theme_menu_item_ = nullptr;
     QAction* dark_theme_menu_item_ = nullptr;
@@ -227,7 +229,6 @@ private:
     bool tabs_visible_ = true; // we can show/hide the tabs with T key
 
     ConfigFile& config_;
-    std::map<std::string, QKeySequence> shortcuts_;
 
     FastFileSearchDialog* fast_search_dialog_ = nullptr;
 
