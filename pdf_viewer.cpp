@@ -66,6 +66,24 @@ bool PDFViewer::in_single_page_view() const
     return page_break_edit_mode_ || config_->page_view_count() == 1 || page_count() == 1;
 }
 
+void PDFViewer::mark_dirty()
+{
+    TRACE_FUNCTION;
+
+    dirty_ = true;
+}
+
+void PDFViewer::refresh_if_dirty()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (dirty_) {
+        dirty_ = false;
+        refresh();
+    }
+}
+
 
 void PDFViewer::refresh()
 {
@@ -656,13 +674,11 @@ void PDFViewer::update_image(const QString& message)
     REQUIRES(config_);
 
     if (page_.is_empty()) {
-        logger::info("page is empty");
         label_->setText(message.isEmpty() ? "Loading..." : message);
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");
         return;
     } else {
-        logger::info("page ain't empty");
         label_->setStyleSheet("");
         label_->setAlignment(page_vertical_alignment() | page_alignment());
     }
@@ -732,7 +748,7 @@ void PDFViewer::update_image(const QString& message)
 
     label_->setPixmap(scaled_pixmap);
     adjust_initial_subwindow_size();
-    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 }
 
 

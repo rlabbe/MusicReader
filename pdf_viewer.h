@@ -46,6 +46,9 @@ public:
     void goto_physical_page(int physical_page);
 
     void refresh();
+    void refresh_if_dirty();
+    void mark_dirty();
+
     void page_up();
     void page_down();
     void change_page(int step);
@@ -177,6 +180,7 @@ private:
     bool has_selection_ = false;
     bool skip_resize_update_ = false;
     bool closing_ = false;
+    bool dirty_ = false;
 
     BookmarkPanel* bookmark_panel_ = nullptr;
 

@@ -951,6 +951,7 @@ void MusicReader::on_tab_current_changed()
     if (!viewer)
         return;
 
+    viewer->refresh_if_dirty();
     viewer->update_status_bar();
 
     // Update page break edit button state based on current viewer
@@ -1118,11 +1119,11 @@ void MusicReader::refresh_all_documents()
     if (current)
         current->refresh();
 
-    // Then update other tabs in the background
+    // Mark other tabs dirty - they'll refresh when selected
     for (int i = 0; i < tab_widget_->count(); ++i) {
         PDFViewer* viewer = viewer_tab(i);
         if (viewer && viewer != current)
-            viewer->refresh();
+            viewer->mark_dirty();
     }
 }
 
