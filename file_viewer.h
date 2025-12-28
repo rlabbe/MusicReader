@@ -85,16 +85,30 @@ private slots:
         }
     }
 
-    void searchNext()
+void searchNext()
     {
-        if (!m_searchText.isEmpty())
+        if (m_searchText.isEmpty())
+            return;
+
+        if (!m_textEdit->find(m_searchText)) {
+            QTextCursor cursor = m_textEdit->textCursor();
+            cursor.movePosition(QTextCursor::Start);
+            m_textEdit->setTextCursor(cursor);
             m_textEdit->find(m_searchText);
+        }
     }
 
     void searchPrevious()
     {
-        if (!m_searchText.isEmpty())
+        if (m_searchText.isEmpty())
+            return;
+
+        if (!m_textEdit->find(m_searchText, QTextDocument::FindBackward)) {
+            QTextCursor cursor = m_textEdit->textCursor();
+            cursor.movePosition(QTextCursor::End);
+            m_textEdit->setTextCursor(cursor);
             m_textEdit->find(m_searchText, QTextDocument::FindBackward);
+        }
     }
 
 private:
