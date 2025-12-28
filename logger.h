@@ -142,6 +142,12 @@ struct function_tracer {
         , line_num(line)
         , start_time_(std::chrono::high_resolution_clock::now())
     {
+        // remove path and drive letter if they exist
+        if (auto p = strrchr(file, '\\'))
+            file_name = p + 1;
+        else if (auto q = strrchr(file, '/'))
+            file_name = q + 1;
+
         if (logger::trace_enabled()) {
             std::string indent(indent_level(), ' ');
             logger::trace("{}Enter {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
@@ -181,6 +187,12 @@ struct function_tracer_msg {
         , enabled(logger::trace_enabled())
         , start_time_(std::chrono::high_resolution_clock::now())
     {
+        // remove path and drive letter if they exist
+        if (auto p = strrchr(file, '\\'))
+            file_name = p + 1;
+        else if (auto q = strrchr(file, '/'))
+            file_name = q + 1;
+
         if (enabled) {
             std::string indent(indent_level(), ' ');
             message = std::format(fmt, std::forward<Args>(args)...);
