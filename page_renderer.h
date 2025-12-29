@@ -7,6 +7,11 @@
 
 class Document;
 
+enum class PageRequestType {
+    CurrentDisplay,  // For the page being actively displayed
+    Prefetch        // For prefetching adjacent pages
+};
+
 
 class PageRenderer {
 public:
@@ -60,8 +65,8 @@ public:
     Page get_current_page() const;
 
     // Get the page at a specific index without changing current position
-    // Used for prefetching
-    Page get_page_at_index(int index) const;
+    // Used for both current display and prefetching
+    Page get_page_at_index(int index, PageRequestType request_type = PageRequestType::Prefetch) const;
 
     // Map an index to physical page and segment (for UI callbacks)
     struct Position {

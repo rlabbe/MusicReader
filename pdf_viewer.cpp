@@ -98,7 +98,7 @@ void PDFViewer::refresh()
 
     const bool is_double = in_double_page_view();
 
-    PrefetchEntry entry = is_double ? make_double_page_entry(current_idx) : make_single_page_entry(current_idx);
+    PrefetchEntry entry = is_double ? make_double_page_entry(current_idx, PageRequestType::CurrentDisplay) : make_single_page_entry(current_idx, PageRequestType::CurrentDisplay);
 
     int physical_page = entry.p1.page_num;
 
@@ -408,7 +408,7 @@ void PDFViewer::clear_prefetch()
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
+PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index, PageRequestType request_type) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("index={}", index);
@@ -419,13 +419,13 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
     PrefetchEntry entry(index, true, config_->border_margin());
 
     // Get page at this index from renderer
-    Page page1 = renderer_.get_page_at_index(index);
+    Page page1 = renderer_.get_page_at_index(index, request_type);
     entry.p1 = PixmapPage(page1);
 
     // Get page at next index if it exists
     int count = renderer_.page_count();
     if (index + 1 <= count) {
-        Page page2 = renderer_.get_page_at_index(index + 1);
+        Page page2 = renderer_.get_page_at_index(index + 1, request_type);
         entry.p2 = PixmapPage(page2);
     } else
         copy_blank_image(entry.p1, entry.p2);
@@ -437,7 +437,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index) const
 }
 
 
-PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
+PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageRequestType request_type) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("index={}", index);
@@ -448,7 +448,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index) const
     PrefetchEntry entry(index, false, config_->border_margin());
 
     // Get page at this index from renderer
-    Page page = renderer_.get_page_at_index(index);
+    Page page = renderer_.get_page_at_index(index, request_type);
     entry.p1 = page;
 
     if (!entry.p1.is_empty()) {
@@ -512,7 +512,7 @@ void PDFViewer::get_page(int index)
 
     // If not in cache, render it now
     if (!found_in_cache)
-        entry = is_double ? make_double_page_entry(index) : make_single_page_entry(index);
+        entry = is_double ? make_double_page_entry(index, PageRequestType::CurrentDisplay) : make_single_page_entry(index, PageRequestType::CurrentDisplay);
 
     // Get physical page from the entry
     int physical_page = entry.p1.page_num;
@@ -611,11 +611,11 @@ void PDFViewer::on_page_loaded(std::string name, int page_index)
 
     int count = page_count();
     if (in_single_page_view() || count == 1) {
-        PrefetchEntry entry = make_single_page_entry(current_idx);
+        PrefetchEntry entry = make_single_page_entry(current_idx, PageRequestType::CurrentDisplay);
         page_ = PixmapPage(entry.rendered, current_pos.physical_page, false);
         update_image();
     } else {
-        PrefetchEntry entry = make_double_page_entry(current_idx);
+        PrefetchEntry entry = make_double_page_entry(current_idx, PageRequestType::CurrentDisplay);
         page_ = PixmapPage(entry.rendered, current_pos.physical_page, true);
         update_image();
     }
@@ -672,7 +672,7 @@ void PDFViewer::update_image(const QString& message)
     REQUIRES(label_);
     REQUIRES(config_);
 
-    if (page_.is_empty()) {
+    if (page_.pixmap.isNull()) {
         label_->setText(message.isEmpty() ? "Loading..." : message);
         label_->setAlignment(Qt::AlignCenter);
         label_->setStyleSheet("background-color: white; color: black; font-size: 16pt;");

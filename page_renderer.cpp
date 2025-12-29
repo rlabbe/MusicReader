@@ -233,7 +233,7 @@ std::string PageRenderer::format_display(int physical_page, int segment_index) c
 }
 
 
-Page PageRenderer::get_page_at_index(int index) const
+Page PageRenderer::get_page_at_index(int index, PageRequestType request_type) const
 {
     if (!document_)
         return Page(1);
@@ -243,7 +243,8 @@ Page PageRenderer::get_page_at_index(int index) const
         return Page(1);
 
     Position pos = index_to_position(index);
-    Page page = document_->get_page(pos.physical_page, false);
+    bool is_current = (request_type == PageRequestType::CurrentDisplay);
+    Page page = document_->get_page(pos.physical_page, is_current);
 
     if (PerformanceMode::is_performance()) {
         int seg_count = segment_count(pos.physical_page);
