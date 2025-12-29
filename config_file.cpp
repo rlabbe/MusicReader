@@ -306,7 +306,7 @@ void ConfigFile::read(bool reset_on_error)
     if (j.contains("dev_trace_while_debug_logging"))
         trace_while_debug_logging_ = j["dev_trace_while_debug_logging"].get<bool>();
     else
-        trace_while_debug_logging_ = false;
+        trace_while_debug_logging_ = true;
 
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
@@ -847,6 +847,9 @@ void ConfigFile::set_defaults()
     border_margin_ = 10;
     music_directory_ = "";
     log_level_ = LogLevel::Normal;
+    page_load_delay_ = 0;
+    do_async_loads_ = true;
+    trace_while_debug_logging_ = true;
     dev_mode_ = false;
     tour_has_run_ = false;
     append_to_log_ = false;

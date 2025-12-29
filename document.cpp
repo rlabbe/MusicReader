@@ -60,7 +60,7 @@ Document::~Document()
 Page Document::get_page(int page_num, bool is_current) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("Document({}) Requesting page {} of {}, is_current={} ptr={}", id, page_num, filename_.string(), is_current, (void*)this);
+    TRACE_FUNCTION_MSG("Document({}) Requesting page {} of {}, is_current={}", id, page_num, filename_.string(), is_current);
 
     if (is_current)
         current_page_ = page_num;
@@ -175,7 +175,7 @@ void Document::initialize_document()
 std::vector<int> get_page_load_order(int start_page, int total_pages, const std::string& doc_name)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("{}", doc_name);
+    TRACE_CALL_MSG("{}", doc_name);
 
     std::vector<int> load_order;
     load_order.push_back(start_page);
@@ -247,7 +247,7 @@ std::vector<int> Document::get_pending_pages() const
 void Document::load_page(int page_num)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("doc {} file: {} page: {}", id, filename_.string(), page_num);
+    TRACE_CALL_MSG("doc {} file: {} page: {}", id, filename_.string(), page_num);
 
     if (kill_loading_ || page_num < 1 || page_num > page_count())
         return;
@@ -865,7 +865,7 @@ void Document::reload_page(int page_num)
 std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_document* doc)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     std::vector<Annotation> annotations;
     if (!ctx || !doc)

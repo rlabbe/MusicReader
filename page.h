@@ -44,7 +44,7 @@ struct Page {
 
     static QPixmap as_pixmap(const QImage& image)
     {
-        TRACE_FUNCTION;
+        TRACE_CALL;
         if (image.isNull())
             return QPixmap();
         QPixmap pixmap = QPixmap::fromImage(image);
@@ -55,7 +55,7 @@ struct Page {
 
     QImage resize_by_border(int relief = 0)
     {
-        TRACE_FUNCTION;
+        TRACE_CALL;
         return ::resize_by_border(img, border, relief);
     }
 };

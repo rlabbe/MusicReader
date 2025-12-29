@@ -47,7 +47,7 @@ PDFViewer::~PDFViewer()
 void PDFViewer::update_status_bar()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES(document_);
     REQUIRES(status_bar_);
 
@@ -68,15 +68,14 @@ bool PDFViewer::in_single_page_view() const
 
 void PDFViewer::mark_dirty()
 {
-    TRACE_FUNCTION;
-
+    TRACE_CALL;
     dirty_ = true;
 }
 
 void PDFViewer::refresh_if_dirty()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (dirty_) {
         dirty_ = false;
@@ -345,7 +344,7 @@ void PDFViewer::on_scrollbar_value_changed(int new_index)
 void PDFViewer::update_scrollbar_visibility()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES(scrollbar_);
     REQUIRES(document_);
 
@@ -364,7 +363,7 @@ void PDFViewer::update_scrollbar_visibility()
 void PDFViewer::prefetch_async(int index)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES(document_);
 
 
@@ -579,7 +578,7 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1, const PixmapPage& p
 void PDFViewer::on_page_loaded(std::string name, int page_index)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("page_index={}", page_index);
+    TRACE_CALL_MSG("page_index={}", page_index);
 
     if (closing_)
         return;
@@ -777,7 +776,7 @@ void PDFViewer::adjust_initial_subwindow_size()
 Qt::AlignmentFlag PDFViewer::page_alignment() const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES_RET(config_, Qt::AlignmentFlag::AlignLeft);
 
     switch (config_->page_location()) {
@@ -790,7 +789,7 @@ Qt::AlignmentFlag PDFViewer::page_alignment() const
 Qt::AlignmentFlag PDFViewer::page_vertical_alignment() const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES_RET(config_, Qt::AlignmentFlag::AlignTop);
 
     switch (config_->page_vertical_location()) {
@@ -803,7 +802,7 @@ Qt::AlignmentFlag PDFViewer::page_vertical_alignment() const
 bool PDFViewer::PrefetchEntry::valid(int target_index, ConfigFile& config) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     return index == target_index && double_page == (config.page_view_count() == 2) &&
            border_margin == config.border_margin() && !rendered.isNull();
@@ -813,7 +812,7 @@ bool PDFViewer::PrefetchEntry::valid(int target_index, ConfigFile& config) const
 void PDFViewer::set_text_annotation_mode(bool enabled)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     text_annotation_mode_ = enabled;
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
@@ -822,7 +821,7 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
 void PDFViewer::set_page_break_edit_mode(bool enabled)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     page_break_edit_mode_ = enabled;
     setCursor(enabled ? Qt::CrossCursor : Qt::ArrowCursor);
     refresh();

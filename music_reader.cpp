@@ -1059,7 +1059,7 @@ void MusicReader::save_open_documents_to_config()
 void MusicReader::update_title(int index)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     index;
 
@@ -1142,7 +1142,7 @@ void MusicReader::update_logging_level()
 void MusicReader::restore_window_state()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (config_.restore_window_position()) {
         try {
@@ -1218,7 +1218,7 @@ void MusicReader::update_memory_usage()
 void MusicReader::show_page_count()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     PDFViewer* viewer = current_viewer();
     if (!viewer) {
@@ -1931,7 +1931,7 @@ void MusicReader::create_menus()
 void MusicReader::create_file_menu(auto* menu_bar)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     // File menu
     QMenu* file_menu = menu_bar->addMenu("&File");
@@ -1966,7 +1966,7 @@ void MusicReader::create_file_menu(auto* menu_bar)
 void MusicReader::create_edit_menu(auto* menu_bar)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     edit_menu_ = menu_bar->addMenu("&Edit");
 
@@ -2011,7 +2011,7 @@ void MusicReader::create_edit_menu(auto* menu_bar)
 void MusicReader::create_view_menu(auto* menu_bar)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     QMenu* view_menu = menu_bar->addMenu("&View");
 
@@ -2099,7 +2099,7 @@ void MusicReader::create_view_menu(auto* menu_bar)
 void MusicReader::create_imslp_menu(auto* menu_bar)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (!imslp_action_) {
         imslp_action_ = new QAction("&Search...", this);
@@ -2120,7 +2120,7 @@ void MusicReader::create_imslp_menu(auto* menu_bar)
 void MusicReader::create_help_menu(auto* menu_bar)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     QMenu* help_menu = menu_bar->addMenu("&Help");
 
@@ -2132,7 +2132,7 @@ void MusicReader::create_help_menu(auto* menu_bar)
 void MusicReader::show_context_menu(const QPoint& pos)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     auto viewer = current_viewer();
     if (!viewer)
@@ -2364,7 +2364,7 @@ void MusicReader::create_toolbar()
 void MusicReader::create_bookmark_panel()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     bookmark_panel_ = new BookmarkPanel(this);
     [[maybe_unused]] bool s =
@@ -2377,7 +2377,7 @@ void MusicReader::create_bookmark_panel()
 void MusicReader::create_status_bar()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     status_bar_ = new StatusBar();
     setStatusBar(status_bar_);
@@ -2395,7 +2395,7 @@ void MusicReader::create_status_bar()
 QIcon MusicReader::create_double_icon()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     QIcon single_icon = style()->standardIcon(QStyle::SP_FileIcon);
     QSize icon_size = single_icon.actualSize(QSize(32, 32));

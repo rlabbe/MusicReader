@@ -92,7 +92,7 @@ private:
     // developer only.
     int page_load_delay_ = 0;
     bool do_async_loads_ = true;
-    bool trace_while_debug_logging_ = false;
+    bool trace_while_debug_logging_ = true;
 
 
 private:
