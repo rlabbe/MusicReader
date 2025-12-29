@@ -453,7 +453,7 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageReques
 
     if (!entry.p1.is_empty()) {
         if (config_->zoom_to_content())
-            entry.rendered = Page::as_pixmap(entry.p1.resize_by_border(config_->border_margin()));
+            entry.rendered = entry.p1.resize_by_border(config_->border_margin());
         else
             entry.rendered = entry.p1.as_pixmap();
     }

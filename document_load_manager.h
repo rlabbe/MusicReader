@@ -108,6 +108,15 @@ private:
     void cancel_all_active_jobs_async();
     void cleanup_finished_futures();
 
+    // Memory-aware rate limiting
+    int calculate_max_concurrent_jobs() const;
+    struct MemoryStats {
+        size_t available_memory_mb = 0;
+        size_t total_memory_mb = 0;
+        int memory_pressure_percent = 0; // 0-100, higher = more pressure
+    };
+    MemoryStats get_memory_stats() const;
+
     std::vector<PageJob> job_queue_;
     std::vector<std::filesystem::path> document_priority_order_;
     std::vector<std::shared_ptr<Document>> documents_;
@@ -124,6 +133,9 @@ private:
     std::atomic<bool> final_processing_ {false};
     std::filesystem::path pending_priority_doc_;
     bool has_pending_prioritization_ = false;
+
+    // Memory pressure tracking
+    mutable int last_memory_pressure_level_ = 0; // 0=none, 1=light, 2=medium, 3=high, 4=critical
 
     static DocumentLoadManager* instance_;
 };

@@ -90,6 +90,9 @@ public:
     // get_page is called.
     void prioritize() const;
 
+    // Memory management - evict pages far from current position
+    void evict_distant_pages(int keep_window_size = 50);
+
 signals:
     void page_loaded(std::string name, int page_index);
     void document_loaded(std::string name, int page);

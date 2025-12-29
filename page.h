@@ -61,26 +61,50 @@ struct Page {
 };
 
 
-struct PixmapPage : public Page {
+struct PixmapPage {
     QPixmap pixmap;
+    int page_num {1};
+    Border border;
+    bool double_page {false};
+
     PixmapPage() {}
+
     PixmapPage(const Page& page)
-        : Page(page)
-        , pixmap(Page::as_pixmap(page.img))
+        : pixmap(Page::as_pixmap(page.img))
+        , page_num(page.page_num)
+        , border(page.border)
+        , double_page(page.double_page)
     {
     }
-
 
     PixmapPage(const QImage& image, int page_number, bool doubled)
-        : Page(image, page_number, doubled)
-        , pixmap(Page::as_pixmap(image))
+        : pixmap(Page::as_pixmap(image))
+        , page_num(page_number)
+        , double_page(doubled)
     {
+        border = find_content_edges(image);
     }
 
-    PixmapPage(const QPixmap& pixmap, int page_number, bool doubled)
-        : Page(pixmap.toImage(), page_number, doubled)
-        , pixmap(pixmap)
+    PixmapPage(const QPixmap& pix, int page_number, bool doubled)
+        : pixmap(pix)
+        , page_num(page_number)
+        , double_page(doubled)
     {
+        border = find_content_edges(pix.toImage());
+    }
+
+    bool is_empty() const { return pixmap.isNull(); }
+    QSize shape() const { return pixmap.isNull() ? QSize() : pixmap.size(); }
+    QSize size() const { return shape(); }
+    int width() const { return shape().width(); }
+    int height() const { return shape().height(); }
+
+    QPixmap as_pixmap() const { return pixmap; }
+
+    QPixmap resize_by_border(int relief = 0) const
+    {
+        TRACE_CALL;
+        return ::resize_by_border(pixmap, border, relief);
     }
 };
 
@@ -145,6 +169,27 @@ inline bool copy_blank_image(const Page& source, Page& target)
     blank_image.fill(Qt::white);
 
     target.img = blank_image;
+    target.border = source.border;
+    target.page_num = source.page_num;
+    target.double_page = source.double_page;
+    return true;
+}
+
+
+// Overload for PixmapPage
+inline bool copy_blank_image(const PixmapPage& source, PixmapPage& target)
+{
+    if (source.pixmap.isNull()) {
+        if (!target.pixmap.isNull())
+            target.pixmap = QPixmap();
+        return false;
+    }
+
+    QPixmap blank_pixmap(source.pixmap.size());
+    blank_pixmap.setDevicePixelRatio(source.pixmap.devicePixelRatio());
+    blank_pixmap.fill(Qt::white);
+
+    target.pixmap = blank_pixmap;
     target.border = source.border;
     target.page_num = source.page_num;
     target.double_page = source.double_page;

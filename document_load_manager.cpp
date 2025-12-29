@@ -6,6 +6,10 @@
 #include <sstream>
 #include <QtConcurrent>
 #include "logger.h"
+#include "exception_logger.h"
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 
 DocumentLoadManager* DocumentLoadManager::instance_ = nullptr;
@@ -190,7 +194,10 @@ void DocumentLoadManager::submit_next_jobs()
 {
     cleanup_finished_futures();
 
-    while (active_jobs_ < max_concurrent_jobs_ && !job_queue_.empty()) {
+    // Calculate effective max jobs based on memory pressure
+    int effective_max_jobs = calculate_max_concurrent_jobs();
+
+    while (active_jobs_ < effective_max_jobs && !job_queue_.empty()) {
         const auto& job = job_queue_.front();
 
         if (!job.document) {
@@ -511,4 +518,93 @@ DocumentLoadManager::LoadingSummary DocumentLoadManager::get_loading_summary() c
             summary.documents.push_back({doc_name, pages});
 
     return summary;
+}
+
+
+DocumentLoadManager::MemoryStats DocumentLoadManager::get_memory_stats() const
+{
+    SAFE_METHOD;
+
+    MemoryStats stats;
+
+#ifdef _WIN32
+    MEMORYSTATUSEX mem_status;
+    mem_status.dwLength = sizeof(mem_status);
+    if (GlobalMemoryStatusEx(&mem_status)) {
+        stats.total_memory_mb = static_cast<size_t>(mem_status.ullTotalPhys / (1024 * 1024));
+        stats.available_memory_mb = static_cast<size_t>(mem_status.ullAvailPhys / (1024 * 1024));
+
+        // Calculate memory pressure: 0% = plenty of memory, 100% = critical
+        // Use available memory percentage
+        int available_percent = static_cast<int>((stats.available_memory_mb * 100) / stats.total_memory_mb);
+        stats.memory_pressure_percent = 100 - available_percent;
+    }
+#else
+    // Linux/Mac implementation would go here
+    stats.total_memory_mb = 16384; // Default assumption
+    stats.available_memory_mb = 8192;
+    stats.memory_pressure_percent = 50;
+#endif
+
+    return stats;
+}
+
+
+int DocumentLoadManager::calculate_max_concurrent_jobs() const
+{
+    SAFE_METHOD;
+
+    MemoryStats stats = get_memory_stats();
+
+    // Start with the configured maximum
+    int max_jobs = max_concurrent_jobs_;
+    int current_pressure_level = 0;
+
+    // Apply adaptive throttling based on memory pressure
+    // Pressure thresholds:
+    // 0-50%: No throttling (plenty of memory)
+    // 50-70%: Light throttling (reduce by 25%)
+    // 70-85%: Medium throttling (reduce by 50%)
+    // 85-95%: Heavy throttling (reduce by 75%)
+    // 95-100%: Critical throttling (only 1 job at a time)
+
+    if (stats.memory_pressure_percent >= 95) {
+        max_jobs = 1;
+        current_pressure_level = 4;
+        if (last_memory_pressure_level_ < 4) {
+            logger::debug("MEMORY CRITICAL: Available: {} MB / {} MB ({}% pressure) - limiting to 1 concurrent page load",
+                          stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent);
+        }
+    } else if (stats.memory_pressure_percent >= 85) {
+        max_jobs = std::max(1, max_concurrent_jobs_ / 4);
+        current_pressure_level = 3;
+        if (last_memory_pressure_level_ < 3) {
+            logger::debug("MEMORY PRESSURE HIGH: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                          stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+        }
+    } else if (stats.memory_pressure_percent >= 70) {
+        max_jobs = std::max(1, max_concurrent_jobs_ / 2);
+        current_pressure_level = 2;
+        if (last_memory_pressure_level_ < 2) {
+            logger::debug("MEMORY PRESSURE MEDIUM: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                        stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+        }
+    } else if (stats.memory_pressure_percent >= 50) {
+        max_jobs = std::max(1, (max_concurrent_jobs_ * 3) / 4);
+        current_pressure_level = 1;
+        if (last_memory_pressure_level_ < 1) {
+            logger::debug("MEMORY PRESSURE LIGHT: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                        stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+        }
+    }
+
+    // Log when pressure decreases significantly
+    if (current_pressure_level < last_memory_pressure_level_ && last_memory_pressure_level_ >= 2) {
+        logger::debug("MEMORY PRESSURE DECREASED: Available: {} MB / {} MB ({}% pressure) - restoring to {} concurrent loads",
+                    stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+    }
+
+    last_memory_pressure_level_ = current_pressure_level;
+
+    return max_jobs;
 }
