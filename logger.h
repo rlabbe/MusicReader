@@ -133,10 +133,11 @@ struct time_logger {
 struct function_tracer {
     const char* file_name;
     const char* func_name;
+    bool enabled = false;
     int line_num;
     std::chrono::high_resolution_clock::time_point start_time_;
 
-    __forceinline function_tracer(const char* file, const char* name, int line)
+    __forceinline function_tracer(const char* file, const char* name, int line, bool enter_exit)
         : file_name(file)
         , func_name(name)
         , line_num(line)
@@ -150,14 +151,18 @@ struct function_tracer {
 
         if (logger::trace_enabled()) {
             std::string indent(indent_level(), ' ');
-            logger::trace("{}Enter {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
-            increase_indent();
+            if (enter_exit) {
+                logger::trace("{}Enter {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
+                increase_indent();
+                enabled = true;
+            } else
+                logger::trace("{}Call {}:{} {}", indent, file_name, line_num, strip_extra_call_info(func_name));
         }
     }
 
     __forceinline ~function_tracer()
     {
-        if (logger::trace_enabled()) {
+        if (enabled) {
             decrease_indent();
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count();
@@ -168,52 +173,134 @@ struct function_tracer {
     }
 };
 
-
+/*
 struct function_tracer_msg {
     const char* file_name;
     const char* func_name;
     int line_num;
     std::string message;
-    bool enabled;
+    bool enabled = false;
     std::chrono::high_resolution_clock::time_point start_time_;
 
 
     template<typename... Args>
-    __forceinline function_tracer_msg(const char* file, const char* name, int line, std::format_string<Args...> fmt,
-                                      Args&&... args)
+    __forceinline function_tracer_msg(const char* file, const char* name, int line, bool enter_exit,
+                                      std::format_string<Args...> fmt, Args&&... args)
         : file_name(file)
         , func_name(name)
         , line_num(line)
-        , enabled(logger::trace_enabled())
+        , enter_exit(enter_exit)
         , start_time_(std::chrono::high_resolution_clock::now())
     {
+        if (!logger::trace_enabled())
+            return;
+
         // remove path and drive letter if they exist
         if (auto p = strrchr(file, '\\'))
             file_name = p + 1;
         else if (auto q = strrchr(file, '/'))
             file_name = q + 1;
 
-        if (enabled) {
-            std::string indent(indent_level(), ' ');
-            message = std::format(fmt, std::forward<Args>(args)...);
+        std::string indent(indent_level(), ' ');
+        message = std::format(fmt, std::forward<Args>(args)...);
+        if (enter_exit) {
             logger::trace("{}Enter {}:{} {} {}", indent, file_name, line_num, strip_extra_call_info(func_name),
                           message);
             increase_indent();
+            enabled = true;
         }
+    }
+
+    __forceinline double duration() const
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        return std::chrono::duration<double, std::microseconds>(end_time - start_time_).count();
     }
 
     __forceinline ~function_tracer_msg()
     {
         if (enabled) {
             decrease_indent();
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count();
             std::string indent(indent_level(), ' ');
             logger::trace("{}Exit {}:{} {} {} ({} us)", indent, file_name, line_num, strip_extra_call_info(func_name),
-                          message, duration_us);
+                          message, duration());
+        } else if (enter_exit) {
+            // Just a call trace
+            logger::trace("{}Called {}:{} {} {} ({} us)", std::string(indent_level(), ' '), file_name, line_num,
+                          strip_extra_call_info(func_name), message, duration());
+    }
+};
+*/
+
+
+#include <optional>
+
+struct function_tracer_msg {
+    const char* file_name;
+    const char* func_name;
+    int line_num;
+    bool enter_exit;
+    std::chrono::high_resolution_clock::time_point start_time_;
+    bool active = false; // true if trace was enabled at construction
+    std::optional<std::string> message;
+
+    template<typename... Args>
+    __forceinline function_tracer_msg(const char* file, const char* name, int line, bool enter_exit,
+                                      std::format_string<Args...> fmt = "", Args&&... args)
+        : file_name(file)
+        , func_name(name)
+        , line_num(line)
+        , enter_exit(enter_exit)
+        , start_time_(std::chrono::high_resolution_clock::now())
+    {
+        if (!logger::trace_enabled())
+            return;
+
+        active = true;
+
+        // remove path and drive letter if they exist
+        if (auto p = strrchr(file, '\\'))
+            file_name = p + 1;
+        else if (auto q = strrchr(file, '/'))
+            file_name = q + 1;
+
+        if constexpr (sizeof...(Args) > 0)
+            message.emplace(std::format(fmt, std::forward<Args>(args)...));
+
+        if (enter_exit) {
+            std::string indent(indent_level(), ' ');
+            logger::trace("{}Enter {}:{} {}{}", indent, file_name, line_num, strip_extra_call_info(func_name),
+                          message ? " " + *message : "");
+            increase_indent();
+        }
+    }
+
+    __forceinline double duration() const
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        return static_cast<double>(
+            std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time_).count());
+    }
+
+    __forceinline ~function_tracer_msg()
+    {
+        if (!active)
+            return;
+
+        std::string indent(indent_level(), ' ');
+
+        if (enter_exit) {
+            decrease_indent();
+            logger::trace("{}Exit {}:{} {}{} ({} us)", indent, file_name, line_num, strip_extra_call_info(func_name),
+                          message ? " " + *message : "", duration());
+        } else { // call only
+            logger::trace("{}Called {}:{} {}{} ({} us)", indent, file_name, line_num, strip_extra_call_info(func_name),
+                          message ? " " + *message : "", duration());
         }
     }
 };
+
+
 
 // Trace functions in logger when in trace mode
 //
@@ -227,6 +314,14 @@ struct function_tracer_msg {
 //      void voo() {
 //          TRACE_FUNCTION_MSG("Requesting page {} of {}", page_num, filename_.string());
 
-#define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__)
+#define TRACE_FUNCTION function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, true)
 #define TRACE_FUNCTION_MSG(...)                                                                                        \
-    function_tracer_msg _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, __VA_ARGS__)
+    function_tracer_msg _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, true, __VA_ARGS__)
+
+
+// Similar to TRACE_FUNCTION but only traces the fact of the call, not entry/exit
+// results in 1 line in the log, useful when the function doesn't call any other
+// function which is being traced.
+#define TRACE_CALL function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, false)
+#define TRACE_CALL_MSG(...)                                                                                            \
+    function_tracer_msg _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, false, __VA_ARGS__)

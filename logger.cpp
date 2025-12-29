@@ -49,14 +49,21 @@ static std::string get_persistent_config_path(const std::string& file_name,
 }
 
 
-void set_high_precision(std::shared_ptr<spdlog::logger> logger, bool tf)
+void set_high_precision(std::shared_ptr<spdlog::logger> logger, bool high_precision, bool date)
 {
     if (!logger)
         return;
-    if (tf)
-        logger->set_pattern("[%Y-%m-%d %H:%M:%S.%f] [%l] %v"); // microseconds!
-    else
-        logger->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v"); // seconds
+    if (high_precision) {
+        if (date)
+            logger->set_pattern("[%Y-%m-%d %H:%M:%S.%f] [%l] %v"); // microseconds!
+        else
+            logger->set_pattern("[%H:%M:%S.%f] [%l] %v"); // microseconds!
+    } else {
+        if (date)
+            logger->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v"); // seconds
+        else
+            logger->set_pattern("[%H:%M:%S] [%l] %v"); // seconds
+    }
 }
 
 
@@ -76,7 +83,7 @@ void logger::configure_logger(const std::string& filename, size_t max_size_kb, b
         logger_ = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
         spdlog::register_logger(logger_);
         logger_->set_level(spdlog::level::info);
-        set_high_precision(logger_, false);
+        set_high_precision(logger_, false, false);
         // logger_->flush_on(spdlog::level::info);
         spdlog::flush_every(std::chrono::seconds(5));
     } catch (const std::exception& ex) {
@@ -181,18 +188,7 @@ void logger::error(const std::u8string& message)
 
 void logger::debug(const std::string& message)
 {
-    if (!logger_)
-        return;
-
-    auto level = config_file_->log_level();
-    bool log = false;
-
-    if (ConfigFile::instance().trace_while_debug_logging())
-        log = (level == LogLevel::Diagnostic || level == LogLevel::Trace);
-    else
-        log = (level == LogLevel::Diagnostic);
-
-    if (log)
+    if (logger_ && config_file_->log_level() == LogLevel::Diagnostic)
         logger_->debug(message);
 }
 
@@ -206,8 +202,19 @@ void logger::debug(const std::u8string& message)
 
 void logger::trace(const std::string& message)
 {
-    if (logger_ && config_file_->log_level() == LogLevel::Trace)
-        logger_->debug(message);
+    if (!logger_)
+        return;
+
+    auto level = config_file_->log_level();
+    bool log = false;
+
+    if (ConfigFile::instance().trace_while_debug_logging())
+        log = (level == LogLevel::Trace || level == LogLevel::Diagnostic);
+    else
+        log = (level == LogLevel::Trace);
+
+    if (log)
+        logger_->trace(message);
 }
 
 
@@ -222,31 +229,48 @@ void logger::enable_debug_logging(bool enable)
 {
     if (!logger_)
         return;
-    logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
-    for (auto& sink : logger_->sinks())
-        sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
 
-    trace_enabled_ = false;
-    debug_enabled_ = true;
-    set_high_precision(logger_, false);
+    auto level = spdlog::level::info;
+    bool allow_trace = false;
+
+    if (enable) {
+        level = spdlog::level::debug;
+
+        if (ConfigFile::instance().trace_while_debug_logging()) {
+            allow_trace = true;
+            level = spdlog::level::trace;
+        }
+    }
+
+    logger_->set_level(level);
+    for (auto& sink : logger_->sinks())
+        sink->set_level(level);
+
+    trace_enabled_ = allow_trace;
+    debug_enabled_ = enable;
+    set_high_precision(logger_, false, false);
 }
+
 
 
 void logger::enable_trace_logging(bool enable)
 {
     if (!logger_)
         return;
-    logger_->set_level(enable ? spdlog::level::debug : spdlog::level::info);
+    logger_->set_level(enable ? spdlog::level::trace : spdlog::level::info);
     for (auto& sink : logger_->sinks())
-        sink->set_level(enable ? spdlog::level::debug : spdlog::level::info);
+        sink->set_level(enable ? spdlog::level::trace : spdlog::level::info);
 
     trace_enabled_ = true;
     debug_enabled_ = false;
-    set_high_precision(logger_, true);
+    set_high_precision(logger_, true, false);
+
+    /* we are logging with debug right now, not sure why
     if (enable)
         logger_->flush_on(spdlog::level::trace);
     else
         logger_->flush_on(spdlog::level::debug);
+        */
 }
 
 
