@@ -53,6 +53,7 @@ private slots:
     void force_redraw_all_viewers();
     void on_toolbar_page_changed(int page);
     void on_viewer_page_changed(int page_num);
+    void select_annotation_font();
 
 private:
     std::shared_ptr<Document> document_at(int index) const;

@@ -114,6 +114,7 @@ private:
     Bookmark* find_bookmark(const BookmarkHandle& handle);
     Annotation* find_annotation(const AnnotationHandle& handle);
     bool save_annotations_to_pdf();
+    bool save_annotations_to_pdf2();
     void clear_completed_features();
 
     std::vector<Bookmark> bookmarks_;

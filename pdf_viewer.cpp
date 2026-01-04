@@ -186,23 +186,25 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
+    auto key = event->key();
 
-    // Handle selection-related keys first
-    if (event->key() == Qt::Key_Delete && has_selection_) {
-        if (document_->remove_annotation(selected_annotation_))
-            clear_selection();
-        event->accept();
-        return;
+    if (key == Qt::Key_Delete || key == Qt::Key_Backspace) {
+        if (has_selection_) {
+            if (document_->remove_annotation(selected_annotation_))
+                clear_selection();
+            event->accept();
+            return;
+        }
     }
 
-    if (event->key() == Qt::Key_Escape && has_selection_) {
+    if (key == Qt::Key_Escape && has_selection_) {
         // Clear selection on Escape
         clear_selection();
         event->accept();
         return;
     }
 
-    switch (event->key()) {
+    switch (key) {
         case Qt::Key_PageUp:
         case Qt::Key_Up:
             page_up();
@@ -304,7 +306,7 @@ void PDFViewer::init_ui(int page)
     layout_->addWidget(label_, 1); // Stretch document display
     layout_->addWidget(scrollbar_);
 
-    annotation_editor_ = new InPlaceAnnotationEditor(annotation_font_, this);
+    annotation_editor_ = new InPlaceAnnotationEditor(config_, this);
     connect(annotation_editor_, &InPlaceAnnotationEditor::editing_finished, this,
             &PDFViewer::on_annotation_text_finished);
     connect(annotation_editor_, &InPlaceAnnotationEditor::editing_cancelled, this,
@@ -313,8 +315,9 @@ void PDFViewer::init_ui(int page)
     setLayout(layout_);
     update_scrollbar_visibility();
 
+    // Use WidgetWithChildren context so Delete only fires when PDFViewer or its children have focus
     QShortcut* delete_shortcut = new QShortcut(QKeySequence::Delete, this);
-    delete_shortcut->setContext(Qt::WidgetShortcut); // Only when this widget has focus
+    delete_shortcut->setContext(Qt::WidgetWithChildrenShortcut);
     connect(delete_shortcut, &QShortcut::activated, this, &PDFViewer::delete_shortcut);
 }
 
@@ -692,6 +695,25 @@ void PDFViewer::update_image(const QString& message)
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     // scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
 
+    logger::info("ANT: update_image: label_size={}x{}, page_.pixmap={}x{}, scaled_pixmap={}x{}",
+                 label_->size().width(), label_->size().height(),
+                 page_.pixmap.width(), page_.pixmap.height(),
+                 scaled_pixmap.width(), scaled_pixmap.height());
+
+
+    // Draw crosshair at last click position (for debugging annotation placement)
+    if (ConfigFile::instance().debug_annotations() && !last_click_display_pos_.isNull()) {
+        QPainter painter(&scaled_pixmap);
+        painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
+
+        // Draw horizontal line
+        painter.drawLine(0, last_click_display_pos_.y(), scaled_pixmap.width(), last_click_display_pos_.y());
+
+        // Draw vertical line
+        painter.drawLine(last_click_display_pos_.x(), 0, last_click_display_pos_.x(), scaled_pixmap.height());
+
+        painter.end();
+    }
 
     // Draw selection box around selected annotation only
     if (has_selection_) {
@@ -817,7 +839,6 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
 
-
 void PDFViewer::set_page_break_edit_mode(bool enabled)
 {
     SAFE_METHOD;
@@ -841,12 +862,46 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     setFocus();
 
     if (event->button() == Qt::LeftButton && text_annotation_mode_) {
+        logger::info("ANT: Mouse clicked at screen pos ({}, {})", event->pos().x(), event->pos().y());
+
         QPixmap displayed = label_->pixmap();
+
+        // Calculate pixmap coordinates for crosshair (accounting for alignment offset)
+        QSize label_size = label_->size();
+        int offset_x = 0;
+        int offset_y = 0;
+        Qt::Alignment h_align = page_alignment();
+        Qt::Alignment v_align = page_vertical_alignment();
+        if (h_align == Qt::AlignHCenter)
+            offset_x = (label_size.width() - displayed.width()) / 2;
+        else if (h_align == Qt::AlignRight)
+            offset_x = label_size.width() - displayed.width();
+        if (v_align == Qt::AlignVCenter)
+            offset_y = (label_size.height() - displayed.height()) / 2;
+        else if (v_align == Qt::AlignBottom)
+            offset_y = label_size.height() - displayed.height();
+
+        last_click_display_pos_ = QPoint(event->pos().x() - offset_x, event->pos().y() - offset_y);
         last_click_target_ = get_click_target(event);
 
         auto [pdf_width, pdf_height] = document_->get_page_dimensions_points(last_click_target_.page_num);
 
+        logger::info("ANT: Click target: page={}, points=({:.2f}, {:.2f}), page_dims=({:.2f}x{:.2f})",
+                     last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y,
+                     pdf_width, pdf_height);
+
         // Position editor directly at click point (screen coordinates)
+        int doc_margin = static_cast<int>(annotation_editor_->document()->documentMargin());
+        logger::info("ANT: Qt editor margin={}", doc_margin);
+
+        // Calculate how many display pixels = 1 PDF point
+        // PDF page is pdf_width points, rendered pixmap is page_.pixmap.width() pixels, displayed is displayed.width() pixels
+        // Scale = displayed_pixels / pdf_points
+        float points_to_pixels = static_cast<float>(displayed.width()) / pdf_width;
+        logger::info("ANT: Font scale: displayed={}px, pdf_page={:.2f}pt, scale={:.4f} px/pt",
+                     displayed.width(), pdf_width, points_to_pixels);
+        annotation_editor_->set_dpi_scale(points_to_pixels);
+
         annotation_editor_->start_editing(event->pos());
 
         event->accept();
@@ -917,7 +972,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         // Handle annotation selection
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);
         if (clicked_annotation) {
-            // Clicked on an annotation - select it
+            setFocus();  // Ensure PDFViewer has focus so Delete shortcut works
             select_annotation(clicked_annotation);
             event->accept();
             return;
@@ -992,22 +1047,44 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
 
     if (!text.trimmed().isEmpty() && last_click_target_.page_num > 0) {
 
-        QSize size = calculate_text_size(text, annotation_font_);
+        const FontInfo& font_info = config_->annotation_font();
 
-        Annotation annotation(text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
-                              last_click_target_.points_y, static_cast<float>(size.width()),
-                              static_cast<float>(size.height()), // Back to pixels
-                              annotation_font_);
+        // Calculate size in PDF points using font metrics
+        // QFontMetricsF with point-size font gives us point-based measurements
+        QString qt_font_name = pdf_font_to_qt_font(font_info.family);
+        QFont font(qt_font_name);
+        font.setPointSizeF(font_info.size);
+        QFontMetricsF fm(font);
 
-        // In on_annotation_text_finished(), replace the existing debug with:
-        // QFont font(annotation_font_.family, static_cast<int>(annotation_font_.size));
-        // QFontMetrics fm(font);
-        // int fm_width = fm.horizontalAdvance(text);
-        // int fm_height = fm.height();
-        // int calculated_width = fm_width + 4;
-        // int calculated_height = fm_height + 4;
+        // Use regular boundingRect which gives consistent font metrics
+        QRectF text_bounds = fm.boundingRect(text);
+        qreal width_points = text_bounds.width();   // No padding - let PDF handle it
+
+        // For height, use ascent + descent for proper text bounds
+        qreal height_points = fm.ascent() + fm.descent();
+
+        // Position the rect: click point is baseline origin
+        // Adjust X for where glyphs actually start (text_bounds.left() can be negative for letters like 'y')
+        qreal adjusted_x = last_click_target_.points_x + text_bounds.left();
+        // Position the top edge at: click_y + ascent (since we're measuring from baseline)
+        qreal adjusted_y = last_click_target_.points_y + fm.ascent();
+
+        logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), size=({:.2f}x{:.2f}), bounds_offset=({:.2f},{:.2f}), font='{}' {:.1f}pt",
+                     text.toStdString(), last_click_target_.page_num,
+                     last_click_target_.points_x, last_click_target_.points_y,
+                     adjusted_x, adjusted_y,
+                     width_points, height_points,
+                     text_bounds.left(), text_bounds.top(),
+                     font_info.family.c_str(), font_info.size);
+
+        Annotation annotation(text.toStdString(), last_click_target_.page_num, adjusted_x,
+                              adjusted_y, static_cast<float>(width_points), static_cast<float>(height_points),
+                              font_info);
 
         document_->add_annotation(annotation);
+
+        // Save text for debug rendering
+        last_annotation_text_ = text;
     }
 
     text_annotation_mode_ = false;
@@ -1039,11 +1116,39 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
     if (displayed.isNull())
         return {0, 0.0f, 0.0f};
 
+    // Get mouse position relative to the label widget
     int target_page = current_page();
-    int mouse_x = event->pos().x();
-    int mouse_y = event->pos().y();
-    int display_width = displayed.width();
-    int display_height = displayed.height();
+    QPoint mouse_pos = event->pos();
+
+    // The pixmap is aligned within the label, so calculate the actual pixmap position
+    QSize label_size = label_->size();
+    int pixmap_width = displayed.width();
+    int pixmap_height = displayed.height();
+
+    // Calculate offset due to alignment (centered or left/top aligned)
+    int offset_x = 0;
+    int offset_y = 0;
+
+    Qt::Alignment h_align = page_alignment();
+    Qt::Alignment v_align = page_vertical_alignment();
+
+    if (h_align == Qt::AlignHCenter)
+        offset_x = (label_size.width() - pixmap_width) / 2;
+    else if (h_align == Qt::AlignRight)
+        offset_x = label_size.width() - pixmap_width;
+
+    if (v_align == Qt::AlignVCenter)
+        offset_y = (label_size.height() - pixmap_height) / 2;
+    else if (v_align == Qt::AlignBottom)
+        offset_y = label_size.height() - pixmap_height;
+
+    // Adjust mouse position to be relative to the pixmap, not the label
+    int mouse_x = mouse_pos.x() - offset_x;
+    int mouse_y = mouse_pos.y() - offset_y;
+
+    // Use pixmap dimensions for calculations
+    int display_width = pixmap_width;
+    int display_height = pixmap_height;
 
     bool double_page = in_double_page_view();
     if (double_page)
@@ -1053,17 +1158,51 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         mouse_x -= display_width;
     }
 
-    int pixel_width = double_page ? page_.width() / 2 : page_.width();
-    int pixel_height = page_.height();
+    logger::info("ANT: label_size={}x{}, pixmap={}x{}, offset=({},{}), mouse_label=({},{}), mouse_pixmap=({},{})",
+                 label_size.width(), label_size.height(), pixmap_width, pixmap_height,
+                 offset_x, offset_y, mouse_pos.x(), mouse_pos.y(), mouse_x, mouse_y);
 
-    float scale_x = float(pixel_width) / display_width;
-    float scale_y = float(pixel_height) / display_height;
-    int scaled_mouse_x = int(mouse_x * scale_x);
-    int scaled_mouse_y = int(mouse_y * scale_y);
-
+    // Get the full page to check for border/cropping
+    Page full_page = document_->get_page(target_page, false);
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(target_page);
-    auto [points_x, points_y] = pixels_to_pdf_points(scaled_mouse_x, scaled_mouse_y, pixel_width, pixel_height,
-                                                     pdf_width_points, pdf_height_points);
+
+    // Calculate click ratio in display space
+    float click_ratio_x = float(mouse_x) / display_width;
+    float click_ratio_y = float(mouse_y) / display_height;
+
+    float points_x, points_y;
+
+    float full_width = full_page.width();
+    float full_height = full_page.height();
+
+    bool zoom_mode = config_ && config_->zoom_to_content();
+
+    if (zoom_mode) {
+        // When zoomed, the displayed image is cropped to border
+        float border_left = full_page.border.left;
+        float border_top = full_page.border.top;
+        float border_width = full_page.border.right - full_page.border.left;
+        float border_height = full_page.border.bottom - full_page.border.top;
+
+        // Click position within the cropped area (in full page pixels at render DPI)
+        float cropped_x = click_ratio_x * border_width;
+        float cropped_y = click_ratio_y * border_height;
+
+        // Convert to full page pixels (at render DPI)
+        float full_x = border_left + cropped_x;
+        float full_y = border_top + cropped_y;
+
+        // Convert ratio in full page to ratio in PDF points
+        points_x = (full_x / full_width) * pdf_width_points;
+        points_y = pdf_height_points - (full_y / full_height) * pdf_height_points;
+    } else {
+        // When not zoomed, direct mapping
+        points_x = click_ratio_x * pdf_width_points;
+        points_y = pdf_height_points - (click_ratio_y * pdf_height_points);
+    }
+
+    logger::info("ANT: get_click_target: display=({},{}), mouse_screen=({},{}), page_points=({:.2f}x{:.2f}), result_points=({:.2f},{:.2f})",
+                 display_width, display_height, mouse_x, mouse_y, pdf_width_points, pdf_height_points, points_x, points_y);
 
     return {target_page, points_x, points_y};
 }
@@ -1085,16 +1224,12 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
     float pdf_y_from_top = pdf_height_points - annotation.y_;
     float pixel_x = (annotation.x_ / pdf_width_points) * page_.pixmap.width();
     float pixel_y = (pdf_y_from_top / pdf_height_points) * page_.pixmap.height();
-    pixel_x -= 5;
-    pixel_y -= 6;
 
-    // Calculate bounding box size from font and text
-    QSize box_size = calculate_text_size(QString::fromStdString(annotation.text_), annotation.font_info_);
-
-    // Apply DPI scaling to match MuPDF rendering
-    float dpi_scale_factor = document_->dpi() / 96.0f; // 96 is typical Windows screen DPI
-    int scaled_width = int(box_size.width() * dpi_scale_factor);
-    int scaled_height = int(box_size.height() * dpi_scale_factor);
+    // Use the actual stored width/height from annotation (already in PDF points)
+    // Convert PDF points to pixmap pixels
+    float dpi_scale = document_->dpi() / 72.0f;
+    int scaled_width = int(annotation.width_ * dpi_scale);
+    int scaled_height = int(annotation.height_ * dpi_scale);
 
     // Calculate display scaling
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);

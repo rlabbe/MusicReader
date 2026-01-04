@@ -7,6 +7,7 @@
 #include <filesystem>
 #include "json.hpp"
 #include "utils.h"
+#include "font_info.h"
 
 // Enum for Theme
 enum class Theme {
@@ -93,7 +94,10 @@ private:
     int page_load_delay_ = 0;
     bool do_async_loads_ = true;
     bool trace_while_debug_logging_ = true;
+    bool debug_annotations_ = false;
 
+    // Annotation font settings
+    FontInfo annotation_font_;
 
 private:
     ConfigFile();
@@ -343,7 +347,14 @@ public:
     int page_load_delay() const { return page_load_delay_; }
     bool do_async_loads() const { return do_async_loads_; }
     bool trace_while_debug_logging() const { return trace_while_debug_logging_; }
+    bool debug_annotations() const { return debug_annotations_; }
 
+    const FontInfo& annotation_font() const { return annotation_font_; }
+    void set_annotation_font(const FontInfo& value)
+    {
+        annotation_font_ = value;
+        save();
+    }
 
     // Method to read configuration from file
     void read(bool reset_on_error = true);

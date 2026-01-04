@@ -1,6 +1,6 @@
-#include "logger.h"
-#include "music_reader.h"
 
+#include "music_reader.h"
+#include "logger.h"
 #include <windows.h>
 #include <psapi.h>
 #include <iostream>
@@ -28,6 +28,7 @@
 #include "dev_status_dialog.h"
 #include "tour_dialog.h"
 #include "wait_cursor.h"
+#include "font_info.h"
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -943,7 +944,7 @@ void MusicReader::on_tab_current_changed()
 {
     SAFE_METHOD;
     auto viewer = current_viewer();
-    TRACE_FUNCTION_MSG("{}", viewer ? "no tabs" : viewer->document()->filename());
+    TRACE_FUNCTION_MSG("{}", viewer ? viewer->document()->filename() : "no tabs");
 
     update_title();
     update_bookmark_panel();
@@ -1631,6 +1632,64 @@ void MusicReader::open_tour_dialog()
     }
 }
 
+void MusicReader::select_annotation_font()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    FontInfo current_font = config_.annotation_font();
+
+    // Create custom dialog for Base-14 fonts only
+    QDialog dialog(this);
+    dialog.setWindowTitle("Select Annotation Font");
+
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+
+    // Font family selection
+    QLabel* family_label = new QLabel("Font Family:", &dialog);
+    layout->addWidget(family_label);
+
+    QComboBox* font_combo = new QComboBox(&dialog);
+    font_combo->addItem("Courier");
+    font_combo->addItem("Helvetica");
+    font_combo->addItem("Times");
+    font_combo->addItem("Symbol");
+
+    // Set current selection
+    int current_index = font_combo->findText(QString::fromStdString(current_font.family));
+    if (current_index >= 0) {
+        font_combo->setCurrentIndex(current_index);
+    }
+
+    layout->addWidget(font_combo);
+
+    // Font size selection
+    QLabel* size_label = new QLabel("Font Size:", &dialog);
+    layout->addWidget(size_label);
+
+    QSpinBox* size_spin = new QSpinBox(&dialog);
+    size_spin->setMinimum(8);
+    size_spin->setMaximum(72);
+    size_spin->setValue(static_cast<int>(current_font.size));
+    layout->addWidget(size_spin);
+
+    // OK/Cancel buttons
+    QDialogButtonBox* button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(button_box);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    current_font.family = font_combo->currentText().toStdString();
+    current_font.size = static_cast<float>(size_spin->value());
+    config_.set_annotation_font(current_font);
+
+    logger::info("Annotation font set to: family='{}', size={}",
+                current_font.family, current_font.size);
+}
+
 void MusicReader::goto_page_dialog()
 {
     SAFE_METHOD;
@@ -1997,6 +2056,19 @@ void MusicReader::create_edit_menu(auto* menu_bar)
     connect(save_bookmarks_action, &QAction::triggered, this, &MusicReader::save_bookmarks_to_file);
     edit_menu_->addAction(save_bookmarks_action);
 
+    edit_menu_->addSeparator();
+
+    QAction* select_font_action = new QAction("Select Annotation &Font...", this);
+    connect(select_font_action, &QAction::triggered, this, &MusicReader::select_annotation_font);
+    edit_menu_->addAction(select_font_action);
+
+    edit_menu_->addSeparator();
+
+    if (text_annotation_action_) {
+        text_annotation_action_->setText("Text &Annotation Mode");
+        edit_menu_->addAction(text_annotation_action_);
+    }
+
     connect(edit_menu_, &QMenu::aboutToShow, this, [this, set_bookmarks_action, save_bookmarks_action]() {
         auto doc = current_document().get();
         undo_action_->setEnabled(doc && doc->can_undo());
@@ -2167,9 +2239,11 @@ void MusicReader::show_context_menu(const QPoint& pos)
 
 void MusicReader::create_global_shortcuts()
 {
-    // Make global keyboard shortcuts within the app
-    // not all are set here. Ones that have a menu item need to set the
-    // shortcut there, then make it global by calling addAction(some_menu_action_);
+    // Single-key shortcuts should not fire when typing in text fields
+    auto is_text_input_focused = []() {
+        QWidget* focus_widget = QApplication::focusWidget();
+        return focus_widget && (qobject_cast<QLineEdit*>(focus_widget) || qobject_cast<QTextEdit*>(focus_widget));
+    };
 
     QShortcut* shortcut = new QShortcut(QKeySequence("Ctrl+D"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
@@ -2181,44 +2255,83 @@ void MusicReader::create_global_shortcuts()
 
     shortcut = new QShortcut(Qt::Key_B, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::MusicReader::add_bookmark);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        add_bookmark();
+    });
 
     shortcut = new QShortcut(Qt::Key_1, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
         set_page_view_count(1);
     });
 
     shortcut = new QShortcut(Qt::Key_2, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, [this]() {
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
         set_page_view_count(2);
     });
 
     shortcut = new QShortcut(Qt::Key_S, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_step);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        toggle_page_step();
+    });
 
     shortcut = new QShortcut(Qt::Key_O, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_file_dialog_default_path);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        open_file_dialog_default_path();
+    });
 
     shortcut = new QShortcut(QKeySequence(Qt::Key_F), this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::open_fast_search_dialog);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        open_fast_search_dialog();
+    });
 
     shortcut = new QShortcut(Qt::Key_Z, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_page_zoom);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        toggle_page_zoom();
+    });
 
     shortcut = new QShortcut(Qt::Key_P, this);
     shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_performance_mode);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        toggle_performance_mode();
+    });
 
+    shortcut = new QShortcut(Qt::Key_A, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        toggle_text_annotation_mode();
+    });
 
     shortcut = new QShortcut(Qt::Key_Space, this);
     shortcut->setContext(Qt::ApplicationShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::on_page_down);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        on_page_down();
+    });
 
     shortcut = new QShortcut(QKeySequence("F5"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
@@ -2228,19 +2341,6 @@ void MusicReader::create_global_shortcuts()
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_external_edit_document);
 
-    /* // not ready for prime time yet!
-    action = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "Text Annotation", this);
-    action->setToolTip("Text annotation mode (T)");
-    action->setCheckable(true);
-    connect(action, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
-    toolbar_->addAction(action);
-    text_annotation_action_ = action;
-
-    // Add T shortcut
-    shortcut = new QShortcut(Qt::Key_T, this);
-    shortcut->setContext(Qt::WindowShortcut);
-    connect(shortcut, &QShortcut::activated, this, &MusicReader::toggle_text_annotation_mode);
-    */
 }
 
 void MusicReader::create_toolbar()
@@ -2309,6 +2409,13 @@ void MusicReader::create_toolbar()
     performance_mode_action_->setCheckable(true);
     connect(performance_mode_action_, &QAction::triggered, this, &MusicReader::toggle_performance_mode);
     toolbar_->addAction(performance_mode_action_);
+
+    text_annotation_action_ = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "", this);
+    text_annotation_action_->setToolTip("Text Annotation Mode (A)");
+    text_annotation_action_->setCheckable(true);
+    //text_annotation_action_->setEnabled(config_.debug_annotations());
+    connect(text_annotation_action_, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
+    toolbar_->addAction(text_annotation_action_);
 
     {
         auto* action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);

@@ -3,13 +3,15 @@
 #include <QtWidgets>
 #include "font_info.h"
 
+class ConfigFile;
 
 class InPlaceAnnotationEditor : public QTextEdit {
     Q_OBJECT
 
 public:
-    InPlaceAnnotationEditor(const FontInfo& font_info, QWidget* parent = nullptr);
+    InPlaceAnnotationEditor(ConfigFile* config, QWidget* parent = nullptr);
     void start_editing(const QPoint& position, const QString& initial_text = "");
+    void set_dpi_scale(float scale) { dpi_scale_ = scale; }
 
 signals:
     void editing_finished(const QString& text);
@@ -27,8 +29,7 @@ private:
     void finish_editing();
     void cancel_editing();
 
-    QString font_family_;
-    float font_size_;
-    QColor font_color_;
+    ConfigFile* config_ = nullptr;
     bool editing_finished_ = false;
+    float dpi_scale_ = 1.0f;
 };

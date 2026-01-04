@@ -2,8 +2,10 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <unordered_set>
+#include <algorithm>
 #include <qpainter.h>
 #include <Windows.h>
+#include <shlobj.h>
 #include "logger.h"
 #include "fitz_utils.h"
 #include "bookmark.h"
@@ -650,7 +652,7 @@ bool Document::save()
     bool success = (bookmark_result == BookmarkResult::Success);
 
     if (success) {
-        success = save_annotations_to_pdf();
+        success = save_annotations_to_pdf2();
         if (!success)
             logger::error("Failed to save annotations to {}", filename_.string());
     } else {
@@ -880,25 +882,21 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
         int page_count = fz_count_pages(ctx, doc);
 
         for (int page_idx = 0; page_idx < page_count; ++page_idx) {
-            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
-            if (!page_obj)
+            pdf_page* page = pdf_load_page(ctx, pdf, page_idx);
+            if (!page)
                 continue;
 
-            pdf_obj* annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
-            if (!annots)
-                continue;
+            // Use pdf_first_annot/pdf_next_annot to get only CURRENT annotations
+            // (properly handles incremental saves and xref resolution)
+            pdf_annot* annot = pdf_first_annot(ctx, page);
+            while (annot) {
+                if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                    // Get annotation object from the annot handle
+                    pdf_obj* annot_obj = pdf_annot_obj(ctx, annot);
 
-            int annot_count = pdf_array_len(ctx, annots);
-            for (int i = 0; i < annot_count; ++i) {
-                pdf_obj* annot = pdf_array_get(ctx, annots, i);
-                if (!annot)
-                    continue;
-
-                pdf_obj* subtype = pdf_dict_get(ctx, annot, PDF_NAME(Subtype));
-                if (pdf_name_eq(ctx, subtype, PDF_NAME(FreeText))) {
                     // Extract annotation properties
-                    pdf_obj* rect = pdf_dict_get(ctx, annot, PDF_NAME(Rect));
-                    pdf_obj* contents = pdf_dict_get(ctx, annot, PDF_NAME(Contents));
+                    pdf_obj* rect = pdf_dict_get(ctx, annot_obj, PDF_NAME(Rect));
+                    pdf_obj* contents = pdf_dict_get(ctx, annot_obj, PDF_NAME(Contents));
 
                     if (rect && contents) {
                         // PDF rect format: [x0, y0, x1, y1] = [left, bottom, right, top]
@@ -914,13 +912,17 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
 
                         const char* text = pdf_to_text_string(ctx, contents);
 
+                        logger::info("ANT: LOAD annotation: text='{}', page={}, rect=[{:.2f},{:.2f},{:.2f},{:.2f}], stored as x={:.2f}, y={:.2f}, w={:.2f}, h={:.2f} (obj={})",
+                                   text, page_idx, x0, y0, x1, y1, x, y, width, height,
+                                   pdf_to_num(ctx, annot_obj));
+
                         // Extract font, size, and color from default appearance
-                        std::string font_name = "Consolas"; // default
-                        float font_size = 12.0f;            // default
-                        int r = 0, g = 0, b = 0;            // default black
+                        std::string font_name;
+                        float font_size = 12.0f;
+                        int r = 0, g = 0, b = 0;
 
                         // Parse DA (Default Appearance) string
-                        pdf_obj* da = pdf_dict_get(ctx, annot, PDF_NAME(DA));
+                        pdf_obj* da = pdf_dict_get(ctx, annot_obj, PDF_NAME(DA));
                         if (da) {
                             const char* da_str = pdf_to_text_string(ctx, da);
                             if (da_str) {
@@ -973,18 +975,20 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                         }
 
                         if (text && strlen(text) > 0) {
-                            Annotation annotation(
-                                std::string(text),
-                                page_idx + 1, // Convert to 1-based page
-                                x, y, width, height,
-                                FontInfo(QString::fromStdString(font_name), font_size, QColor(r, g, b)));
+                            FontInfo loaded_font;
+                            if (!font_name.empty())
+                                loaded_font.family = font_name;
+                            loaded_font.size = font_size;
+                            loaded_font.color = {r, g, b};
+
+                            Annotation annotation(std::string(text), page_idx + 1, x, y, width, height, loaded_font);
 
                             /*logger::debug("LOAD: page={}, x={:.3f}, y={:.3f}, w={:.3f}, h={:.3f}, text='{}', font='{}'
                             {}pt, color=({},{},{})", annotation.page_num_, annotation.x_, annotation.y_,
                             annotation.width_, annotation.height_, annotation.text_,
-                            annotation.font_info_.family.toStdString(), annotation.font_info_.size,
-                                          annotation.font_info_.color.red(), annotation.font_info_.color.green(),
-                            annotation.font_info_.color.blue());
+                            annotation.font_info_.family, annotation.font_info_.size,
+                                          std::get<0>(annotation.font_info_.color), std::get<1>(annotation.font_info_.color),
+                            std::get<2>(annotation.font_info_.color));
 
                             logger::debug("RAW RECT: [{:.3f}, {:.3f}, {:.3f}, {:.3f}] -> x={:.3f}, y={:.3f}(top),
                             w={:.3f}, h={:.3f}", x0, y0, x1, y1, x, y, width, height);*/
@@ -992,7 +996,11 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                         }
                     }
                 }
+
+                annot = pdf_next_annot(ctx, annot);
             }
+
+            pdf_drop_page(ctx, page);
         }
     }
     fz_catch(ctx)
@@ -1028,8 +1036,23 @@ bool Document::save_annotations_to_pdf()
         // First, delete all existing FreeText annotations
         [[maybe_unused]] bool deleted_any = delete_all_freetext_annotations(ctx, pdf);
 
+        // Clear all /Annots arrays to remove deleted annotation references
+        int page_count = pdf_count_pages(ctx, pdf);
+        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
+            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
+            if (page_obj) {
+                // Create a new empty /Annots array (replaces old one with deleted refs)
+                pdf_obj* new_annots = pdf_new_array(ctx, pdf, 1);
+                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), new_annots);
+            }
+        }
+
         // Add all our annotations
         for (const auto& annotation : annotations_) {
+            logger::info("ANT: Saving annotation: text='{}', page={}, x={:.2f}, y={:.2f}, w={:.2f}, h={:.2f}",
+                         annotation.text_, annotation.page_num_,
+                         annotation.x_, annotation.y_, annotation.width_, annotation.height_);
+
             pdf_page* page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
             if (!page) {
                 logger::error("Failed to load page {} for annotation", annotation.page_num_);
@@ -1039,53 +1062,108 @@ bool Document::save_annotations_to_pdf()
             // Check page bounds to understand coordinate system
             fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
 
-            // Create new annotation
-            pdf_annot* new_annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
-            if (!new_annot) {
-                logger::error("Failed to create annotation on page {}", annotation.page_num_);
-                pdf_drop_page(ctx, page);
-                continue;
+            logger::info("ANT: Page bounds: x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}, height={:.2f}",
+                         page_bounds.x0, page_bounds.y0, page_bounds.x1, page_bounds.y1,
+                         page_bounds.y1 - page_bounds.y0);
+
+            // Get page object for low-level annotation creation
+            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, annotation.page_num_ - 1);
+
+            // Get or create Annots array
+            pdf_obj* annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
+            if (!annots) {
+                annots = pdf_new_array(ctx, pdf, 1);
+                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), annots);
             }
 
-            // Set rectangle - COORDINATE SYSTEM FIX
-            // PDF coordinate system: Y=0 at bottom, Y=page_height at top
-            // Our annotation.y_ is stored as distance from TOP of page
-            // Need to convert to distance from BOTTOM of page
-            float page_height = page_bounds.y1 - page_bounds.y0;
+            // Create annotation dictionary manually
+            pdf_obj* annot = pdf_new_dict(ctx, pdf, 10);
+            pdf_dict_put(ctx, annot, PDF_NAME(Type), PDF_NAME(Annot));
+            pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
-            fz_rect rect;
-            rect.x0 = annotation.x_;                                    // left
-            rect.y0 = page_height - annotation.y_;                      // bottom = page_height - y_from_top
-            rect.x1 = annotation.x_ + annotation.width_;                // right
-            rect.y1 = page_height - annotation.y_ + annotation.height_; // top = bottom + height
+            // Set rectangle
+            float y1 = annotation.y_;
+            float y0 = annotation.y_ - annotation.height_;
 
-            pdf_set_annot_rect(ctx, new_annot, rect);
-            pdf_set_annot_contents(ctx, new_annot, annotation.text_.c_str());
+            pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
+            pdf_array_push_real(ctx, rect, annotation.x_);
+            pdf_array_push_real(ctx, rect, y0);
+            pdf_array_push_real(ctx, rect, annotation.x_ + annotation.width_);
+            pdf_array_push_real(ctx, rect, y1);
+            pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
+            pdf_drop_obj(ctx, rect);
+
+            logger::info("ANT: PDF rect: x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}",
+                         annotation.x_, y0, annotation.x_ + annotation.width_, y1);
+
+            // Set content
+            pdf_dict_put_text_string(ctx, annot, PDF_NAME(Contents), annotation.text_.c_str());
+
+            auto& font = annotation.font_info_;
+            std::string font_name = font.family;
+
+            if (font_name.empty())
+                font_name = "Helvetica";
 
             // Set default appearance
-            auto& font = annotation.font_info_;
-            float color[3] = {font.color.red() / 255.0f, font.color.green() / 255.0f, font.color.blue() / 255.0f};
+            auto [r, g, b] = font.color;
+            char da_buf[256];
+            snprintf(da_buf, sizeof(da_buf), "/%s %.1f Tf %.3f %.3f %.3f rg",
+                     font_name.c_str(), font.size,
+                     r / 255.0f, g / 255.0f, b / 255.0f);
+            pdf_dict_put_text_string(ctx, annot, PDF_NAME(DA), da_buf);
 
-            pdf_set_annot_default_appearance(ctx, new_annot, font.family.toUtf8().constData(), font.size,
-                                             3, // RGB color space
-                                             color);
-            pdf_set_annot_quadding(ctx, new_annot, 0); // Left aligned
+            logger::info("ANT: Font: '{}', size={:.1f}", font_name, font.size);
 
-            // Set border style (no border)
-            pdf_set_annot_border(ctx, new_annot, 0.0f);
+            // Set quadding (alignment)
+            pdf_dict_put_int(ctx, annot, PDF_NAME(Q), 0);
 
+            // Remove border - set BS (Border Style) to invisible
+            pdf_obj* bs = pdf_new_dict(ctx, pdf, 2);
+            pdf_dict_put_int(ctx, bs, PDF_NAME(W), 0);
+            pdf_dict_put(ctx, annot, PDF_NAME(BS), bs);
+            pdf_drop_obj(ctx, bs);
 
-            // Check what the rect is without update
-            fz_rect final_rect = pdf_annot_rect(ctx, new_annot);
-            /*logger::debug("Final rect without update: x0={:.3f}, y0={:.3f}, x1={:.3f}, y1={:.3f}",
-                         final_rect.x0, final_rect.y0, final_rect.x1, final_rect.y1);
+            // Also set Border array to [0 0 0] for compatibility
+            pdf_obj* border = pdf_new_array(ctx, pdf, 3);
+            pdf_array_push_int(ctx, border, 0);
+            pdf_array_push_int(ctx, border, 0);
+            pdf_array_push_int(ctx, border, 0);
+            pdf_dict_put(ctx, annot, PDF_NAME(Border), border);
+            pdf_drop_obj(ctx, border);
 
-            logger::debug("SAVE: page={}, x={:.1f}, y={:.1f}, w={:.1f}, h={:.1f}, text='{}', font='{}' {:.1f}pt,
-            color=({},{},{})", annotation.page_num_, annotation.x_, annotation.y_, annotation.width_,
-            annotation.height_, annotation.text_, annotation.font_info_.family.toStdString(),
-            annotation.font_info_.size, annotation.font_info_.color.red(), annotation.font_info_.color.green(),
-            annotation.font_info_.color.blue());*/
+            // Add annotation to page
+            pdf_array_push(ctx, annots, annot);
+            pdf_drop_obj(ctx, annot);
 
+            pdf_drop_page(ctx, page);
+        }
+
+        // Verify annotations before save
+        logger::info("ANT: Verifying annotations before save...");
+        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, pdf); ++page_idx) {
+            pdf_page* page = pdf_load_page(ctx, pdf, page_idx);
+            pdf_annot* annot = pdf_first_annot(ctx, page);
+            while (annot) {
+                if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                    fz_rect r = pdf_annot_rect(ctx, annot);
+                    const char* contents = pdf_annot_contents(ctx, annot);
+
+                    // Read rect directly from PDF dict
+                    pdf_obj* annot_obj = pdf_annot_obj(ctx, annot);
+                    pdf_obj* rect_obj = pdf_dict_get(ctx, annot_obj, PDF_NAME(Rect));
+                    float raw_x0 = pdf_array_get_real(ctx, rect_obj, 0);
+                    float raw_y0 = pdf_array_get_real(ctx, rect_obj, 1);
+                    float raw_x1 = pdf_array_get_real(ctx, rect_obj, 2);
+                    float raw_y1 = pdf_array_get_real(ctx, rect_obj, 3);
+
+                    logger::info("ANT: Before save - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
+                               page_idx, contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
+                    logger::info("ANT:   Raw dict rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
+                               raw_x0, raw_y0, raw_x1, raw_y1);
+                }
+                annot = pdf_next_annot(ctx, annot);
+            }
             pdf_drop_page(ctx, page);
         }
 
@@ -1093,6 +1171,190 @@ bool Document::save_annotations_to_pdf()
         pdf_write_options opts = pdf_default_write_options;
         opts.do_incremental = 1;
         pdf_save_document(ctx, pdf, filename_.string().c_str(), &opts);
+
+        logger::info("ANT: Save complete, verifying by reloading...");
+
+        // Verify what was actually written to file
+        fz_document* verify_doc = fz_open_document(ctx, filename_.string().c_str());
+        pdf_document* verify_pdf = pdf_specifics(ctx, verify_doc);
+        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, verify_pdf); ++page_idx) {
+            pdf_page* verify_page = pdf_load_page(ctx, verify_pdf, page_idx);
+            pdf_annot* verify_annot = pdf_first_annot(ctx, verify_page);
+            while (verify_annot) {
+                if (pdf_annot_type(ctx, verify_annot) == PDF_ANNOT_FREE_TEXT) {
+                    fz_rect r = pdf_annot_rect(ctx, verify_annot);
+                    const char* contents = pdf_annot_contents(ctx, verify_annot);
+                    logger::info("ANT: After save verification - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
+                               page_idx, contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
+                }
+                verify_annot = pdf_next_annot(ctx, verify_annot);
+            }
+            pdf_drop_page(ctx, verify_page);
+        }
+        fz_drop_document(ctx, verify_doc);
+
+        success = true;
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception while saving annotations for {}: {}", filename_.string(),
+                      fz_caught_message(ctx));
+    }
+
+    close_fitz(ctx, doc);
+    return success;
+}
+
+
+
+bool Document::save_annotations_to_pdf2()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc) {
+        logger::error("Failed to open document for annotation saving: {}", filename_.string());
+        return false;
+    }
+
+    pdf_document* pdf = pdf_specifics(ctx, doc);
+    if (!pdf) {
+        logger::error("Not a PDF document: {}", filename_.string());
+        close_fitz(ctx, doc);
+        return false;
+    }
+
+    bool success = false;
+    fz_try(ctx)
+    {
+        // First, delete all existing FreeText annotations
+        [[maybe_unused]] bool deleted_any = delete_all_freetext_annotations(ctx, pdf);
+
+        // Clear all /Annots arrays to remove deleted annotation references
+        int page_count = pdf_count_pages(ctx, pdf);
+        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
+            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
+            if (page_obj) {
+                // Create a new empty /Annots array (replaces old one with deleted refs)
+                pdf_obj* new_annots = pdf_new_array(ctx, pdf, 1);
+                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), new_annots);
+            }
+        }
+
+        // Add all our annotations
+        for (const auto& annotation : annotations_) {
+            logger::info("ANT: Saving annotation: text='{}', page={}, x={:.2f}, y={:.2f}, w={:.2f}, h={:.2f}",
+                         annotation.text_, annotation.page_num_, annotation.x_, annotation.y_, annotation.width_,
+                         annotation.height_);
+
+            pdf_page* page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
+            if (!page) {
+                logger::error("Failed to load page {} for annotation", annotation.page_num_);
+                continue;
+            }
+
+            // Check page bounds to understand coordinate system
+            fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
+
+            logger::info("ANT: Page bounds: x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}, height={:.2f}", page_bounds.x0,
+                         page_bounds.y0, page_bounds.x1, page_bounds.y1, page_bounds.y1 - page_bounds.y0);
+
+            // Create FreeText annotation using high-level API
+            pdf_annot* annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
+
+            // Set rectangle - convert from PDF space to screen space for high-level API
+            // Annotation coords are in PDF space (Y=0 at bottom), but pdf_set_annot_rect expects screen space
+            float page_height = page_bounds.y1 - page_bounds.y0;
+            float y0_screen = page_height - annotation.y_;
+            float y1_screen = y0_screen + annotation.height_;
+            fz_rect rect = fz_make_rect(annotation.x_, y0_screen, annotation.x_ + annotation.width_, y1_screen);
+            pdf_set_annot_rect(ctx, annot, rect);
+
+            logger::info("ANT: PDF rect (screen space for API): x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}",
+                         annotation.x_, y0_screen, annotation.x_ + annotation.width_, y1_screen);
+
+            // Set content
+            pdf_set_annot_contents(ctx, annot, annotation.text_.c_str());
+
+            auto& font = annotation.font_info_;
+            std::string mupdf_font_name = pdf_font_to_mupdf_font(font.family);
+
+            // Set default appearance
+            auto [cr, cg, cb] = font.color;
+            float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
+            pdf_set_annot_default_appearance(ctx, annot, mupdf_font_name.c_str(), font.size, 3, color);
+
+            logger::info("ANT: Font: '{}' (mupdf: '{}'), size={:.1f}", font.family, mupdf_font_name, font.size);
+
+            // Set quadding (alignment)
+            pdf_set_annot_quadding(ctx, annot, 0);
+
+            // Set border to invisible
+            pdf_set_annot_border(ctx, annot, 0);
+
+            // Update annotation to generate appearance stream
+            pdf_update_annot(ctx, annot);
+
+            pdf_drop_annot(ctx, annot);
+
+            pdf_drop_page(ctx, page);
+        }
+
+        // Verify annotations before save
+        logger::info("ANT: Verifying annotations before save...");
+        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, pdf); ++page_idx) {
+            pdf_page* page = pdf_load_page(ctx, pdf, page_idx);
+            pdf_annot* annot = pdf_first_annot(ctx, page);
+            while (annot) {
+                if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                    fz_rect r = pdf_annot_rect(ctx, annot);
+                    const char* contents = pdf_annot_contents(ctx, annot);
+
+                    // Read rect directly from PDF dict
+                    pdf_obj* annot_obj = pdf_annot_obj(ctx, annot);
+                    pdf_obj* rect_obj = pdf_dict_get(ctx, annot_obj, PDF_NAME(Rect));
+                    float raw_x0 = pdf_array_get_real(ctx, rect_obj, 0);
+                    float raw_y0 = pdf_array_get_real(ctx, rect_obj, 1);
+                    float raw_x1 = pdf_array_get_real(ctx, rect_obj, 2);
+                    float raw_y1 = pdf_array_get_real(ctx, rect_obj, 3);
+
+                    logger::info("ANT: Before save - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]", page_idx,
+                                 contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
+                    logger::info("ANT:   Raw dict rect=[{:.2f},{:.2f},{:.2f},{:.2f}]", raw_x0, raw_y0, raw_x1, raw_y1);
+                }
+                annot = pdf_next_annot(ctx, annot);
+            }
+            pdf_drop_page(ctx, page);
+        }
+
+        // Save incrementally
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, filename_.string().c_str(), &opts);
+
+        logger::info("ANT: Save complete, verifying by reloading...");
+
+        // Verify what was actually written to file
+        fz_document* verify_doc = fz_open_document(ctx, filename_.string().c_str());
+        pdf_document* verify_pdf = pdf_specifics(ctx, verify_doc);
+        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, verify_pdf); ++page_idx) {
+            pdf_page* verify_page = pdf_load_page(ctx, verify_pdf, page_idx);
+            pdf_annot* verify_annot = pdf_first_annot(ctx, verify_page);
+            while (verify_annot) {
+                if (pdf_annot_type(ctx, verify_annot) == PDF_ANNOT_FREE_TEXT) {
+                    fz_rect r = pdf_annot_rect(ctx, verify_annot);
+                    const char* contents = pdf_annot_contents(ctx, verify_annot);
+                    logger::info(
+                        "ANT: After save verification - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
+                        page_idx, contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
+                }
+                verify_annot = pdf_next_annot(ctx, verify_annot);
+            }
+            pdf_drop_page(ctx, verify_page);
+        }
+        fz_drop_document(ctx, verify_doc);
+
         success = true;
     }
     fz_catch(ctx)

@@ -308,6 +308,11 @@ void ConfigFile::read(bool reset_on_error)
     else
         trace_while_debug_logging_ = true;
 
+    if (j.contains("dev_debug_annotations"))
+        debug_annotations_ = j["dev_debug_annotations"].get<bool>();
+    else
+        debug_annotations_ = false;
+
     if (j.contains("open_documents") && j["open_documents"].is_array()) {
         open_documents_.clear();
         int default_tab_order = 0;
@@ -557,6 +562,22 @@ void ConfigFile::read(bool reset_on_error)
             logger::error("Invalid or missing 'log_level'");
     }
 
+    // Annotation font
+    if (j.contains("annotation_font") && j["annotation_font"].is_object()) {
+        auto& font_json = j["annotation_font"];
+        if (font_json.contains("family") && font_json["family"].is_string())
+            annotation_font_.family = font_json["family"].get<std::string>();
+        if (font_json.contains("size") && font_json["size"].is_number())
+            annotation_font_.size = font_json["size"].get<float>();
+        if (font_json.contains("color") && font_json["color"].is_array() && font_json["color"].size() == 3) {
+            annotation_font_.color = {
+                font_json["color"][0].get<int>(),
+                font_json["color"][1].get<int>(),
+                font_json["color"][2].get<int>()
+            };
+        }
+    }
+
     // sanity check
     if (open_tab_ < 0 || open_tab_ >= static_cast<int>(open_documents_.size()))
         open_tab_ = 0;
@@ -623,6 +644,16 @@ json ConfigFile::to_json() const
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
     j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;
+    j["dev_debug_annotations"] = debug_annotations_;
+
+    // Annotation font
+    json font_json;
+    font_json["family"] = annotation_font_.family;
+    font_json["size"] = annotation_font_.size;
+    auto [r, g, b] = annotation_font_.color;
+    font_json["color"] = {r, g, b};
+    j["annotation_font"] = font_json;
+
     return j;
 }
 
@@ -850,9 +881,11 @@ void ConfigFile::set_defaults()
     page_load_delay_ = 0;
     do_async_loads_ = true;
     trace_while_debug_logging_ = true;
+    debug_annotations_ = false;
     dev_mode_ = false;
     tour_has_run_ = false;
     append_to_log_ = false;
+    annotation_font_ = FontInfo{};  // Use FontInfo defaults
 }
 
 std::string ConfigFile::repr() const

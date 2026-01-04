@@ -1,74 +1,37 @@
 #pragma once
 
-#include <QString>
-#include <QColor>
-#include <QTextDocument>
-#include <QTextEdit>
-#include <QFontMetrics>
+#include <string>
+#include <tuple>
+#include <optional>
+
+// Forward declarations for Qt types used in function signatures
+class QString;
+class QSize;
+class QPoint;
 
 
 struct FontInfo {
-    QString family = "Consolas";
-    float size = 14.0f;
-    QColor color = QColor(255, 0, 0);
+    std::string family = "Helvetica";  // PDF Base-14 font name
+    float size = 10.0f;
+    std::tuple<int, int, int> color = {0, 0, 0};  // RGB
 };
 
 
-/*
-inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
-{
-    QTextDocument doc;
-    doc.setPlainText(text);
-    QFont font(font_info.family, static_cast<int>(font_info.size));
-    doc.setDefaultFont(font);
-    doc.adjustSize();
-    QSize size = doc.size().toSize();
-    size.setWidth(size.width() + 4);   // Small padding for visual comfort
-    size.setHeight(size.height() + 2); // Small padding for visual comfort
-    return size;
-}*/
+// Maps PDF Base-14 font names to Qt system font names for rendering
+QString pdf_font_to_qt_font(const std::string& pdf_font);
 
-/*
-inline QSize calculate_text_size(const QString &text, const FontInfo &font_info)
-{
-    QFont font(font_info.family, static_cast<int>(font_info.size));
-    QFontMetrics fm(font);
+// Maps PDF Base-14 font names to MuPDF's internal short names for appearance stream generation
+std::string pdf_font_to_mupdf_font(const std::string& pdf_font);
 
-    // Use actual font metrics instead of QTextDocument
-    int width = fm.horizontalAdvance(text);
-    int height = fm.height();
+// Converts Qt font name and style back to PDF Base-14 font name
+std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic);
 
-    // Add small padding for visual comfort
-    width += 4;   // 2px padding on each side
-    height += 4;  // 2px padding top and bottom
+// Calculate text size in pixels for given font
+QSize calculate_text_size(const QString& text, const FontInfo& font_info);
 
-    return QSize(width, height);
-}*/
+// Calculate adjusted position accounting for font metrics and margins
+QPoint calculate_adjusted_position(const QPoint& click_pos, const FontInfo& font_info);
 
-inline QSize calculate_text_size(const QString& text, const FontInfo& font_info)
-{
-    QFont font(font_info.family, static_cast<int>(font_info.size));
-    QFontMetrics fm(font);
-    [[maybe_unused]] QRect r = fm.boundingRect(text);
-
-    int width = fm.horizontalAdvance(text);
-    int height = fm.height();
-
-    // Add small padding
-    width += 4;
-    height += 4;
-
-    return QSize(width, height);
-}
-
-inline QPoint calculate_adjusted_position(const QPoint& click_pos, const FontInfo& font_info)
-{
-    QTextDocument doc;
-    QFont font(font_info.family, static_cast<int>(font_info.size));
-    QFontMetrics fm(font);
-
-    QPoint adjusted_pos = click_pos;
-    adjusted_pos.setX(click_pos.x() - static_cast<int>(doc.documentMargin()) - 2);
-    adjusted_pos.setY(click_pos.y() - fm.ascent() - static_cast<int>(doc.documentMargin()));
-    return adjusted_pos;
-}
+// Looks up a font file path from the Windows Registry given a font family name.
+// Returns the full path to the .ttf file, or nullopt if not found.
+std::optional<std::string> lookup_font_file(const std::string& font_family);

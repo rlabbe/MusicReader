@@ -1,7 +1,6 @@
 #include "bookmark_panel.h"
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
-#include "logger.h"
 #include "bookmark.h"
 #include "pdf_viewer.h"
 #include "exception_logger.h"
@@ -135,7 +134,10 @@ void BookmarkPanel::setup_shortcuts()
 {
     SAFE_METHOD;
 
-    new QShortcut(QKeySequence("Del"), this, SLOT(delete_selected_bookmark()));
+    // Use WidgetWithChildren context so Delete only fires when bookmark panel/tree has focus
+    auto* del_shortcut = new QShortcut(QKeySequence("Del"), this, SLOT(delete_selected_bookmark()));
+    del_shortcut->setContext(Qt::WidgetWithChildrenShortcut);
+
     new QShortcut(QKeySequence("Ctrl+Z"), this, SLOT(undo()));
     new QShortcut(QKeySequence("Ctrl+Y"), this, SLOT(redo()));
     new QShortcut(QKeySequence("Ctrl+Left"), this, SLOT(unindent_selected_bookmarks()));

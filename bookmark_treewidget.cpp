@@ -2,7 +2,7 @@
 #include <iostream>
 #include "bookmark_panel.h"
 #include "music_reader.h"
-
+#include "logger.h"
 
 BookmarkTreeWidget::BookmarkTreeWidget(BookmarkPanel* parent, MusicReader* main_window)
     : QTreeWidget(parent)
@@ -37,7 +37,9 @@ void BookmarkTreeWidget::keyPressEvent(QKeyEvent* event)
         case Qt::Key_PageUp:
         case Qt::Key_PageDown:
         case Qt::Key_Left:
-        case Qt::Key_Right: QCoreApplication::sendEvent(main_window_, event); break;
+        case Qt::Key_Right:
+            QCoreApplication::sendEvent(main_window_, event);
+            break;
         default:
             if (event->text().isEmpty() || !event->text().at(0).isPrint())
                 QTreeWidget::keyPressEvent(event);

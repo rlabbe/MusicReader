@@ -27,6 +27,10 @@ bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
 
                 // Check if this is a FreeText annotation
                 if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                    const char* contents = pdf_annot_contents(ctx, annot);
+                    logger::info("ANT: Deleting FreeText annotation on page {} with text '{}' (obj={})",
+                                 page_idx + 1, contents ? contents : "",
+                                 pdf_to_num(ctx, pdf_annot_obj(ctx, annot)));
                     pdf_delete_annot(ctx, page, annot);
                     any_deleted = true;
                 }
@@ -35,6 +39,12 @@ bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
             }
 
             pdf_drop_page(ctx, page);
+        }
+
+        if (any_deleted) {
+            logger::info("ANT: Deleted {} FreeText annotations", any_deleted);
+        } else {
+            logger::info("ANT: No FreeText annotations found to delete");
         }
     }
     fz_catch(ctx)

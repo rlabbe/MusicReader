@@ -30,7 +30,7 @@ public:
 
 
     // call if the application is closing - this object may receive page_loaded events
-    // after the close event, and we want to ignore them. 
+    // after the close event, and we want to ignore them.
     void closing() { closing_ = true; }
 
     int page_count() const { return renderer_.page_count(); }
@@ -175,7 +175,8 @@ private:
     bool dragging_existing_break_ = false;
     InPlaceAnnotationEditor* annotation_editor_;
     ClickTarget last_click_target_;
-    FontInfo annotation_font_;
+    QPoint last_click_display_pos_;  // Display coordinates of last click for crosshair
+    QString last_annotation_text_;   // Last annotation text for debug rendering
     AnnotationHandle selected_annotation_;
     bool has_selection_ = false;
     bool skip_resize_update_ = false;

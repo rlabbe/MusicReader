@@ -1,12 +1,11 @@
 #include "in_place_annotation_editor.h"
+#include "config_file.h"
 #include <iostream>
 
 
-InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo& font_info, QWidget* parent)
+InPlaceAnnotationEditor::InPlaceAnnotationEditor(ConfigFile* config, QWidget* parent)
     : QTextEdit(parent)
-    , font_family_(font_info.family)
-    , font_size_(font_info.size)
-    , font_color_(font_info.color)
+    , config_(config)
 {
     setFrameStyle(QFrame::NoFrame);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -14,11 +13,13 @@ InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo& font_info, QWid
     setLineWrapMode(QTextEdit::NoWrap);
     setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
-    QFont font(font_family_, static_cast<int>(font_size_));
+    const FontInfo& font_info = config_->annotation_font();
+    QString qt_font_name = pdf_font_to_qt_font(font_info.family);
+    QFont font(qt_font_name, static_cast<int>(font_info.size));
     setFont(font);
 
-    QString color_str =
-        QString("rgb(%1, %2, %3)").arg(font_color_.red()).arg(font_color_.green()).arg(font_color_.blue());
+    auto [r, g, b] = font_info.color;
+    QString color_str = QString("rgb(%1, %2, %3)").arg(r).arg(g).arg(b);
     setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
 
     hide();
@@ -27,27 +28,42 @@ InPlaceAnnotationEditor::InPlaceAnnotationEditor(const FontInfo& font_info, QWid
 
 void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QString& initial_text)
 {
-    // Reset the flag when starting new editing session
     editing_finished_ = false;
+    setReadOnly(false);
+    setAttribute(Qt::WA_TransparentForMouseEvents, false);
+
+    const FontInfo& font_info = config_->annotation_font();
+    QString qt_font_name = pdf_font_to_qt_font(font_info.family);
+    QFont scaled_font(qt_font_name, static_cast<int>(font_info.size * dpi_scale_));
+    setFont(scaled_font);
+
+    auto [r2, g2, b2] = font_info.color;
+    QString color_str = QString("rgb(%1, %2, %3)").arg(r2).arg(g2).arg(b2);
+    setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
 
     setPlainText(initial_text);
 
-    FontInfo current_font {font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text)};
+    FontInfo scaled_font_info = font_info;
+    scaled_font_info.size *= dpi_scale_;
+
     QSize size;
     if (initial_text.isEmpty())
-        // For empty text, use single character width as starting point
-        size = calculate_text_size("A", current_font);
+        size = calculate_text_size("A", scaled_font_info);
     else
-        size = calculate_text_size(initial_text, current_font);
+        size = calculate_text_size(initial_text, scaled_font_info);
 
     resize(size);
 
-    // Position editor so text appears exactly at click point
-    QPoint editor_pos = position;
+    // Position editor so baseline is at click point
+    // Use scaled font metrics to calculate offset
+    QFontMetricsF fm(font());
     int doc_margin = static_cast<int>(document()->documentMargin());
+    int baseline_offset = static_cast<int>(fm.ascent()) + doc_margin + 2;
 
-    editor_pos.setX(position.x() - doc_margin - 2);
-    editor_pos.setY(position.y() - doc_margin - 2);
+    QPoint editor_pos;
+    // Position widget so click point is at left edge of widget (where text starts)
+    editor_pos.setX(position.x());
+    editor_pos.setY(position.y() - baseline_offset);
 
     move(editor_pos);
 
@@ -68,13 +84,12 @@ void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent* event)
     }
     QTextEdit::keyPressEvent(event);
 
-    // Then resize to fit the new content
     resize_to_content();
 }
 
 void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent* event)
 {
-    qDebug() << "focusOutEvent triggered";
+    //qDebug() << "focusOutEvent triggered";
     finish_editing();
     QTextEdit::focusOutEvent(event);
 }
@@ -82,9 +97,11 @@ void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent* event)
 void InPlaceAnnotationEditor::paintEvent(QPaintEvent* event)
 {
     QTextEdit::paintEvent(event);
-    QPainter painter(viewport());
-    painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
-    painter.drawRect(rect().adjusted(0, 0, -1, -1));
+    if (config_->debug_annotations()) {
+        QPainter painter(viewport());
+        painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
+        painter.drawRect(rect().adjusted(0, 0, -1, -1));
+    }
 }
 
 
@@ -93,7 +110,15 @@ void InPlaceAnnotationEditor::finish_editing()
     if (!editing_finished_)
         emit editing_finished(toPlainText());
     editing_finished_ = true;
-    hide();
+
+    if (config_->debug_annotations()) {
+        setReadOnly(true);
+        setStyleSheet(QString("background-color: transparent; border: none; color: blue;"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);  // Prevent editor from blocking clicks
+    } else {
+        hide();
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);  // Prevent hidden editor from blocking clicks
+    }
 }
 
 void InPlaceAnnotationEditor::cancel_editing()
@@ -106,15 +131,12 @@ void InPlaceAnnotationEditor::cancel_editing()
 
 void InPlaceAnnotationEditor::resize_to_content()
 {
-    FontInfo current_font {font().family(), static_cast<float>(font().pointSize()), palette().color(QPalette::Text)};
-    QSize new_size = calculate_text_size(toPlainText(), current_font);
+    FontInfo scaled_font_info = config_->annotation_font();
+    scaled_font_info.size *= dpi_scale_;
 
-    // Store the current position to maintain left edge
+    QSize new_size = calculate_text_size(toPlainText(), scaled_font_info);
+
     QPoint current_pos = pos();
-
-    // Resize to new content size
     resize(new_size);
-
-    // Keep the left edge in the same position (only grow to the right)
     move(current_pos);
 }

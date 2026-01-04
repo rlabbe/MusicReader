@@ -62,8 +62,16 @@ enum class TextResult {
 extern TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename, const std::string& text,
                                   int page_num,     // 1-based
                                   float x, float y, // in PDF points, (0,0) = bottom-left
-                                  float font_size, const std::string& font_name = "Consolas", int r = 0, int g = 0,
-                                  int b = 0);
+                                  float font_size, const std::string& font_name, int r, int g, int b);
+
+// Add text to content stream with marked content tags for detection/deletion
+// Supports custom TrueType fonts via font_file parameter
+extern TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, const std::string& text,
+                                         int page_num,                             // 1-based
+                                         float x, float y,                         // in PDF points, (0,0) = bottom-left
+                                         float font_size, const std::string& font_family,
+                                         const std::filesystem::path& font_file,   // TrueType font file
+                                         int r, int g, int b);
 
 // Utility function for PDFViewer to convert pixel coordinates to PDF points
 extern std::pair<float, float> pixels_to_pdf_points(int pixel_x, int pixel_y, int page_width_pixels,

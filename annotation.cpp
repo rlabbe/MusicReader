@@ -76,9 +76,9 @@ std::vector<Annotation> load_annotations_from_pdf(fz_context* ctx, fz_document* 
                         const char* text = pdf_to_text_string(ctx, contents);
 
                         // Extract font, size, and color from default appearance
-                        std::string font_name = "Consolas"; // default
-                        float font_size = 12.0f;            // default
-                        int r = 0, g = 0, b = 0;            // default black
+                        std::string font_name;
+                        float font_size = 12.0f;
+                        int r = 0, g = 0, b = 0;
 
                         // Parse DA (Default Appearance) string
                         pdf_obj* da = pdf_dict_get(ctx, annot, PDF_NAME(DA));
@@ -134,18 +134,20 @@ std::vector<Annotation> load_annotations_from_pdf(fz_context* ctx, fz_document* 
                         }
 
                         if (text && strlen(text) > 0) {
-                            Annotation annotation(
-                                std::string(text),
-                                page_idx + 1, // Convert to 1-based page
-                                x, y, width, height,
-                                FontInfo(QString::fromStdString(font_name), font_size, QColor(r, g, b)));
+                            FontInfo loaded_font;
+                            if (!font_name.empty())
+                                loaded_font.family = font_name;
+                            loaded_font.size = font_size;
+                            loaded_font.color = {r, g, b};
 
+                            Annotation annotation(std::string(text), page_idx + 1, x, y, width, height, loaded_font);
+
+                            auto [cr, cg, cb] = annotation.font_info_.color;
                             logger::debug(
                                 "LOAD: page={}, x={}, y={}, w={}, h={}, text='{}', font='{}' {}pt, color=({},{},{})",
                                 annotation.page_num_, annotation.x_, annotation.y_, annotation.width_,
-                                annotation.height_, annotation.text_, annotation.font_info_.family.toStdString(),
-                                annotation.font_info_.size, annotation.font_info_.color.red(),
-                                annotation.font_info_.color.green(), annotation.font_info_.color.blue());
+                                annotation.height_, annotation.text_, annotation.font_info_.family,
+                                annotation.font_info_.size, cr, cg, cb);
 
                             // After getting the rect values, log them:
                             logger::debug("RAW RECT: [{:.2f}, {:.2f}, {:.2f}, {:.2f}]",
