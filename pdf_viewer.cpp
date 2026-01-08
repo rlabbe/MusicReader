@@ -1252,12 +1252,33 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
     if (!document_)
         return AnnotationHandle();
 
-    QPoint click_point = event->pos();
+    // Use get_click_target to convert click to PDF points (handles zoom, alignment, etc.)
+    ClickTarget click = get_click_target(event);
+    if (click.page_num <= 0)
+        return AnnotationHandle();
 
-    // Check all annotations on current page
+    logger::info("Finding annotation at PDF points ({:.2f}, {:.2f}) on page {}",
+                 click.points_x, click.points_y, click.page_num);
+
+    // Check all annotations on the clicked page
     for (const auto& annotation : document_->annotations()) {
-        QRect bounding_box = calculate_annotation_bounding_box(annotation);
-        if (!bounding_box.isEmpty() && bounding_box.contains(click_point)) {
+        if (annotation.page_num_ != click.page_num)
+            continue;
+
+        // Annotation bounds in PDF points
+        // annotation.y_ stores the TOP edge (y1 from PDF rect)
+        // annotation.height_ is positive, so bottom = top - height
+        float annot_left = annotation.x_;
+        float annot_top = annotation.y_;
+        float annot_right = annotation.x_ + annotation.width_;
+        float annot_bottom = annotation.y_ - annotation.height_;
+
+        logger::info("Checking annotation '{}' bounds: x=[{:.2f},{:.2f}], y=[{:.2f},{:.2f}]",
+                     annotation.text_, annot_left, annot_right, annot_bottom, annot_top);
+
+        if (click.points_x >= annot_left && click.points_x <= annot_right &&
+            click.points_y >= annot_bottom && click.points_y <= annot_top) {
+            logger::info("HIT!");
             return annotation.handle_;
         }
     }
