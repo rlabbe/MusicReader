@@ -1673,6 +1673,31 @@ void MusicReader::select_annotation_font()
     size_spin->setValue(static_cast<int>(current_font.size));
     layout->addWidget(size_spin);
 
+    // Color selection
+    QLabel* color_label = new QLabel("Font Color:", &dialog);
+    layout->addWidget(color_label);
+
+    auto [r, g, b] = current_font.color;
+    QColor selected_color(r, g, b);
+
+    QPushButton* color_button = new QPushButton(&dialog);
+    color_button->setMinimumHeight(30);
+    auto update_color_button = [color_button](const QColor& color) {
+        color_button->setStyleSheet(
+            QString("background-color: %1; border: 1px solid gray;").arg(color.name()));
+        color_button->setText(color.name());
+    };
+    update_color_button(selected_color);
+
+    QObject::connect(color_button, &QPushButton::clicked, [&dialog, &selected_color, update_color_button]() {
+        QColor new_color = QColorDialog::getColor(selected_color, &dialog, "Select Font Color");
+        if (new_color.isValid()) {
+            selected_color = new_color;
+            update_color_button(new_color);
+        }
+    });
+    layout->addWidget(color_button);
+
     // OK/Cancel buttons
     QDialogButtonBox* button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
@@ -1684,10 +1709,12 @@ void MusicReader::select_annotation_font()
 
     current_font.family = font_combo->currentText().toStdString();
     current_font.size = static_cast<float>(size_spin->value());
+    current_font.color = {selected_color.red(), selected_color.green(), selected_color.blue()};
     config_.set_annotation_font(current_font);
 
-    logger::info("Annotation font set to: family='{}', size={}",
-                current_font.family, current_font.size);
+    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})",
+                current_font.family, current_font.size,
+                selected_color.red(), selected_color.green(), selected_color.blue());
 }
 
 void MusicReader::goto_page_dialog()
@@ -2409,11 +2436,19 @@ void MusicReader::create_toolbar()
     toolbar_->addAction(performance_mode_action_);
 
     text_annotation_action_ = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "", this);
-    text_annotation_action_->setToolTip("Text Annotation Mode (A)");
+    text_annotation_action_->setToolTip("Text Annotation Mode (A)\nRight-click for font settings");
     text_annotation_action_->setCheckable(true);
     //text_annotation_action_->setEnabled(config_.debug_annotations());
     connect(text_annotation_action_, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
     toolbar_->addAction(text_annotation_action_);
+
+    // Add right-click context menu to annotation button for font settings
+    if (QWidget* annotation_button = toolbar_->widgetForAction(text_annotation_action_)) {
+        annotation_button->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(annotation_button, &QWidget::customContextMenuRequested, this, [this](const QPoint&) {
+            select_annotation_font();
+        });
+    }
 
     {
         auto* action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
