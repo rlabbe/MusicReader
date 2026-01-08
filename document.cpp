@@ -1,6 +1,8 @@
 #include "document.h"
 #include <QGuiApplication>
 #include <QScreen>
+#include <QFont>
+#include <QFontMetricsF>
 #include <unordered_set>
 #include <algorithm>
 #include <qpainter.h>
@@ -1263,16 +1265,30 @@ bool Document::save_annotations_to_pdf2()
             // Create FreeText annotation using high-level API
             pdf_annot* annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
 
-            // Set rectangle - convert from PDF space to screen space for high-level API
-            // Annotation coords are in PDF space (Y=0 at bottom), but pdf_set_annot_rect expects screen space
+            // Build the annotation rect for pdf_set_annot_rect().
+            //
+            // Coordinate systems:
+            //   - PDF space: Y=0 at page bottom, increases upward
+            //   - Screen space: Y=0 at page top, increases downward (what pdf_set_annot_rect expects)
+            //
+            // annotation.y_ stores the text baseline position in PDF space.
+            //
+            // MuPDF's FreeText rendering (in pdf-appearance.c, write_variable_text) places the
+            // text baseline at 0.8 * font_size down from the rect's top edge. This is hardcoded
+            // in MuPDF when it calls write_variable_text with baseline=0.8f. So to position our
+            // baseline where we want it, we must offset the rect top accordingly:
+            //   rect_y0 = baseline_y - (0.8 * font_size)
+            //
             float page_height = page_bounds.y1 - page_bounds.y0;
-            float y0_screen = page_height - annotation.y_;
-            float y1_screen = y0_screen + annotation.height_;
-            fz_rect rect = fz_make_rect(annotation.x_, y0_screen, annotation.x_ + annotation.width_, y1_screen);
+            float baseline_in_screen_coords = page_height - annotation.y_;
+            float font_size = annotation.font_info_.size;
+            float rect_y0 = baseline_in_screen_coords - font_size * 0.8f;
+            float rect_y1 = rect_y0 + annotation.height_;
+            fz_rect rect = fz_make_rect(annotation.x_, rect_y0, annotation.x_ + annotation.width_, rect_y1);
             pdf_set_annot_rect(ctx, annot, rect);
 
             logger::info("ANT: PDF rect (screen space for API): x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}",
-                         annotation.x_, y0_screen, annotation.x_ + annotation.width_, y1_screen);
+                         annotation.x_, rect_y0, annotation.x_ + annotation.width_, rect_y1);
 
             // Set content
             pdf_set_annot_contents(ctx, annot, annotation.text_.c_str());

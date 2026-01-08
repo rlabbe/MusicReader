@@ -34,7 +34,8 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
 
     const FontInfo& font_info = config_->annotation_font();
     QString qt_font_name = pdf_font_to_qt_font(font_info.family);
-    QFont scaled_font(qt_font_name, static_cast<int>(font_info.size * dpi_scale_));
+    QFont scaled_font(qt_font_name);
+    scaled_font.setPixelSize(static_cast<int>(font_info.size * dpi_scale_));
     setFont(scaled_font);
 
     auto [r2, g2, b2] = font_info.color;
@@ -54,16 +55,14 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
 
     resize(size);
 
-    // Position editor so baseline is at click point
-    // Use scaled font metrics to calculate offset
+    // Position editor so baseline aligns with click point.
+    // Account for QTextEdit's internal document margin which offsets text within the widget.
     QFontMetricsF fm(font());
     int doc_margin = static_cast<int>(document()->documentMargin());
-    int baseline_offset = static_cast<int>(fm.ascent()) + doc_margin + 2;
 
     QPoint editor_pos;
-    // Position widget so click point is at left edge of widget (where text starts)
     editor_pos.setX(position.x());
-    editor_pos.setY(position.y() - baseline_offset);
+    editor_pos.setY(position.y() - static_cast<int>(fm.ascent()) + doc_margin);
 
     move(editor_pos);
 

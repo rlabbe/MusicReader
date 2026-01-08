@@ -1063,11 +1063,9 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         // For height, use ascent + descent for proper text bounds
         qreal height_points = fm.ascent() + fm.descent();
 
-        // Position the rect: click point is baseline origin
-        // Adjust X for where glyphs actually start (text_bounds.left() can be negative for letters like 'y')
-        qreal adjusted_x = last_click_target_.points_x + text_bounds.left();
-        // Position the top edge at: click_y + ascent (since we're measuring from baseline)
-        qreal adjusted_y = last_click_target_.points_y + fm.ascent();
+        // Store click position directly as baseline
+        qreal adjusted_x = last_click_target_.points_x;
+        qreal adjusted_y = last_click_target_.points_y;
 
         logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), size=({:.2f}x{:.2f}), bounds_offset=({:.2f},{:.2f}), font='{}' {:.1f}pt",
                      text.toStdString(), last_click_target_.page_num,

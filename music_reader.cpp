@@ -1997,12 +1997,10 @@ void MusicReader::create_file_menu(auto* menu_bar)
     QAction* action;
 
     action = new QAction("&Fast Search...", this);
-    action->setShortcut(QKeySequence(Qt::Key_F));
     connect(action, &QAction::triggered, this, &MusicReader::open_fast_search_dialog);
     file_menu->addAction(action);
 
     action = new QAction("&Open...", this);
-    action->setShortcut(QKeySequence(Qt::Key_O));
     file_menu->addAction(action);
     connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
 

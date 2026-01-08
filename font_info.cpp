@@ -72,7 +72,8 @@ std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
 QSize calculate_text_size(const QString& text, const FontInfo& font_info)
 {
     QString qt_font_name = pdf_font_to_qt_font(font_info.family);
-    QFont font(qt_font_name, static_cast<int>(font_info.size));
+    QFont font(qt_font_name);
+    font.setPixelSize(static_cast<int>(font_info.size));
     QFontMetrics fm(font);
 
     int width = fm.horizontalAdvance(text);

@@ -637,7 +637,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     //test_marked_content();
-   test_create_blank_pdf();
+   //test_create_blank_pdf();
 
     int result = 0;
     {
