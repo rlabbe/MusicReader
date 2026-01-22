@@ -300,8 +300,6 @@ std::string logger::get_log_content()
     return "";
 }
 
-
-#pragma optimize("", off)
 std::unordered_set<std::string> func_names;
 void test_strip_extra_call_info()
 {

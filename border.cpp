@@ -1,7 +1,7 @@
 #include "border.h"
 #include <iostream>
 
-#pragma optimize("", off)
+
 
 Border find_content_edges(const QImage& img, int black_pixel_threshold)
 {
