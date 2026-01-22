@@ -111,6 +111,7 @@ private:
     void open_file_dialog(const std::filesystem::path& pathname);
     void open_imslp_search_dialog();
     void open_dev_status_dialog();
+    void save_current_page_as_bmp();
 
     void open_fast_search_dialog();
     void open_config_dialog();

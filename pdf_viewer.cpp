@@ -1216,31 +1216,65 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
         return QRect(); // Empty rect for annotations not on current page
     }
 
+    // Get the displayed pixmap (already scaled)
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return QRect();
+
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(current_page_num);
 
-    // Calculate position from PDF coordinates
-    float pdf_y_from_top = pdf_height_points - annotation.y_;
-    float pixel_x = (annotation.x_ / pdf_width_points) * page_.pixmap.width();
-    float pixel_y = (pdf_y_from_top / pdf_height_points) * page_.pixmap.height();
+    // annotation.y_ is the TOP edge in PDF coords (y from bottom)
+    // annotation.y_ - annotation.height_ is the BOTTOM edge
+    float annot_top_pdf = annotation.y_;
+    float annot_bottom_pdf = annotation.y_ - annotation.height_;
 
-    // Use the actual stored width/height from annotation (already in PDF points)
-    // Convert PDF points to pixmap pixels
-    float dpi_scale = document_->dpi() / 72.0f;
-    int scaled_width = int(annotation.width_ * dpi_scale);
-    int scaled_height = int(annotation.height_ * dpi_scale);
+    float display_x, display_y, display_w, display_h;
 
-    // Calculate display scaling
-    QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    float display_scale_x = float(scaled_pixmap.width()) / float(page_.pixmap.width());
-    float display_scale_y = float(scaled_pixmap.height()) / float(page_.pixmap.height());
+    bool zoom_mode = config_ && config_->zoom_to_content();
+    if (zoom_mode) {
+        // Get full page to access border info for zoom mode
+        Page full_page = document_->get_page(current_page_num, false);
+        float full_width = full_page.width();
+        float full_height = full_page.height();
 
-    // Apply display scaling to both position and size
-    int screen_x = int(pixel_x * display_scale_x);
-    int screen_y = int(pixel_y * display_scale_y);
-    int screen_w = int(scaled_width * display_scale_x);
-    int screen_h = int(scaled_height * display_scale_y);
+        // Convert PDF points to full page pixels (at render DPI)
+        float annot_left_full = (annotation.x_ / pdf_width_points) * full_width;
+        float annot_top_full = ((pdf_height_points - annot_top_pdf) / pdf_height_points) * full_height;
+        float annot_right_full = ((annotation.x_ + annotation.width_) / pdf_width_points) * full_width;
+        float annot_bottom_full = ((pdf_height_points - annot_bottom_pdf) / pdf_height_points) * full_height;
 
-    return QRect(screen_x, screen_y, screen_w, screen_h);
+        // When zoomed, displayed image is cropped to border
+        float border_left = full_page.border.left;
+        float border_top = full_page.border.top;
+        float border_width = full_page.border.right - full_page.border.left;
+        float border_height = full_page.border.bottom - full_page.border.top;
+
+        // Convert from full page coords to cropped/border coords
+        float cropped_left = annot_left_full - border_left;
+        float cropped_top = annot_top_full - border_top;
+        float cropped_right = annot_right_full - border_left;
+        float cropped_bottom = annot_bottom_full - border_top;
+
+        // Convert to display coords (ratio within cropped area * display size)
+        display_x = (cropped_left / border_width) * displayed.width();
+        display_y = (cropped_top / border_height) * displayed.height();
+        display_w = ((cropped_right - cropped_left) / border_width) * displayed.width();
+        display_h = ((cropped_bottom - cropped_top) / border_height) * displayed.height();
+    } else {
+        // No zoom - page_.pixmap is the full page, displayed is scaled from it
+        // Convert PDF points directly to display coordinates
+        float annot_left_ratio = annotation.x_ / pdf_width_points;
+        float annot_top_ratio = (pdf_height_points - annot_top_pdf) / pdf_height_points;
+        float annot_right_ratio = (annotation.x_ + annotation.width_) / pdf_width_points;
+        float annot_bottom_ratio = (pdf_height_points - annot_bottom_pdf) / pdf_height_points;
+
+        display_x = annot_left_ratio * displayed.width();
+        display_y = annot_top_ratio * displayed.height();
+        display_w = (annot_right_ratio - annot_left_ratio) * displayed.width();
+        display_h = (annot_bottom_ratio - annot_top_ratio) * displayed.height();
+    }
+
+    return QRect(int(display_x), int(display_y), int(display_w), int(display_h));
 }
 
 
@@ -1257,9 +1291,6 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
     if (click.page_num <= 0)
         return AnnotationHandle();
 
-    logger::info("Finding annotation at PDF points ({:.2f}, {:.2f}) on page {}",
-                 click.points_x, click.points_y, click.page_num);
-
     // Check all annotations on the clicked page
     for (const auto& annotation : document_->annotations()) {
         if (annotation.page_num_ != click.page_num)
@@ -1273,12 +1304,8 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         float annot_right = annotation.x_ + annotation.width_;
         float annot_bottom = annotation.y_ - annotation.height_;
 
-        logger::info("Checking annotation '{}' bounds: x=[{:.2f},{:.2f}], y=[{:.2f},{:.2f}]",
-                     annotation.text_, annot_left, annot_right, annot_bottom, annot_top);
-
         if (click.points_x >= annot_left && click.points_x <= annot_right &&
             click.points_y >= annot_bottom && click.points_y <= annot_top) {
-            logger::info("HIT!");
             return annotation.handle_;
         }
     }

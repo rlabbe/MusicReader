@@ -762,12 +762,20 @@ bool Document::add_annotation(const Annotation& annotation)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-    annotations_.push_back(annotation);
-    modified_ = true;
+    int page_num = annotation.page_num_;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        annotations_.push_back(annotation);
+        modified_ = true;
+    }
 
     bool save_success = save();
-    reload_page(annotation.page_num_);
+
+    // Reload annotations from PDF to get correct rect coordinates
+    // (click position gets transformed to proper rect on save)
+    reload_annotations();
+
+    reload_page(page_num);
     return save_success;
 }
 
@@ -778,11 +786,22 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
+    // Find the annotation first to get its page number before removal
+    int page_num = -1;
+    for (const auto& a : annotations_) {
+        if (a.handle_ == handle) {
+            page_num = a.page_num_;
+            break;
+        }
+    }
+
+    if (page_num < 0)
+        return false;
+
     auto it = std::remove_if(annotations_.begin(), annotations_.end(), [&](const Annotation& a) {
         return a.handle_ == handle;
     });
     if (it != annotations_.end()) {
-        int page_num = it->page_num_;
         annotations_.erase(it, annotations_.end());
         modified_ = true;
         bool save_success = save();
@@ -1011,6 +1030,27 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
     }
 
     return annotations;
+}
+
+
+void Document::reload_annotations()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc) {
+        logger::error("Failed to open document for annotation reload: {}", filename_.string());
+        return;
+    }
+
+    std::vector<Annotation> loaded = load_annotations_from_pdf(ctx, doc);
+    close_fitz(ctx, doc);
+
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+    annotations_ = std::move(loaded);
+
+    logger::debug("Reloaded {} annotations from PDF", annotations_.size());
 }
 
 

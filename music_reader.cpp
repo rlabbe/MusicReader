@@ -1764,6 +1764,43 @@ void MusicReader::open_dev_status_dialog()
     DevStatusDialog::show(config_, this);
 }
 
+void MusicReader::save_current_page_as_bmp()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto doc = current_document();
+    if (!doc) {
+        display_error_message("No document open");
+        return;
+    }
+
+    auto [page_num, valid] = current_page();
+    if (!valid) {
+        display_error_message("Could not determine current page");
+        return;
+    }
+
+    Page page = doc->get_page(page_num, true);
+    if (page.is_empty()) {
+        display_error_message("Page image is empty");
+        return;
+    }
+
+    std::filesystem::path doc_path = doc->path();
+    std::filesystem::path dir = doc_path.parent_path();
+    std::string stem = doc_path.stem().string();
+    std::string filename = stem + "_" + std::to_string(page_num) + ".bmp";
+    std::filesystem::path output_path = dir / filename;
+
+    QString qpath = QString::fromStdWString(output_path.wstring());
+    if (page.img.save(qpath, "BMP")) {
+        logger::info("Saved page {} to {}", page_num, output_path.string());
+    } else {
+        display_error_message("Failed to save image to " + output_path.string());
+    }
+}
+
 void MusicReader::open_imslp_search_dialog()
 {
     SAFE_METHOD;
@@ -2092,6 +2129,13 @@ void MusicReader::create_edit_menu(auto* menu_bar)
     if (text_annotation_action_) {
         text_annotation_action_->setText("Text &Annotation Mode");
         edit_menu_->addAction(text_annotation_action_);
+    }
+
+    if (config_.in_dev_mode()) {
+        edit_menu_->addSeparator();
+        auto* save_image_action = new QAction("Save Image", this);
+        connect(save_image_action, &QAction::triggered, this, &MusicReader::save_current_page_as_bmp);
+        edit_menu_->addAction(save_image_action);
     }
 
     connect(edit_menu_, &QMenu::aboutToShow, this, [this, set_bookmarks_action, save_bookmarks_action]() {
