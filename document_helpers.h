@@ -209,8 +209,16 @@ inline QImage qimage_from_pixmapdata(const PixmapData& data)
 {
     unsigned char* samples = fz_pixmap_samples(data.ctx, data.data);
 
-    // Create initial QImage with the source data
+    // Determine the optimal format based on actual image content
+    QImage::Format format = image_format(data);
+
+    // Source is always RGB from mupdf, but we convert to grayscale if content is grayscale
     QImage source_img(samples, data.width, data.height, data.stride, QImage::Format_RGB888);
+
+    if (format == QImage::Format_Grayscale8 || format == QImage::Format_Mono) {
+        return source_img.convertToFormat(QImage::Format_Grayscale8);
+    }
+
     return source_img.copy();
 }
 

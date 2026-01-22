@@ -1793,9 +1793,17 @@ void MusicReader::save_current_page_as_bmp()
     std::string filename = stem + "_" + std::to_string(page_num) + ".bmp";
     std::filesystem::path output_path = dir / filename;
 
+    // Convert to grayscale if the source is grayscale to preserve format
+    QImage img_to_save = page.img;
+    if (page.img.format() == QImage::Format_Grayscale8 ||
+        page.img.format() == QImage::Format_Grayscale16) {
+        img_to_save = page.img.convertToFormat(QImage::Format_Grayscale8);
+    }
+
     QString qpath = QString::fromStdWString(output_path.wstring());
-    if (page.img.save(qpath, "BMP")) {
-        logger::info("Saved page {} to {}", page_num, output_path.string());
+    if (img_to_save.save(qpath, "BMP")) {
+        logger::info("Saved page {} to {} (format: {})", page_num, output_path.string(),
+                     static_cast<int>(page.img.format()));
     } else {
         display_error_message("Failed to save image to " + output_path.string());
     }

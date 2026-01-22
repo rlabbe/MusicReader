@@ -1,14 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>qml;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>qrc;rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -31,199 +23,73 @@
     </QtUic>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bookmark_panel.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="bookmark_treewidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="document.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="bookmark.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="logger.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="config_file.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="pdf_viewer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="border.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="config_dialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fast_file_search_dialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="annotation.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="in_place_annotation_editor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fitz_utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="imslp_client.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="imslp_search_dialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="document_load_manager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dev_status_dialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="tour_dialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="page_renderer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="performance_data.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="music_reader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="font_info.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClCompile Include="annotation.cpp" />
+    <ClCompile Include="bookmark.cpp" />
+    <ClCompile Include="bookmark_panel.cpp" />
+    <ClCompile Include="bookmark_treewidget.cpp" />
+    <ClCompile Include="border.cpp" />
+    <ClCompile Include="config_dialog.cpp" />
+    <ClCompile Include="config_file.cpp" />
+    <ClCompile Include="dev_status_dialog.cpp" />
+    <ClCompile Include="document.cpp" />
+    <ClCompile Include="document_load_manager.cpp" />
+    <ClCompile Include="fast_file_search_dialog.cpp" />
+    <ClCompile Include="fitz_utils.cpp" />
+    <ClCompile Include="font_info.cpp" />
+    <ClCompile Include="imslp_client.cpp" />
+    <ClCompile Include="imslp_search_dialog.cpp" />
+    <ClCompile Include="in_place_annotation_editor.cpp" />
+    <ClCompile Include="logger.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="music_reader.cpp" />
+    <ClCompile Include="page_renderer.cpp" />
+    <ClCompile Include="pdf_viewer.cpp" />
+    <ClCompile Include="performance_data.cpp" />
+    <ClCompile Include="tour_dialog.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="bookmark_titlebar.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="bookmark_treewidget.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="bookmark_panel.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="pdf_viewer.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="status_bar.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="config_dialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="directory_watcher.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="fast_file_search_dialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="fullscreen_exit_button.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="file_viewer.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="document.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="in_place_annotation_editor.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="imslp_search_dialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="document_load_manager.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="dev_status_dialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="horizontal_tabs_widget.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="tour_dialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="music_reader.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
+    <QtMoc Include="bookmark_panel.h" />
+    <QtMoc Include="bookmark_titlebar.h" />
+    <QtMoc Include="bookmark_treewidget.h" />
+    <QtMoc Include="config_dialog.h" />
+    <QtMoc Include="dev_status_dialog.h" />
+    <QtMoc Include="directory_watcher.h" />
+    <QtMoc Include="document.h" />
+    <QtMoc Include="document_load_manager.h" />
+    <QtMoc Include="fast_file_search_dialog.h" />
+    <QtMoc Include="file_viewer.h" />
+    <QtMoc Include="fullscreen_exit_button.h" />
+    <QtMoc Include="horizontal_tabs_widget.h" />
+    <QtMoc Include="imslp_search_dialog.h" />
+    <QtMoc Include="in_place_annotation_editor.h" />
+    <QtMoc Include="music_reader.h" />
+    <QtMoc Include="pdf_viewer.h" />
+    <QtMoc Include="status_bar.h" />
+    <QtMoc Include="tour_dialog.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bookmark.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="config_file.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="json.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="wait_cursor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="exception_logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="border.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="page.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="qt_utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fitz_utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="log_timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="requires.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="annotation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="font_info.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="imslp_client.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="document_helpers.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="vertical_tabs_widget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="page_renderer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="performance_data.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="performance_mode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClInclude Include="annotation.h" />
+    <ClInclude Include="bookmark.h" />
+    <ClInclude Include="border.h" />
+    <ClInclude Include="config_file.h" />
+    <ClInclude Include="document_helpers.h" />
+    <ClInclude Include="exception_logger.h" />
+    <ClInclude Include="fitz_utils.h" />
+    <ClInclude Include="font_info.h" />
+    <ClInclude Include="imslp_client.h" />
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="log_timer.h" />
+    <ClInclude Include="logger.h" />
+    <ClInclude Include="page.h" />
+    <ClInclude Include="page_renderer.h" />
+    <ClInclude Include="performance_data.h" />
+    <ClInclude Include="performance_mode.h" />
+    <ClInclude Include="qt_utils.h" />
+    <ClInclude Include="requires.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="utils.h" />
+    <ClInclude Include="vertical_tabs_widget.h" />
+    <ClInclude Include="wait_cursor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
