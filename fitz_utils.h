@@ -7,10 +7,12 @@
 #include <string>
 #include <atomic>
 #include <vector>
-#include <excpt.h>
 #include <QImage>
 #include "bookmark.h"
 #include <filesystem>
+
+
+class pdf_document;
 
 // cannot have constructor/destructor or unique_ptr, because being used inside __try
 struct PixmapData {
@@ -77,3 +79,11 @@ extern TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filena
 extern std::pair<float, float> pixels_to_pdf_points(int pixel_x, int pixel_y, int page_width_pixels,
                                                     int page_height_pixels, int page_width_points,
                                                     int page_height_points);
+
+extern QImage qimage_from_pixmapdata(const PixmapData& data);
+extern QImage render_page(fz_context* ctx, fz_document* doc, int page_num, int dpi, std::atomic<bool>& quit_now);
+extern bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf);
+
+extern bool delete_annotation_by_content_and_position(fz_context* ctx, pdf_document* pdf, int target_page,
+                                                      const std::string& target_text, float target_x, float target_y,
+                                                      float tolerance = 1.0f);

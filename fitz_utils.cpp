@@ -627,3 +627,146 @@ std::pair<float, float> pixels_to_pdf_points(int pixel_x, int pixel_y, int page_
 
     return {pdf_x, pdf_y};
 }
+
+QImage qimage_from_pixmapdata(const PixmapData& data)
+{
+    unsigned char* samples = fz_pixmap_samples(data.ctx, data.data);
+
+    // Determine the optimal format based on actual image content
+    QImage::Format format = image_format(data);
+
+    // Source is always RGB from mupdf, but we convert to grayscale if content is grayscale
+    QImage source_img(samples, data.width, data.height, data.stride, QImage::Format_RGB888);
+
+    if (format == QImage::Format_Grayscale8 || format == QImage::Format_Mono) {
+        return source_img.convertToFormat(QImage::Format_Grayscale8);
+    }
+
+    return source_img.copy();
+}
+
+
+QImage render_page(fz_context* ctx, fz_document* doc, int page_num, int dpi, std::atomic<bool>& quit_now)
+{
+    PixmapData data = render_page_seh(ctx, doc, page_num, dpi, quit_now);
+    if (!data.success)
+        return QImage();
+
+    QImage img = qimage_from_pixmapdata(data);
+    fz_drop_pixmap(ctx, data.data);
+    return img;
+}
+
+bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
+{
+    if (!ctx || !pdf)
+        return false;
+
+    bool any_deleted = false;
+
+    fz_try(ctx)
+    {
+        int page_count = pdf_count_pages(ctx, pdf);
+
+        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
+            pdf_page* page = pdf_load_page(ctx, pdf, page_idx);
+            if (!page)
+                continue;
+
+            // Get all annotations for this page
+            pdf_annot* annot = pdf_first_annot(ctx, page);
+
+            while (annot) {
+                pdf_annot* next_annot = pdf_next_annot(ctx, annot);
+
+                // Check if this is a FreeText annotation
+                if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                    const char* contents = pdf_annot_contents(ctx, annot);
+                    logger::info("ANT: Deleting FreeText annotation on page {} with text '{}' (obj={})", page_idx + 1,
+                                 contents ? contents : "", pdf_to_num(ctx, pdf_annot_obj(ctx, annot)));
+                    pdf_delete_annot(ctx, page, annot);
+                    any_deleted = true;
+                }
+
+                annot = next_annot;
+            }
+
+            pdf_drop_page(ctx, page);
+        }
+
+        if (any_deleted) {
+            logger::info("ANT: Deleted {} FreeText annotations", any_deleted);
+        } else {
+            logger::info("ANT: No FreeText annotations found to delete");
+        }
+    }
+    fz_catch(ctx)
+    {
+        logger::error("Error deleting annotations: {}", fz_caught_message(ctx));
+        return false;
+    }
+
+    return any_deleted;
+}
+
+
+bool delete_annotation_by_content_and_position(fz_context* ctx, pdf_document* pdf, int target_page,
+                                               const std::string& target_text, float target_x, float target_y,
+                                               float tolerance)
+{
+    if (!ctx || !pdf || target_page < 1)
+        return false;
+
+    bool deleted = false;
+    pdf_page* page = nullptr;
+
+    fz_try(ctx)
+    {
+        page = pdf_load_page(ctx, pdf, target_page - 1);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("Couldn't get page {}: {}", target_page, fz_caught_message(ctx));
+        return false;
+    }
+
+    if (!page) {
+        logger::error("Couldn't get page {}", target_page);
+        return false;
+    }
+
+
+    fz_try(ctx)
+    {
+        pdf_annot* annot = pdf_first_annot(ctx, page);
+
+        while (annot) {
+            pdf_annot* next_annot = pdf_next_annot(ctx, annot);
+
+            if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                // Check content match
+                const char* contents = pdf_annot_contents(ctx, annot);
+                if (contents && target_text == contents) {
+                    // Check position match
+                    fz_rect rect = pdf_annot_rect(ctx, annot);
+                    if (fabs(rect.x0 - target_x) <= tolerance && fabs(rect.y1 - target_y) <= tolerance) {
+                        pdf_delete_annot(ctx, page, annot);
+                        deleted = true;
+                        break; // Assuming we only want to delete the first match
+                    }
+                }
+            }
+
+            annot = next_annot;
+        }
+
+        pdf_drop_page(ctx, page);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("Error deleting specific annotation: {}", fz_caught_message(ctx));
+        return false;
+    }
+
+    return deleted;
+}
