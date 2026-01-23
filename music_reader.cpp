@@ -164,6 +164,13 @@ void MusicReader::on_reload_document()
         return;
 
     int page_num = viewer->current_page();
+
+    // Ensure any pending changes are saved to disk before reloading
+    if (doc->is_modified()) {
+        doc->save();
+        doc->wait_for_save();
+    }
+
     doc->kill_load();
     load_manager_.remove_document(doc->filename());
 

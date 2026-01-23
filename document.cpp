@@ -51,13 +51,28 @@ Document::~Document()
     if (!modified_)
         return;
 
-    std::unique_lock<std::mutex> lock(save_state_mutex_);
-    save_cv_.wait(lock, [this]() {
-        return !is_saving_;
-    });
+    // Wait for any in-progress save to complete before we save final state
+    {
+        std::unique_lock<std::mutex> lock(save_state_mutex_);
+        save_cv_.wait(lock, [this]() {
+            return !is_saving_;
+        });
+        being_destroyed_ = true;
+    }
+    // Lock released before save() to avoid deadlock (save() also acquires save_state_mutex_)
 
-    save();
-    being_destroyed_ = true;
+    // Do final save directly here since save() checks being_destroyed_ and would skip
+    std::vector<Bookmark> bookmarks_copy;
+    std::vector<Annotation> annotations_copy;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        bookmarks_copy = bookmarks_;
+        annotations_copy = annotations_;
+    }
+
+    add_bookmarks_to_pdf(filename_.string(), bookmarks_copy);
+    save_annotations_to_pdf();
+    performance_data_.save(filename_);
 }
 
 
@@ -654,7 +669,7 @@ bool Document::save()
     bool success = (bookmark_result == BookmarkResult::Success);
 
     if (success) {
-        success = save_annotations_to_pdf2();
+        success = save_annotations_to_pdf();
         if (!success)
             logger::error("Failed to save annotations to {}", filename_.string());
     } else {
@@ -679,6 +694,16 @@ bool Document::save()
 
     return success;
 }
+
+
+void Document::wait_for_save()
+{
+    std::unique_lock<std::mutex> lock(save_state_mutex_);
+    save_cv_.wait(lock, [this]() {
+        return !is_saving_;
+    });
+}
+
 
 void Document::clear_completed_features()
 {
@@ -768,6 +793,7 @@ bool Document::add_annotation(const Annotation& annotation)
         annotations_.push_back(annotation);
         modified_ = true;
     }
+    // Lock released before save() to avoid deadlock with save_state_mutex_
 
     bool save_success = save();
 
@@ -784,26 +810,34 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-
-    // Find the annotation first to get its page number before removal
     int page_num = -1;
-    for (const auto& a : annotations_) {
-        if (a.handle_ == handle) {
-            page_num = a.page_num_;
-            break;
+    bool found = false;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+        // Find the annotation first to get its page number before removal
+        for (const auto& a : annotations_) {
+            if (a.handle_ == handle) {
+                page_num = a.page_num_;
+                break;
+            }
+        }
+
+        if (page_num < 0)
+            return false;
+
+        auto it = std::remove_if(annotations_.begin(), annotations_.end(), [&](const Annotation& a) {
+            return a.handle_ == handle;
+        });
+        if (it != annotations_.end()) {
+            annotations_.erase(it, annotations_.end());
+            modified_ = true;
+            found = true;
         }
     }
+    // Lock released before save() to avoid deadlock with save_state_mutex_
 
-    if (page_num < 0)
-        return false;
-
-    auto it = std::remove_if(annotations_.begin(), annotations_.end(), [&](const Annotation& a) {
-        return a.handle_ == handle;
-    });
-    if (it != annotations_.end()) {
-        annotations_.erase(it, annotations_.end());
-        modified_ = true;
+    if (found) {
         bool save_success = save();
         reload_page(page_num);
         return save_success;
@@ -816,14 +850,22 @@ bool Document::edit_text_annotation(const AnnotationHandle& handle, const std::s
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+    int page_num = -1;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    auto* annotation = find_annotation(handle);
-    if (annotation) {
-        annotation->text_ = new_text;
-        modified_ = true;
+        auto* annotation = find_annotation(handle);
+        if (annotation) {
+            annotation->text_ = new_text;
+            modified_ = true;
+            page_num = annotation->page_num_;
+        }
+    }
+    // Lock released before save() to avoid deadlock with save_state_mutex_
+
+    if (page_num > 0) {
         bool save_success = save();
-        reload_page(annotation->page_num_);
+        reload_page(page_num);
         return save_success;
     }
     return false;
@@ -835,15 +877,23 @@ bool Document::move_annotation(const AnnotationHandle& handle, float new_x, floa
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+    int page_num = -1;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
-    auto* annotation = find_annotation(handle);
-    if (annotation) {
-        annotation->x_ = new_x;
-        annotation->y_ = new_y;
-        modified_ = true;
+        auto* annotation = find_annotation(handle);
+        if (annotation) {
+            annotation->x_ = new_x;
+            annotation->y_ = new_y;
+            modified_ = true;
+            page_num = annotation->page_num_;
+        }
+    }
+    // Lock released before save() to avoid deadlock with save_state_mutex_
+
+    if (page_num > 0) {
         bool save_success = save();
-        reload_page(annotation->page_num_);
+        reload_page(page_num);
         return save_success;
     }
     return false;
@@ -1055,201 +1105,6 @@ void Document::reload_annotations()
 
 
 bool Document::save_annotations_to_pdf()
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc) {
-        logger::error("Failed to open document for annotation saving: {}", filename_.string());
-        return false;
-    }
-
-    pdf_document* pdf = pdf_specifics(ctx, doc);
-    if (!pdf) {
-        logger::error("Not a PDF document: {}", filename_.string());
-        close_fitz(ctx, doc);
-        return false;
-    }
-
-    bool success = false;
-    fz_try(ctx)
-    {
-        // First, delete all existing FreeText annotations
-        [[maybe_unused]] bool deleted_any = delete_all_freetext_annotations(ctx, pdf);
-
-        // Clear all /Annots arrays to remove deleted annotation references
-        int page_count = pdf_count_pages(ctx, pdf);
-        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
-            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
-            if (page_obj) {
-                // Create a new empty /Annots array (replaces old one with deleted refs)
-                pdf_obj* new_annots = pdf_new_array(ctx, pdf, 1);
-                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), new_annots);
-            }
-        }
-
-        // Add all our annotations
-        for (const auto& annotation : annotations_) {
-            logger::info("ANT: Saving annotation: text='{}', page={}, x={:.2f}, y={:.2f}, w={:.2f}, h={:.2f}",
-                         annotation.text_, annotation.page_num_,
-                         annotation.x_, annotation.y_, annotation.width_, annotation.height_);
-
-            pdf_page* page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
-            if (!page) {
-                logger::error("Failed to load page {} for annotation", annotation.page_num_);
-                continue;
-            }
-
-            // Check page bounds to understand coordinate system
-            fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
-
-            logger::info("ANT: Page bounds: x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}, height={:.2f}",
-                         page_bounds.x0, page_bounds.y0, page_bounds.x1, page_bounds.y1,
-                         page_bounds.y1 - page_bounds.y0);
-
-            // Get page object for low-level annotation creation
-            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, annotation.page_num_ - 1);
-
-            // Get or create Annots array
-            pdf_obj* annots = pdf_dict_get(ctx, page_obj, PDF_NAME(Annots));
-            if (!annots) {
-                annots = pdf_new_array(ctx, pdf, 1);
-                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), annots);
-            }
-
-            // Create annotation dictionary manually
-            pdf_obj* annot = pdf_new_dict(ctx, pdf, 10);
-            pdf_dict_put(ctx, annot, PDF_NAME(Type), PDF_NAME(Annot));
-            pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
-
-            // Set rectangle
-            float y1 = annotation.y_;
-            float y0 = annotation.y_ - annotation.height_;
-
-            pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, annotation.x_);
-            pdf_array_push_real(ctx, rect, y0);
-            pdf_array_push_real(ctx, rect, annotation.x_ + annotation.width_);
-            pdf_array_push_real(ctx, rect, y1);
-            pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
-            pdf_drop_obj(ctx, rect);
-
-            logger::info("ANT: PDF rect: x0={:.2f}, y0={:.2f}, x1={:.2f}, y1={:.2f}",
-                         annotation.x_, y0, annotation.x_ + annotation.width_, y1);
-
-            // Set content
-            pdf_dict_put_text_string(ctx, annot, PDF_NAME(Contents), annotation.text_.c_str());
-
-            auto& font = annotation.font_info_;
-            std::string font_name = font.family;
-
-            if (font_name.empty())
-                font_name = "Helvetica";
-
-            // Set default appearance
-            auto [r, g, b] = font.color;
-            char da_buf[256];
-            snprintf(da_buf, sizeof(da_buf), "/%s %.1f Tf %.3f %.3f %.3f rg",
-                     font_name.c_str(), font.size,
-                     r / 255.0f, g / 255.0f, b / 255.0f);
-            pdf_dict_put_text_string(ctx, annot, PDF_NAME(DA), da_buf);
-
-            logger::info("ANT: Font: '{}', size={:.1f}", font_name, font.size);
-
-            // Set quadding (alignment)
-            pdf_dict_put_int(ctx, annot, PDF_NAME(Q), 0);
-
-            // Remove border - set BS (Border Style) to invisible
-            pdf_obj* bs = pdf_new_dict(ctx, pdf, 2);
-            pdf_dict_put_int(ctx, bs, PDF_NAME(W), 0);
-            pdf_dict_put(ctx, annot, PDF_NAME(BS), bs);
-            pdf_drop_obj(ctx, bs);
-
-            // Also set Border array to [0 0 0] for compatibility
-            pdf_obj* border = pdf_new_array(ctx, pdf, 3);
-            pdf_array_push_int(ctx, border, 0);
-            pdf_array_push_int(ctx, border, 0);
-            pdf_array_push_int(ctx, border, 0);
-            pdf_dict_put(ctx, annot, PDF_NAME(Border), border);
-            pdf_drop_obj(ctx, border);
-
-            // Add annotation to page
-            pdf_array_push(ctx, annots, annot);
-            pdf_drop_obj(ctx, annot);
-
-            pdf_drop_page(ctx, page);
-        }
-
-        // Verify annotations before save
-        logger::info("ANT: Verifying annotations before save...");
-        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, pdf); ++page_idx) {
-            pdf_page* page = pdf_load_page(ctx, pdf, page_idx);
-            pdf_annot* annot = pdf_first_annot(ctx, page);
-            while (annot) {
-                if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
-                    fz_rect r = pdf_annot_rect(ctx, annot);
-                    const char* contents = pdf_annot_contents(ctx, annot);
-
-                    // Read rect directly from PDF dict
-                    pdf_obj* annot_obj = pdf_annot_obj(ctx, annot);
-                    pdf_obj* rect_obj = pdf_dict_get(ctx, annot_obj, PDF_NAME(Rect));
-                    float raw_x0 = pdf_array_get_real(ctx, rect_obj, 0);
-                    float raw_y0 = pdf_array_get_real(ctx, rect_obj, 1);
-                    float raw_x1 = pdf_array_get_real(ctx, rect_obj, 2);
-                    float raw_y1 = pdf_array_get_real(ctx, rect_obj, 3);
-
-                    logger::info("ANT: Before save - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
-                               page_idx, contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
-                    logger::info("ANT:   Raw dict rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
-                               raw_x0, raw_y0, raw_x1, raw_y1);
-                }
-                annot = pdf_next_annot(ctx, annot);
-            }
-            pdf_drop_page(ctx, page);
-        }
-
-        // Save incrementally
-        pdf_write_options opts = pdf_default_write_options;
-        opts.do_incremental = 1;
-        pdf_save_document(ctx, pdf, filename_.string().c_str(), &opts);
-
-        logger::info("ANT: Save complete, verifying by reloading...");
-
-        // Verify what was actually written to file
-        fz_document* verify_doc = fz_open_document(ctx, filename_.string().c_str());
-        pdf_document* verify_pdf = pdf_specifics(ctx, verify_doc);
-        for (int page_idx = 0; page_idx < pdf_count_pages(ctx, verify_pdf); ++page_idx) {
-            pdf_page* verify_page = pdf_load_page(ctx, verify_pdf, page_idx);
-            pdf_annot* verify_annot = pdf_first_annot(ctx, verify_page);
-            while (verify_annot) {
-                if (pdf_annot_type(ctx, verify_annot) == PDF_ANNOT_FREE_TEXT) {
-                    fz_rect r = pdf_annot_rect(ctx, verify_annot);
-                    const char* contents = pdf_annot_contents(ctx, verify_annot);
-                    logger::info("ANT: After save verification - page={}, text='{}', rect=[{:.2f},{:.2f},{:.2f},{:.2f}]",
-                               page_idx, contents ? contents : "", r.x0, r.y0, r.x1, r.y1);
-                }
-                verify_annot = pdf_next_annot(ctx, verify_annot);
-            }
-            pdf_drop_page(ctx, verify_page);
-        }
-        fz_drop_document(ctx, verify_doc);
-
-        success = true;
-    }
-    fz_catch(ctx)
-    {
-        logger::error("MuPDF exception while saving annotations for {}: {}", filename_.string(),
-                      fz_caught_message(ctx));
-    }
-
-    close_fitz(ctx, doc);
-    return success;
-}
-
-
-
-bool Document::save_annotations_to_pdf2()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
