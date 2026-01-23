@@ -695,10 +695,10 @@ void PDFViewer::update_image(const QString& message)
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     // scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
 
-    logger::info("ANT: update_image: label_size={}x{}, page_.pixmap={}x{}, scaled_pixmap={}x{}",
-                 label_->size().width(), label_->size().height(),
-                 page_.pixmap.width(), page_.pixmap.height(),
-                 scaled_pixmap.width(), scaled_pixmap.height());
+    //logger::info("ANT: update_image: label_size={}x{}, page_.pixmap={}x{}, scaled_pixmap={}x{}",
+    //             label_->size().width(), label_->size().height(),
+    //             page_.pixmap.width(), page_.pixmap.height(),
+    //             scaled_pixmap.width(), scaled_pixmap.height());
 
 
     // Draw crosshair at last click position (for debugging annotation placement)
@@ -862,7 +862,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     setFocus();
 
     if (event->button() == Qt::LeftButton && text_annotation_mode_) {
-        logger::info("ANT: Mouse clicked at screen pos ({}, {})", event->pos().x(), event->pos().y());
+        //logger::info("ANT: Mouse clicked at screen pos ({}, {})", event->pos().x(), event->pos().y());
 
         QPixmap displayed = label_->pixmap();
 
@@ -886,20 +886,20 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         auto [pdf_width, pdf_height] = document_->get_page_dimensions_points(last_click_target_.page_num);
 
-        logger::info("ANT: Click target: page={}, points=({:.2f}, {:.2f}), page_dims=({:.2f}x{:.2f})",
-                     last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y,
-                     pdf_width, pdf_height);
+        //logger::info("ANT: Click target: page={}, points=({:.2f}, {:.2f}), page_dims=({:.2f}x{:.2f})",
+        //             last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y,
+        //             pdf_width, pdf_height);
 
         // Position editor directly at click point (screen coordinates)
-        int doc_margin = static_cast<int>(annotation_editor_->document()->documentMargin());
-        logger::info("ANT: Qt editor margin={}", doc_margin);
+        //int doc_margin = static_cast<int>(annotation_editor_->document()->documentMargin());
+        //logger::info("ANT: Qt editor margin={}", doc_margin);
 
         // Calculate how many display pixels = 1 PDF point
         // PDF page is pdf_width points, rendered pixmap is page_.pixmap.width() pixels, displayed is displayed.width() pixels
         // Scale = displayed_pixels / pdf_points
         float points_to_pixels = static_cast<float>(displayed.width()) / pdf_width;
-        logger::info("ANT: Font scale: displayed={}px, pdf_page={:.2f}pt, scale={:.4f} px/pt",
-                     displayed.width(), pdf_width, points_to_pixels);
+        //logger::info("ANT: Font scale: displayed={}px, pdf_page={:.2f}pt, scale={:.4f} px/pt",
+        //             displayed.width(), pdf_width, points_to_pixels);
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
         annotation_editor_->start_editing(event->pos());
@@ -1067,13 +1067,13 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         qreal adjusted_x = last_click_target_.points_x;
         qreal adjusted_y = last_click_target_.points_y;
 
-        logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), size=({:.2f}x{:.2f}), bounds_offset=({:.2f},{:.2f}), font='{}' {:.1f}pt",
-                     text.toStdString(), last_click_target_.page_num,
-                     last_click_target_.points_x, last_click_target_.points_y,
-                     adjusted_x, adjusted_y,
-                     width_points, height_points,
-                     text_bounds.left(), text_bounds.top(),
-                     font_info.family.c_str(), font_info.size);
+        //logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), size=({:.2f}x{:.2f}), bounds_offset=({:.2f},{:.2f}), font='{}' {:.1f}pt",
+        //             text.toStdString(), last_click_target_.page_num,
+        //             last_click_target_.points_x, last_click_target_.points_y,
+        //             adjusted_x, adjusted_y,
+        //             width_points, height_points,
+        //             text_bounds.left(), text_bounds.top(),
+        //             font_info.family.c_str(), font_info.size);
 
         Annotation annotation(text.toStdString(), last_click_target_.page_num, adjusted_x,
                               adjusted_y, static_cast<float>(width_points), static_cast<float>(height_points),
@@ -1156,9 +1156,9 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         mouse_x -= display_width;
     }
 
-    logger::info("ANT: label_size={}x{}, pixmap={}x{}, offset=({},{}), mouse_label=({},{}), mouse_pixmap=({},{})",
-                 label_size.width(), label_size.height(), pixmap_width, pixmap_height,
-                 offset_x, offset_y, mouse_pos.x(), mouse_pos.y(), mouse_x, mouse_y);
+    //logger::info("ANT: label_size={}x{}, pixmap={}x{}, offset=({},{}), mouse_label=({},{}), mouse_pixmap=({},{})",
+    //             label_size.width(), label_size.height(), pixmap_width, pixmap_height,
+    //             offset_x, offset_y, mouse_pos.x(), mouse_pos.y(), mouse_x, mouse_y);
 
     // Get the full page to check for border/cropping
     Page full_page = document_->get_page(target_page, false);
@@ -1199,8 +1199,8 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         points_y = pdf_height_points - (click_ratio_y * pdf_height_points);
     }
 
-    logger::info("ANT: get_click_target: display=({},{}), mouse_screen=({},{}), page_points=({:.2f}x{:.2f}), result_points=({:.2f},{:.2f})",
-                 display_width, display_height, mouse_x, mouse_y, pdf_width_points, pdf_height_points, points_x, points_y);
+    //logger::info("ANT: get_click_target: display=({},{}), mouse_screen=({},{}), page_points=({:.2f}x{:.2f}), result_points=({:.2f},{:.2f})",
+    //             display_width, display_height, mouse_x, mouse_y, pdf_width_points, pdf_height_points, points_x, points_y);
 
     return {target_page, points_x, points_y};
 }
