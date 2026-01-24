@@ -213,6 +213,7 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         // Exit annotation mode on Escape
         text_annotation_mode_ = false;
         setCursor(Qt::ArrowCursor);
+        emit annotation_mode_changed(false);
         event->accept();
         return;
     }
@@ -1102,6 +1103,7 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
 
     preview_page_image_.reset();
     annotation_editor_->set_preview_mode(false);
+    setFocus(); // Return focus so we can receive Escape key
     // Stay in annotation mode - user can click again to add more annotations
 }
 
