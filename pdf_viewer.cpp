@@ -98,7 +98,8 @@ void PDFViewer::refresh()
 
     const bool is_double = in_double_page_view();
 
-    PrefetchEntry entry = is_double ? make_double_page_entry(current_idx, PageRequestType::CurrentDisplay) : make_single_page_entry(current_idx, PageRequestType::CurrentDisplay);
+    PrefetchEntry entry = is_double ? make_double_page_entry(current_idx, PageRequestType::CurrentDisplay)
+                                    : make_single_page_entry(current_idx, PageRequestType::CurrentDisplay);
 
     int physical_page = entry.p1.page_num;
 
@@ -515,7 +516,8 @@ void PDFViewer::get_page(int index)
 
     // If not in cache, render it now
     if (!found_in_cache)
-        entry = is_double ? make_double_page_entry(index, PageRequestType::CurrentDisplay) : make_single_page_entry(index, PageRequestType::CurrentDisplay);
+        entry = is_double ? make_double_page_entry(index, PageRequestType::CurrentDisplay)
+                          : make_single_page_entry(index, PageRequestType::CurrentDisplay);
 
     // Get physical page from the entry
     int physical_page = entry.p1.page_num;
@@ -693,12 +695,10 @@ void PDFViewer::update_image(const QString& message)
         max_size = page_.pixmap.size().boundedTo(label_->size());
 
     QPixmap scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    // scaled_pixmap = page_.pixmap; //debug render at size given by mupdf
-
-    //logger::info("ANT: update_image: label_size={}x{}, page_.pixmap={}x{}, scaled_pixmap={}x{}",
-    //             label_->size().width(), label_->size().height(),
-    //             page_.pixmap.width(), page_.pixmap.height(),
-    //             scaled_pixmap.width(), scaled_pixmap.height());
+    //scaled_pixmap = page_.pixmap; // debug render at size given by mupdf
+    logger::info("ANT: update_image: label_size={}x{}, page_.pixmap={}x{}, scaled_pixmap={}x{}", label_->size().width(),
+                 label_->size().height(), page_.pixmap.width(), page_.pixmap.height(), scaled_pixmap.width(),
+                 scaled_pixmap.height());
 
 
     // Draw crosshair at last click position (for debugging annotation placement)
@@ -769,7 +769,7 @@ void PDFViewer::update_image(const QString& message)
 
     label_->setPixmap(scaled_pixmap);
     adjust_initial_subwindow_size();
-    //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    // QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 }
 
 
@@ -862,7 +862,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     setFocus();
 
     if (event->button() == Qt::LeftButton && text_annotation_mode_) {
-        //logger::info("ANT: Mouse clicked at screen pos ({}, {})", event->pos().x(), event->pos().y());
+        logger::info("ANT: Mouse clicked at screen pos ({}, {})", event->pos().x(), event->pos().y());
 
         QPixmap displayed = label_->pixmap();
 
@@ -886,20 +886,20 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         auto [pdf_width, pdf_height] = document_->get_page_dimensions_points(last_click_target_.page_num);
 
-        //logger::info("ANT: Click target: page={}, points=({:.2f}, {:.2f}), page_dims=({:.2f}x{:.2f})",
-        //             last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y,
-        //             pdf_width, pdf_height);
+        logger::info("ANT: Click target: page={}, points=({:.2f}, {:.2f}), page_dims=({:.2f}x{:.2f})",
+                     last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y, pdf_width,
+                     pdf_height);
 
         // Position editor directly at click point (screen coordinates)
-        //int doc_margin = static_cast<int>(annotation_editor_->document()->documentMargin());
-        //logger::info("ANT: Qt editor margin={}", doc_margin);
+        int doc_margin = static_cast<int>(annotation_editor_->document()->documentMargin());
+        logger::info("ANT: Qt editor margin={}", doc_margin);
 
         // Calculate how many display pixels = 1 PDF point
-        // PDF page is pdf_width points, rendered pixmap is page_.pixmap.width() pixels, displayed is displayed.width() pixels
-        // Scale = displayed_pixels / pdf_points
+        // PDF page is pdf_width points, rendered pixmap is page_.pixmap.width() pixels, displayed is displayed.width()
+        // pixels Scale = displayed_pixels / pdf_points
         float points_to_pixels = static_cast<float>(displayed.width()) / pdf_width;
-        //logger::info("ANT: Font scale: displayed={}px, pdf_page={:.2f}pt, scale={:.4f} px/pt",
-        //             displayed.width(), pdf_width, points_to_pixels);
+        logger::info("ANT: Font scale: displayed={}px, pdf_page={:.2f}pt, scale={:.4f} px/pt", displayed.width(),
+                     pdf_width, points_to_pixels);
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
         annotation_editor_->start_editing(event->pos());
@@ -972,7 +972,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         // Handle annotation selection
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);
         if (clicked_annotation) {
-            setFocus();  // Ensure PDFViewer has focus so Delete shortcut works
+            setFocus(); // Ensure PDFViewer has focus so Delete shortcut works
             select_annotation(clicked_annotation);
             event->accept();
             return;
@@ -1058,7 +1058,7 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
 
         // Use regular boundingRect which gives consistent font metrics
         QRectF text_bounds = fm.boundingRect(text);
-        qreal width_points = text_bounds.width();   // No padding - let PDF handle it
+        qreal width_points = text_bounds.width(); // No padding - let PDF handle it
 
         // For height, use ascent + descent for proper text bounds
         qreal height_points = fm.ascent() + fm.descent();
@@ -1067,17 +1067,16 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         qreal adjusted_x = last_click_target_.points_x;
         qreal adjusted_y = last_click_target_.points_y;
 
-        //logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), size=({:.2f}x{:.2f}), bounds_offset=({:.2f},{:.2f}), font='{}' {:.1f}pt",
-        //             text.toStdString(), last_click_target_.page_num,
-        //             last_click_target_.points_x, last_click_target_.points_y,
-        //             adjusted_x, adjusted_y,
-        //             width_points, height_points,
-        //             text_bounds.left(), text_bounds.top(),
-        //             font_info.family.c_str(), font_info.size);
+        logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), \
+                     size = ({:.2f} x {:.2f}), \
+                     bounds_offset = ({:.2f}, {:.2f}),\
+                     font = '{}' {:.1f} pt ",
+                     text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
+                     last_click_target_.points_y, adjusted_x, adjusted_y, width_points, height_points,
+                     text_bounds.left(), text_bounds.top(), font_info.family.c_str(), font_info.size);
 
-        Annotation annotation(text.toStdString(), last_click_target_.page_num, adjusted_x,
-                              adjusted_y, static_cast<float>(width_points), static_cast<float>(height_points),
-                              font_info);
+        Annotation annotation(text.toStdString(), last_click_target_.page_num, adjusted_x, adjusted_y,
+                              static_cast<float>(width_points), static_cast<float>(height_points), font_info);
 
         document_->add_annotation(annotation);
 
@@ -1156,9 +1155,9 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         mouse_x -= display_width;
     }
 
-    //logger::info("ANT: label_size={}x{}, pixmap={}x{}, offset=({},{}), mouse_label=({},{}), mouse_pixmap=({},{})",
-    //             label_size.width(), label_size.height(), pixmap_width, pixmap_height,
-    //             offset_x, offset_y, mouse_pos.x(), mouse_pos.y(), mouse_x, mouse_y);
+    logger::info("ANT: label_size={}x{}, pixmap={}x{}, offset=({},{}), mouse_label=({},{}), mouse_pixmap=({},{})",
+                 label_size.width(), label_size.height(), pixmap_width, pixmap_height, offset_x, offset_y,
+                 mouse_pos.x(), mouse_pos.y(), mouse_x, mouse_y);
 
     // Get the full page to check for border/cropping
     Page full_page = document_->get_page(target_page, false);
@@ -1199,8 +1198,10 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         points_y = pdf_height_points - (click_ratio_y * pdf_height_points);
     }
 
-    //logger::info("ANT: get_click_target: display=({},{}), mouse_screen=({},{}), page_points=({:.2f}x{:.2f}), result_points=({:.2f},{:.2f})",
-    //             display_width, display_height, mouse_x, mouse_y, pdf_width_points, pdf_height_points, points_x, points_y);
+    logger::info("ANT: get_click_target: display=({},{}), mouse_screen=({},{}), page_points=({:.2f}x{:.2f}),\
+                 result_points = ({:.2f}, {:.2f})",
+                 display_width, display_height, mouse_x, mouse_y, pdf_width_points, pdf_height_points, points_x,
+                 points_y);
 
     return {target_page, points_x, points_y};
 }
@@ -1304,8 +1305,8 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         float annot_right = annotation.x_ + annotation.width_;
         float annot_bottom = annotation.y_ - annotation.height_;
 
-        if (click.points_x >= annot_left && click.points_x <= annot_right &&
-            click.points_y >= annot_bottom && click.points_y <= annot_top) {
+        if (click.points_x >= annot_left && click.points_x <= annot_right && click.points_y >= annot_bottom &&
+            click.points_y <= annot_top) {
             return annotation.handle_;
         }
     }

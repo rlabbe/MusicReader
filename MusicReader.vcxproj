@@ -127,13 +127,14 @@
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <Optimization>MaxSpeed</Optimization>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DisableSpecificWarnings>4505;4611;</DisableSpecificWarnings>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin

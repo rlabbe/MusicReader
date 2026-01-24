@@ -1,5 +1,6 @@
 #include "in_place_annotation_editor.h"
 #include "config_file.h"
+#include "logger.h"
 #include <iostream>
 
 
@@ -59,6 +60,13 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
     // Account for QTextEdit's internal document margin which offsets text within the widget.
     QFontMetricsF fm(font());
     int doc_margin = static_cast<int>(document()->documentMargin());
+
+    // Log Qt font metrics for comparison with MuPDF's 0.8 * font_size baseline placement
+    float font_size_pixels = font_info.size * dpi_scale_;
+    logger::info("ANT: Qt font metrics: ascent={:.2f}, descent={:.2f}, height={:.2f}, "
+                 "font_size_pixels={:.2f}, ascent/font_size={:.3f}, doc_margin={}",
+                 fm.ascent(), fm.descent(), fm.height(), font_size_pixels,
+                 fm.ascent() / font_size_pixels, doc_margin);
 
     QPoint editor_pos;
     editor_pos.setX(position.x());
