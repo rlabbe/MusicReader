@@ -1065,15 +1065,22 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
 
         // Store click position directly as baseline
         qreal adjusted_x = last_click_target_.points_x;
-        qreal adjusted_y = last_click_target_.points_y;
 
-        logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), rect_pos=({:.2f},{:.2f}), \
-                     size = ({:.2f} x {:.2f}), \
-                     bounds_offset = ({:.2f}, {:.2f}),\
-                     font = '{}' {:.1f} pt ",
+        // Apply correction for Qt vs MuPDF baseline difference.
+        // Qt places text baseline at fm.ascent() below the top of the text rect.
+        // MuPDF hardcodes baseline at 0.8 * font_size below rect top.
+        // The difference causes a visual shift after save. We correct for it here.
+        qreal qt_ascent_points = fm.ascent();  // Qt font already uses point size
+        qreal mupdf_ascent_points = 0.8 * font_info.size;
+        qreal baseline_correction = qt_ascent_points - mupdf_ascent_points;
+        qreal adjusted_y = last_click_target_.points_y - baseline_correction;
+
+        logger::info("ANT: Creating annotation: text='{}', page={}, click=({:.2f},{:.2f}), adjusted=({:.2f},{:.2f}), "
+                     "size=({:.2f}x{:.2f}), baseline_correction={:.3f} (qt_ascent={:.2f}, mupdf={:.2f}), font='{}' {:.1f}pt",
                      text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
                      last_click_target_.points_y, adjusted_x, adjusted_y, width_points, height_points,
-                     text_bounds.left(), text_bounds.top(), font_info.family.c_str(), font_info.size);
+                     baseline_correction, qt_ascent_points, mupdf_ascent_points,
+                     font_info.family.c_str(), font_info.size);
 
         Annotation annotation(text.toStdString(), last_click_target_.page_num, adjusted_x, adjusted_y,
                               static_cast<float>(width_points), static_cast<float>(height_points), font_info);
