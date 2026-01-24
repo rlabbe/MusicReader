@@ -11,9 +11,9 @@ class QPoint;
 
 
 struct FontInfo {
-    std::string family = "Helvetica";  // PDF Base-14 font name
+    std::string family = "Helvetica"; // PDF Base-14 font name
     float size = 10.0f;
-    std::tuple<int, int, int> color = {0, 0, 0};  // RGB
+    std::tuple<int, int, int> color = {0, 0, 0}; // RGB
 };
 
 

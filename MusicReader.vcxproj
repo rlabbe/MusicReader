@@ -257,6 +257,7 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="annotation.h" />
+    <ClInclude Include="annotation_coords.h" />
     <ClInclude Include="bookmark.h" />
     <ClInclude Include="border.h" />
     <QtMoc Include="config_dialog.h" />

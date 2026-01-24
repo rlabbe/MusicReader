@@ -23,7 +23,6 @@ struct fz_document;
 class Document : public QObject {
     Q_OBJECT
 public:
-
     static int inline unique_id = 0;
     int id;
 
@@ -77,6 +76,10 @@ public:
     bool remove_annotation(const AnnotationHandle& handle);
     bool edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text);
     bool move_annotation(const AnnotationHandle& handle, float new_x, float new_y);
+
+    // In-memory annotation preview: renders page with a temporary annotation without saving to disk.
+    // Returns the rendered page as QImage with the preview annotation overlaid.
+    QImage render_page_with_preview_annotation(int page_num, const Annotation& preview_annotation);
 
     void reload_page(int page_num);
 

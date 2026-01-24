@@ -22,7 +22,7 @@ QString pdf_font_to_qt_font(const std::string& pdf_font)
     else if (pdf_font == "ZapfDingbats")
         return "Wingdings";
     else
-        return QString::fromStdString(pdf_font);  // Unknown, use as-is
+        return QString::fromStdString(pdf_font); // Unknown, use as-is
 }
 
 std::string pdf_font_to_mupdf_font(const std::string& pdf_font)
@@ -38,30 +38,36 @@ std::string pdf_font_to_mupdf_font(const std::string& pdf_font)
     else if (pdf_font == "ZapfDingbats")
         return "ZaDb";
     else
-        return "Helv";  // Default fallback
+        return "Helv"; // Default fallback
 }
 
 std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
 {
     if (qt_font == "Courier New") {
-        if (bold && italic) return "Courier-BoldOblique";
-        if (bold) return "Courier-Bold";
-        if (italic) return "Courier-Oblique";
+        if (bold && italic)
+            return "Courier-BoldOblique";
+        if (bold)
+            return "Courier-Bold";
+        if (italic)
+            return "Courier-Oblique";
         return "Courier";
-    }
-    else if (qt_font == "Arial") {
-        if (bold && italic) return "Helvetica-BoldOblique";
-        if (bold) return "Helvetica-Bold";
-        if (italic) return "Helvetica-Oblique";
+    } else if (qt_font == "Arial") {
+        if (bold && italic)
+            return "Helvetica-BoldOblique";
+        if (bold)
+            return "Helvetica-Bold";
+        if (italic)
+            return "Helvetica-Oblique";
         return "Helvetica";
-    }
-    else if (qt_font == "Times New Roman") {
-        if (bold && italic) return "Times-BoldItalic";
-        if (bold) return "Times-Bold";
-        if (italic) return "Times-Italic";
+    } else if (qt_font == "Times New Roman") {
+        if (bold && italic)
+            return "Times-BoldItalic";
+        if (bold)
+            return "Times-Bold";
+        if (italic)
+            return "Times-Italic";
         return "Times-Roman";
-    }
-    else if (qt_font == "Symbol")
+    } else if (qt_font == "Symbol")
         return "Symbol";
     else if (qt_font == "Wingdings")
         return "ZapfDingbats";
@@ -114,11 +120,8 @@ std::optional<std::string> lookup_font_file(const std::string& font_family)
 
     // Open registry key for fonts
     HKEY hkey;
-    LONG result = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                                L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts",
-                                0,
-                                KEY_READ,
-                                &hkey);
+    LONG result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0,
+                                KEY_READ, &hkey);
 
     if (result != ERROR_SUCCESS) {
         logger::error("Failed to open fonts registry key");

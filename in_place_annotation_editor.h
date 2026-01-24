@@ -12,13 +12,16 @@ public:
     InPlaceAnnotationEditor(ConfigFile* config, QWidget* parent = nullptr);
     void start_editing(const QPoint& position, const QString& initial_text = "");
     void set_dpi_scale(float scale) { dpi_scale_ = scale; }
+    void set_preview_mode(bool enabled);
 
 signals:
     void editing_finished(const QString& text);
     void editing_cancelled();
+    void text_changed_for_preview(const QString& text);
 
 private slots:
     void resize_to_content();
+    void on_text_changed();
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -32,4 +35,5 @@ private:
     ConfigFile* config_ = nullptr;
     bool editing_finished_ = false;
     float dpi_scale_ = 1.0f;
+    bool preview_mode_ = false;
 };

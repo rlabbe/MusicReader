@@ -2,6 +2,7 @@
 
 #include <QtWidgets>
 #include <memory>
+#include <optional>
 
 #include "document.h"
 #include "page.h"
@@ -82,6 +83,7 @@ private slots:
     void on_page_loaded(std::string name, int page_index);
     void on_annotation_text_finished(const QString& text);
     void on_annotation_text_cancelled();
+    void on_annotation_text_changed(const QString& text);
     void delete_shortcut();
 
 private:
@@ -175,8 +177,9 @@ private:
     bool dragging_existing_break_ = false;
     InPlaceAnnotationEditor* annotation_editor_;
     ClickTarget last_click_target_;
-    QPoint last_click_display_pos_;  // Display coordinates of last click for crosshair
-    QString last_annotation_text_;   // Last annotation text for debug rendering
+    QPoint last_click_display_pos_;            // Display coordinates of last click for crosshair
+    QString last_annotation_text_;             // Last annotation text for debug rendering
+    std::optional<QImage> preview_page_image_; // MuPDF-rendered page with preview annotation
     AnnotationHandle selected_annotation_;
     bool has_selection_ = false;
     bool skip_resize_update_ = false;

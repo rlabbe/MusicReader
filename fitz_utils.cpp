@@ -568,12 +568,12 @@ TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, con
         }
 
         // Add marked content section with our text
-        fz_append_string(ctx, buf, "/MusicReaderText BMC\n");  // Begin marked content
-        fz_append_string(ctx, buf, "q\n");                     // Save graphics state
-        fz_append_printf(ctx, buf, "%.3f %.3f %.3f rg\n", r / 255.0f, g / 255.0f, b / 255.0f);  // Set color
-        fz_append_string(ctx, buf, "BT\n");                    // Begin text
+        fz_append_string(ctx, buf, "/MusicReaderText BMC\n");                                  // Begin marked content
+        fz_append_string(ctx, buf, "q\n");                                                     // Save graphics state
+        fz_append_printf(ctx, buf, "%.3f %.3f %.3f rg\n", r / 255.0f, g / 255.0f, b / 255.0f); // Set color
+        fz_append_string(ctx, buf, "BT\n");                                                    // Begin text
         fz_append_printf(ctx, buf, "/%s %.1f Tf\n", font_name, font_size);
-        fz_append_printf(ctx, buf, "%.2f %.2f Td\n", x, y);    // Position
+        fz_append_printf(ctx, buf, "%.2f %.2f Td\n", x, y); // Position
 
         // Encode text as glyph IDs for CID font
         fz_append_string(ctx, buf, "<");
@@ -581,10 +581,10 @@ TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, con
             int gid = fz_encode_character(ctx, fz_font_obj, ch);
             fz_append_printf(ctx, buf, "%04x", gid);
         }
-        fz_append_string(ctx, buf, "> Tj\n");                  // Show text
-        fz_append_string(ctx, buf, "ET\n");                    // End text
-        fz_append_string(ctx, buf, "Q\n");                     // Restore graphics state
-        fz_append_string(ctx, buf, "EMC\n");                   // End marked content
+        fz_append_string(ctx, buf, "> Tj\n"); // Show text
+        fz_append_string(ctx, buf, "ET\n");   // End text
+        fz_append_string(ctx, buf, "Q\n");    // Restore graphics state
+        fz_append_string(ctx, buf, "EMC\n");  // End marked content
 
         // Replace page contents with new stream
         pdf_obj* new_contents = pdf_add_stream(ctx, pdf, buf, nullptr, 0);
@@ -679,11 +679,7 @@ bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
             while (annot) {
                 pdf_annot* next_annot = pdf_next_annot(ctx, annot);
 
-                // Check if this is a FreeText annotation
                 if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
-                    const char* contents = pdf_annot_contents(ctx, annot);
-                    logger::info("ANT: Deleting FreeText annotation on page {} with text '{}' (obj={})", page_idx + 1,
-                                 contents ? contents : "", pdf_to_num(ctx, pdf_annot_obj(ctx, annot)));
                     pdf_delete_annot(ctx, page, annot);
                     any_deleted = true;
                 }
@@ -693,11 +689,6 @@ bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
 
             pdf_drop_page(ctx, page);
         }
-
-        if (any_deleted)
-            logger::info("ANT: Deleted {} FreeText annotations", any_deleted);
-         else
-            logger::info("ANT: No FreeText annotations found to delete");
     }
     fz_catch(ctx)
     {

@@ -15,6 +15,10 @@ page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
 # Fill with white
 page.draw_rect(page.rect, color=(1, 1, 1), fill=(1, 1, 1))
 
+# Draw a simple box for click testing
+box_rect = fitz.Rect(100, 100, 300, 200)
+page.draw_rect(box_rect, color=(0, 0, 0), width=0.5)
+
 # Save with no compression, no garbage collection - keep it simple and readable
 doc.save(
     "D:\\dev\\MusicReader\\bin\\test_blank.pdf",

@@ -1,4 +1,5 @@
 #include "in_place_annotation_editor.h"
+#include "annotation_coords.h"
 #include "config_file.h"
 #include "logger.h"
 #include <iostream>
@@ -22,6 +23,8 @@ InPlaceAnnotationEditor::InPlaceAnnotationEditor(ConfigFile* config, QWidget* pa
     auto [r, g, b] = font_info.color;
     QString color_str = QString("rgb(%1, %2, %3)").arg(r).arg(g).arg(b);
     setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
+
+    connect(this, &QTextEdit::textChanged, this, &InPlaceAnnotationEditor::on_text_changed);
 
     hide();
 }
@@ -56,21 +59,13 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
 
     resize(size);
 
-    // Position editor so baseline aligns with click point.
-    // Account for QTextEdit's internal document margin which offsets text within the widget.
-    QFontMetricsF fm(font());
+    // Position editor so baseline aligns with click point
     int doc_margin = static_cast<int>(document()->documentMargin());
-
-    // Log Qt font metrics for comparison with MuPDF's 0.8 * font_size baseline placement
-    float font_size_pixels = font_info.size * dpi_scale_;
-    logger::info("ANT: Qt font metrics: ascent={:.2f}, descent={:.2f}, height={:.2f}, "
-                 "font_size_pixels={:.2f}, ascent/font_size={:.3f}, doc_margin={}",
-                 fm.ascent(), fm.descent(), fm.height(), font_size_pixels,
-                 fm.ascent() / font_size_pixels, doc_margin);
+    QFontMetrics fm(scaled_font);
 
     QPoint editor_pos;
     editor_pos.setX(position.x());
-    editor_pos.setY(position.y() - static_cast<int>(fm.ascent()) + doc_margin);
+    editor_pos.setY(AnnotationCoordinates::baseline_display_to_editor_widget_y(position.y(), doc_margin, fm.ascent()));
 
     move(editor_pos);
 
@@ -96,7 +91,7 @@ void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent* event)
 
 void InPlaceAnnotationEditor::focusOutEvent(QFocusEvent* event)
 {
-    //qDebug() << "focusOutEvent triggered";
+    // qDebug() << "focusOutEvent triggered";
     finish_editing();
     QTextEdit::focusOutEvent(event);
 }
@@ -121,10 +116,10 @@ void InPlaceAnnotationEditor::finish_editing()
     if (config_->debug_annotations()) {
         setReadOnly(true);
         setStyleSheet(QString("background-color: transparent; border: none; color: blue;"));
-        setAttribute(Qt::WA_TransparentForMouseEvents, true);  // Prevent editor from blocking clicks
+        setAttribute(Qt::WA_TransparentForMouseEvents, true); // Prevent editor from blocking clicks
     } else {
         hide();
-        setAttribute(Qt::WA_TransparentForMouseEvents, true);  // Prevent hidden editor from blocking clicks
+        setAttribute(Qt::WA_TransparentForMouseEvents, true); // Prevent hidden editor from blocking clicks
     }
 }
 
@@ -146,4 +141,29 @@ void InPlaceAnnotationEditor::resize_to_content()
     QPoint current_pos = pos();
     resize(new_size);
     move(current_pos);
+}
+
+
+void InPlaceAnnotationEditor::on_text_changed()
+{
+    if (!editing_finished_)
+        emit text_changed_for_preview(toPlainText());
+}
+
+
+void InPlaceAnnotationEditor::set_preview_mode(bool enabled)
+{
+    preview_mode_ = enabled;
+    if (enabled) {
+        // Make text invisible so only MuPDF preview shows, but keep cursor visible
+        setStyleSheet("background-color: transparent; border: none; color: transparent;");
+        // Keep cursor visible by making it opaque
+        setCursorWidth(2);
+    } else {
+        // Restore normal text color
+        const FontInfo& font_info = config_->annotation_font();
+        auto [r, g, b] = font_info.color;
+        QString color_str = QString("rgb(%1, %2, %3)").arg(r).arg(g).arg(b);
+        setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
+    }
 }

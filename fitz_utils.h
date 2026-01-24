@@ -69,10 +69,10 @@ extern TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename, con
 // Add text to content stream with marked content tags for detection/deletion
 // Supports custom TrueType fonts via font_file parameter
 extern TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, const std::string& text,
-                                         int page_num,                             // 1-based
-                                         float x, float y,                         // in PDF points, (0,0) = bottom-left
+                                         int page_num,     // 1-based
+                                         float x, float y, // in PDF points, (0,0) = bottom-left
                                          float font_size, const std::string& font_family,
-                                         const std::filesystem::path& font_file,   // TrueType font file
+                                         const std::filesystem::path& font_file, // TrueType font file
                                          int r, int g, int b);
 
 // Utility function for PDFViewer to convert pixel coordinates to PDF points

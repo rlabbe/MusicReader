@@ -55,5 +55,3 @@ public:
     }
     ~SaveState() { var_ = old_value; }
 };
-
-
