@@ -676,7 +676,7 @@ void MusicReader::reset_cursor_timer()
 void MusicReader::save_window_state_to_config()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     ConfigFileGroupSave group_saver(config_);
 
@@ -1010,7 +1010,7 @@ void MusicReader::save_config()
 void MusicReader::save_open_documents_to_config()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     std::vector<OpenDocument> open_documents;
     open_documents.reserve(tab_widget_->count());
@@ -1250,7 +1250,7 @@ void MusicReader::on_viewer_page_changed(int /*page_num*/)
 void MusicReader::update_background()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (tab_widget_->count() == 0) {
         tab_widget_->setStyleSheet(R"(
@@ -1459,7 +1459,7 @@ void MusicReader::show_titlebar_menu()
 void MusicReader::check_first_run_tour()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (!config_.tour_has_run()) {
         QMessageBox msgBox(this);
@@ -1835,7 +1835,7 @@ void MusicReader::open_file_dialog(const std::filesystem::path& pathname)
 void MusicReader::initialize_fast_search()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     std::string name = config_.music_directory().string();
 

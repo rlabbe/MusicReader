@@ -862,7 +862,7 @@ void PDFViewer::update_image(const QString& message)
 void PDFViewer::adjust_initial_subwindow_size()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
     REQUIRES(label_);
 
     if (page_.is_empty())
@@ -1468,7 +1468,7 @@ void PDFViewer::select_annotation(const AnnotationHandle& handle)
 void PDFViewer::clear_selection()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (!selected_annotation_)
         return;
@@ -1525,7 +1525,7 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
 void PDFViewer::flush_pending_annotation_move()
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (!selected_annotation_moved_ || !selected_annotation_ || !document_)
         return;

@@ -409,7 +409,7 @@ void DocumentLoadManager::cancel_all_active_jobs_async()
     if (cancellation_in_progress_)
         return;
 
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     cancellation_in_progress_ = true;
 

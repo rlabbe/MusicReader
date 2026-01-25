@@ -113,7 +113,7 @@ Page Document::get_page(int page_num, bool is_current) const
 void Document::prioritize() const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (auto* manager = DocumentLoadManager::instance())
         manager->prioritize_page(filename_);
@@ -324,7 +324,6 @@ void Document::load_page(int page_num)
 std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
 
     if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
         return {0.0f, 0.0f};
@@ -337,7 +336,7 @@ std::pair<float, float> Document::get_page_dimensions_points(int page_num) const
 Bookmark* Document::find_bookmark(const BookmarkHandle& handle)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     for (auto& bookmark : bookmarks_) {
         if (bookmark.handle_ == handle)
@@ -365,7 +364,7 @@ bool Document::reparent_bookmark(const BookmarkHandle& handle, const BookmarkHan
 bool Document::reparent_bookmark(Bookmark bookmark, const BookmarkHandle& new_parent_handle, bool internal_call)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
     if (bookmarks_.empty())
@@ -923,7 +922,7 @@ bool Document::save_moved_annotation(const AnnotationHandle& handle, float origi
 void Document::reload_page(int page_num)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (page_num < 1 || page_num > page_count())
         return;
@@ -958,7 +957,7 @@ void Document::reload_page(int page_num)
 QImage Document::render_page_with_preview_annotation(int page_num, const Annotation& preview_annotation)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (page_num < 1 || page_num > page_count())
         return QImage();
@@ -1067,7 +1066,7 @@ QImage Document::render_page_with_moved_annotation(int page_num,
                                                    float new_y)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     if (page_num < 1 || page_num > page_count())
         return QImage();
@@ -1507,7 +1506,7 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
 bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION;
+    TRACE_CALL;
 
     auto [ctx, doc] = open_fitz(filename_.string());
     if (!ctx || !doc) {
