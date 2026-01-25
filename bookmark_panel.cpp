@@ -576,9 +576,14 @@ void BookmarkPanel::select_page(int page_num)
     if (!doc)
         return;
 
-    BookmarkHandle target_handle = find_bookmark_for_page(page_num, doc->bookmarks());
-    if (!target_handle)
+    auto [bookmark_page, target_handle] = find_bookmark_for_page(page_num, doc->bookmarks());
+
+    // Only select if the bookmark is exactly on this page, otherwise clear selection
+    if (bookmark_page != page_num) {
+        tree_widget_->clearSelection();
+        tree_widget_->setCurrentItem(nullptr);
         return;
+    }
 
     // Find the tree widget item for this bookmark
     auto* item = find_item_by_handle(target_handle);
@@ -612,7 +617,7 @@ std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(con
 }
 
 
-BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark>& bookmarks)
+std::pair<int, BookmarkHandle> BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark>& bookmarks)
 {
     auto flattened = flatten_bookmarks(bookmarks);
 
@@ -623,10 +628,10 @@ BookmarkHandle BookmarkPanel::find_bookmark_for_page(int page_num, const std::ve
 
     if (it != flattened.begin()) {
         --it;
-        return it->second;
+        return *it;
     }
 
-    return BookmarkHandle();
+    return {-1, BookmarkHandle()};
 }
 
 

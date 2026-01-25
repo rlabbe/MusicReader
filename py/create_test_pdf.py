@@ -9,7 +9,7 @@ import fitz  # PyMuPDF
 PAGE_WIDTH = 595
 PAGE_HEIGHT = 842
 
-page_count = 2
+page_count = 3
 
 doc = fitz.open()  # new empty PDF
 
