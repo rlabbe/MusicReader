@@ -9,7 +9,12 @@
 #include "logger.h"
 
 
-Annotation::Annotation(const std::string& text, int page_num, float x, float y, float width, float height,
+Annotation::Annotation(const std::string& text,
+                       int page_num,
+                       float x,
+                       float y,
+                       float width,
+                       float height,
                        const FontInfo& font_info)
     : handle_(generate_uuid())
     , page_num_(page_num)

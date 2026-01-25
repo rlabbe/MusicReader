@@ -8,7 +8,7 @@
 class Document;
 
 enum class PageRequestType {
-    CurrentDisplay,  // For the page being actively displayed
+    CurrentDisplay, // For the page being actively displayed
     Prefetch        // For prefetching adjacent pages
 };
 

@@ -210,8 +210,7 @@ float text_width(const std::string& pdf_font_name, float font_size, const std::s
         font = fz_new_base14_font(ctx, base14_name.c_str());
         if (!font) {
             logger::error("mupdf_measure_text_width: failed to load font '{}'", base14_name);
-        }
-        else {
+        } else {
             // Measure each character - fz_advance_glyph returns width in em units (1.0 = font_size)
             const char* s = text.c_str();
             while (*s) {
@@ -254,8 +253,7 @@ float text_height(const std::string& pdf_font_name, float font_size)
         font = fz_new_base14_font(ctx, base14_name.c_str());
         if (!font) {
             logger::error("mupdf_measure_text_height: failed to load font '{}'", base14_name);
-        }
-        else {
+        } else {
             // ascender and descender are in em units
             // Note: descender is typically negative
             float ascender = fz_font_ascender(ctx, font);
@@ -294,8 +292,7 @@ float font_ascent(const std::string& pdf_font_name, float font_size)
         font = fz_new_base14_font(ctx, base14_name.c_str());
         if (!font) {
             logger::error("mupdf_font_ascent: failed to load font '{}'", base14_name);
-        }
-        else {
+        } else {
             ascent = fz_font_ascender(ctx, font) * font_size;
         }
     }
@@ -330,8 +327,7 @@ float font_descent(const std::string& pdf_font_name, float font_size)
         font = fz_new_base14_font(ctx, base14_name.c_str());
         if (!font) {
             logger::error("mupdf_font_descent: failed to load font '{}'", base14_name);
-        }
-        else {
+        } else {
             // descender is negative in MuPDF, return as positive
             descent = -fz_font_descender(ctx, font) * font_size;
         }

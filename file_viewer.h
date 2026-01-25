@@ -5,7 +5,8 @@
 class FileViewer : public QMainWindow {
     Q_OBJECT
 public:
-    explicit FileViewer(const std::string& filename, QWidget* parent = nullptr,
+    explicit FileViewer(const std::string& filename,
+                        QWidget* parent = nullptr,
                         const QString& initial_search = QString())
         : QMainWindow(parent)
         , m_filename(filename)

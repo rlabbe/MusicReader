@@ -147,7 +147,8 @@ inline bool bookmark_sort(const Bookmark& a, const Bookmark& b)
 }
 
 
-inline void flatten_bookmarks(const std::vector<Bookmark>& bookmarks, const BookmarkHandle& parent,
+inline void flatten_bookmarks(const std::vector<Bookmark>& bookmarks,
+                              const BookmarkHandle& parent,
                               std::vector<std::pair<int, BookmarkHandle>>& result)
 {
     for (const auto& bookmark : bookmarks) {

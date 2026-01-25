@@ -2,7 +2,6 @@
 #include <iostream>
 
 
-
 Border find_content_edges(const QImage& img, int black_pixel_threshold)
 {
     if (img.isNull()) {

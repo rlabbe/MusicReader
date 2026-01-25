@@ -640,7 +640,6 @@ QString IMSLPSearchDialog::get_temp_file_path(const QString& filename) const
 }
 
 
-
 void IMSLPSearchDialog::contextMenuEvent(QContextMenuEvent* event)
 {
     if (!QWhatsThis::inWhatsThisMode())
@@ -742,7 +741,8 @@ void IMSLPSearchDialog::hide_hover_popup()
 }
 
 
-QString IMSLPSearchDialog::save_file_to_permanent_location(const QString& temp_path, const QString& filename,
+QString IMSLPSearchDialog::save_file_to_permanent_location(const QString& temp_path,
+                                                           const QString& filename,
                                                            MusicReader* main_window)
 {
     // Use last save directory if available, otherwise use music directory from config

@@ -570,11 +570,8 @@ void ConfigFile::read(bool reset_on_error)
         if (font_json.contains("size") && font_json["size"].is_number())
             annotation_font_.size = font_json["size"].get<float>();
         if (font_json.contains("color") && font_json["color"].is_array() && font_json["color"].size() == 3) {
-            annotation_font_.color = {
-                font_json["color"][0].get<int>(),
-                font_json["color"][1].get<int>(),
-                font_json["color"][2].get<int>()
-            };
+            annotation_font_.color = {font_json["color"][0].get<int>(), font_json["color"][1].get<int>(),
+                                      font_json["color"][2].get<int>()};
         }
     }
 
@@ -885,7 +882,7 @@ void ConfigFile::set_defaults()
     dev_mode_ = false;
     tour_has_run_ = false;
     append_to_log_ = false;
-    annotation_font_ = FontInfo{};  // Use FontInfo defaults
+    annotation_font_ = FontInfo {}; // Use FontInfo defaults
 }
 
 std::string ConfigFile::repr() const

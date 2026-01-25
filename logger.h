@@ -142,8 +142,12 @@ struct function_tracer {
     std::optional<std::string> message;
 
     template<typename... Args>
-    __forceinline function_tracer(const char* file, const char* name, int line, bool enter_exit,
-                                      std::format_string<Args...> fmt = "", Args&&... args)
+    __forceinline function_tracer(const char* file,
+                                  const char* name,
+                                  int line,
+                                  bool enter_exit,
+                                  std::format_string<Args...> fmt = "",
+                                  Args&&... args)
         : file_name(file)
         , func_name(name)
         , line_num(line)
@@ -219,5 +223,4 @@ struct function_tracer {
 // results in 1 line in the log, useful when the function doesn't call any other
 // function which is being traced.
 #define TRACE_CALL function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, false)
-#define TRACE_CALL_MSG(...)                                                                                            \
-    function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, false, __VA_ARGS__)
+#define TRACE_CALL_MSG(...) function_tracer _trace_guard_##__LINE__(__FILE__, __FUNCSIG__, __LINE__, false, __VA_ARGS__)

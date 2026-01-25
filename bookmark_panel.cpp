@@ -622,7 +622,8 @@ std::vector<std::pair<int, BookmarkHandle>> BookmarkPanel::flatten_bookmarks(con
 }
 
 
-std::pair<int, BookmarkHandle> BookmarkPanel::find_bookmark_for_page(int page_num, const std::vector<Bookmark>& bookmarks)
+std::pair<int, BookmarkHandle> BookmarkPanel::find_bookmark_for_page(int page_num,
+                                                                     const std::vector<Bookmark>& bookmarks)
 {
     auto flattened = flatten_bookmarks(bookmarks);
 

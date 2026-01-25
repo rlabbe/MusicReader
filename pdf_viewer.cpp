@@ -18,8 +18,13 @@
 #endif
 
 
-PDFViewer::PDFViewer(std::shared_ptr<Document> document, ConfigFile* config, int page, StatusBar* sbar, QWidget* parent,
-                     MusicReader* reader, BookmarkPanel* panel)
+PDFViewer::PDFViewer(std::shared_ptr<Document> document,
+                     ConfigFile* config,
+                     int page,
+                     StatusBar* sbar,
+                     QWidget* parent,
+                     MusicReader* reader,
+                     BookmarkPanel* panel)
     : QWidget(parent)
     , document_(document)
     , status_bar_(sbar)
@@ -242,8 +247,7 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
                 move_selected_annotation(move_pixels, 0);
                 event->accept();
                 return;
-            default:
-                break;
+            default: break;
         }
     }
 
@@ -769,8 +773,7 @@ void PDFViewer::update_image(const QString& message)
         }
         if (ann) {
             QImage moved_image = document_->render_page_with_moved_annotation(
-                ann->page_num_, selected_annotation_,
-                selected_annotation_original_x_, selected_annotation_original_y_,
+                ann->page_num_, selected_annotation_, selected_annotation_original_x_, selected_annotation_original_y_,
                 ann->x_, ann->y_);
             if (!moved_image.isNull()) {
                 QPixmap moved_pixmap = QPixmap::fromImage(moved_image);
@@ -1536,8 +1539,7 @@ void PDFViewer::flush_pending_annotation_move()
         }
     }
 
-    document_->save_moved_annotation(selected_annotation_,
-                                     selected_annotation_original_x_,
+    document_->save_moved_annotation(selected_annotation_, selected_annotation_original_x_,
                                      selected_annotation_original_y_);
     selected_annotation_moved_ = false;
 

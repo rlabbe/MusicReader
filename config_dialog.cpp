@@ -198,8 +198,10 @@ void ConfigDialog::load_settings()
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_save_cadence_->setValue(config_.save_cadence_secs());
     combo_log_level_->setCurrentIndex(combo_log_level_->findData(static_cast<int>(config_.log_level())));
-    combo_horiz_alignment_->setCurrentIndex(combo_horiz_alignment_->findData(static_cast<int>(config_.page_location())));
-    combo_vert_alignment_->setCurrentIndex(combo_vert_alignment_->findData(static_cast<int>(config_.page_vertical_location())));
+    combo_horiz_alignment_->setCurrentIndex(
+        combo_horiz_alignment_->findData(static_cast<int>(config_.page_location())));
+    combo_vert_alignment_->setCurrentIndex(
+        combo_vert_alignment_->findData(static_cast<int>(config_.page_vertical_location())));
     check_restore_window_position_->setChecked(config_.restore_window_position());
     check_restore_documents_->setChecked(config_.restore_documents());
     check_allow_oversize_->setChecked(config_.allow_oversize());

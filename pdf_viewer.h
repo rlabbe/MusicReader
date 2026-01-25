@@ -24,8 +24,13 @@ public:
     // When document is created it isn't opened yet. So,
     // create this class, call document->load_document(), and when it is
     // complete call get_page(page_num, true).
-    PDFViewer(std::shared_ptr<Document> document, ConfigFile* config, int page, StatusBar* sbar, QWidget* parent,
-              MusicReader* reader, BookmarkPanel* panel);
+    PDFViewer(std::shared_ptr<Document> document,
+              ConfigFile* config,
+              int page,
+              StatusBar* sbar,
+              QWidget* parent,
+              MusicReader* reader,
+              BookmarkPanel* panel);
 
     ~PDFViewer();
 

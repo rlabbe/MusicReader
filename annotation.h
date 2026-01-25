@@ -38,7 +38,12 @@ inline bool operator==(const AnnotationHandle& lhs, const AnnotationHandle& rhs)
 
 class Annotation {
 public:
-    Annotation(const std::string& text, int page_num, float x, float y, float width, float height,
+    Annotation(const std::string& text,
+               int page_num,
+               float x,
+               float y,
+               float width,
+               float height,
                const FontInfo& font_info);
 
 private:

@@ -35,8 +35,8 @@ private:
     int get_icon_size() const;
     void download_and_open_pdf(QListWidgetItem* item);
     QString get_temp_file_path(const QString& filename) const;
-    QString save_file_to_permanent_location(const QString& temp_path, const QString& filename,
-                                            MusicReader* main_window);
+    QString
+    save_file_to_permanent_location(const QString& temp_path, const QString& filename, MusicReader* main_window);
 
 private slots:
     void on_search_clicked();

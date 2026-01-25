@@ -4,12 +4,14 @@ AlignAfterOpenBracket: Align
 AlignArrayOfStructures : Right
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine : false
 AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortIfStatementsOnASingleLine: false
 AllowShortBlocksOnASingleLine : false
 AllowShortLambdasOnASingleLine : false
+BinPackParameters: false
 BreakConstructorInitializers: BeforeComma
 SortIncludes: false
 ColumnLimit: 120

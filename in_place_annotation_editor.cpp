@@ -85,8 +85,8 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
     float ascent = font_ascent(font_info.family, scaled_font_size);
     QPoint editor_pos;
     editor_pos.setX(position.x());
-    editor_pos.setY(AnnotationCoordinates::baseline_display_to_editor_widget_y(
-        position.y(), doc_margin, static_cast<int>(ascent)));
+    editor_pos.setY(
+        AnnotationCoordinates::baseline_display_to_editor_widget_y(position.y(), doc_margin, static_cast<int>(ascent)));
 
     move(editor_pos);
 

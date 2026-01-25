@@ -2,7 +2,6 @@
 #pragma warning(disable : 4611) // disable warning about _setjump not working with c++ destructors
 
 
-
 inline std::string to_string(QImage::Format format)
 {
     switch (format) {
@@ -60,7 +59,3 @@ inline int get_max_screen_height()
     }();
     return max_screen_height;
 }
-
-
-
-

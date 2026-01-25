@@ -26,7 +26,9 @@ public:
     std::pair<int, bool> current_page(const std::string& log_msg = "") const;
 
 
-    PDFViewer* open_pdf_in_tab(const std::filesystem::path& filename, int page = 1, PDFViewer* tab_to_use = nullptr,
+    PDFViewer* open_pdf_in_tab(const std::filesystem::path& filename,
+                               int page = 1,
+                               PDFViewer* tab_to_use = nullptr,
                                bool is_temporary = false);
     std::shared_ptr<Document> open_pdf_document(const std::filesystem::path& filename, int page_num);
 

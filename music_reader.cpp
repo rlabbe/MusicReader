@@ -180,8 +180,8 @@ void MusicReader::on_reload_document()
     on_tab_current_changed();
 }
 
-PDFViewer* MusicReader::open_pdf_in_tab(const std::filesystem::path& filename, int page, PDFViewer* viewer,
-                                        bool is_temporary)
+PDFViewer*
+MusicReader::open_pdf_in_tab(const std::filesystem::path& filename, int page, PDFViewer* viewer, bool is_temporary)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -1666,8 +1666,7 @@ void MusicReader::select_annotation_font()
     QPushButton* color_button = new QPushButton(&dialog);
     color_button->setMinimumHeight(30);
     auto update_color_button = [color_button](const QColor& color) {
-        color_button->setStyleSheet(
-            QString("background-color: %1; border: 1px solid gray;").arg(color.name()));
+        color_button->setStyleSheet(QString("background-color: %1; border: 1px solid gray;").arg(color.name()));
         color_button->setText(color.name());
     };
     update_color_button(selected_color);
@@ -1695,9 +1694,8 @@ void MusicReader::select_annotation_font()
     current_font.color = {selected_color.red(), selected_color.green(), selected_color.blue()};
     config_.set_annotation_font(current_font);
 
-    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})",
-                current_font.family, current_font.size,
-                selected_color.red(), selected_color.green(), selected_color.blue());
+    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})", current_font.family,
+                 current_font.size, selected_color.red(), selected_color.green(), selected_color.blue());
 }
 
 void MusicReader::goto_page_dialog()
@@ -1778,8 +1776,7 @@ void MusicReader::save_current_page_as_bmp()
 
     // Convert to grayscale if the source is grayscale to preserve format
     QImage img_to_save = page.img;
-    if (page.img.format() == QImage::Format_Grayscale8 ||
-        page.img.format() == QImage::Format_Grayscale16) {
+    if (page.img.format() == QImage::Format_Grayscale8 || page.img.format() == QImage::Format_Grayscale16) {
         img_to_save = page.img.convertToFormat(QImage::Format_Grayscale8);
     }
 
@@ -2400,7 +2397,6 @@ void MusicReader::create_global_shortcuts()
     shortcut = new QShortcut(QKeySequence("F2"), this);
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, &MusicReader::on_external_edit_document);
-
 }
 
 void MusicReader::create_toolbar()
@@ -2473,7 +2469,7 @@ void MusicReader::create_toolbar()
     text_annotation_action_ = new QAction(QIcon(":/MusicReader/images/annotation.ico"), "", this);
     text_annotation_action_->setToolTip("Text Annotation Mode (A)\nRight-click for font settings");
     text_annotation_action_->setCheckable(true);
-    //text_annotation_action_->setEnabled(config_.debug_annotations());
+    // text_annotation_action_->setEnabled(config_.debug_annotations());
     connect(text_annotation_action_, &QAction::triggered, this, &MusicReader::toggle_text_annotation_mode);
     toolbar_->addAction(text_annotation_action_);
 

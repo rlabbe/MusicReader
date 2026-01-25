@@ -316,8 +316,16 @@ BookmarkResult add_bookmarks_to_pdf(const std::filesystem::path& pdf_filename, c
     return BookmarkResult::Success;
 }
 
-TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename, const std::string& text, int page_num, float x,
-                           float y, float font_size, const std::string& font_name, int r, int g, int b)
+TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename,
+                           const std::string& text,
+                           int page_num,
+                           float x,
+                           float y,
+                           float font_size,
+                           const std::string& font_name,
+                           int r,
+                           int g,
+                           int b)
 {
     fz_context* ctx = nullptr;
     fz_document* fz_doc = nullptr;
@@ -490,9 +498,17 @@ TextResult add_text_to_pdf(const std::filesystem::path& pdf_filename, const std:
 }
 
 
-TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, const std::string& text, int page_num,
-                                  float x, float y, float font_size, const std::string& font_family,
-                                  const std::filesystem::path& font_file, int r, int g, int b)
+TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename,
+                                  const std::string& text,
+                                  int page_num,
+                                  float x,
+                                  float y,
+                                  float font_size,
+                                  const std::string& font_family,
+                                  const std::filesystem::path& font_file,
+                                  int r,
+                                  int g,
+                                  int b)
 {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
     if (!ctx)
@@ -619,8 +635,12 @@ TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename, con
 
 
 // Utility function for PDFViewer to convert pixel coordinates to PDF points
-std::pair<float, float> pixels_to_pdf_points(int pixel_x, int pixel_y, int page_width_pixels, int page_height_pixels,
-                                             int page_width_points, int page_height_points)
+std::pair<float, float> pixels_to_pdf_points(int pixel_x,
+                                             int pixel_y,
+                                             int page_width_pixels,
+                                             int page_height_pixels,
+                                             int page_width_points,
+                                             int page_height_points)
 {
     // Convert from top-left pixel coordinates to bottom-left PDF points
     float pdf_x = (float(pixel_x) / page_width_pixels) * page_width_points;
@@ -701,8 +721,12 @@ bool delete_all_freetext_annotations(fz_context* ctx, pdf_document* pdf)
 }
 
 
-bool delete_annotation_by_content_and_position(fz_context* ctx, pdf_document* pdf, int target_page,
-                                               const std::string& target_text, float target_x, float target_y,
+bool delete_annotation_by_content_and_position(fz_context* ctx,
+                                               pdf_document* pdf,
+                                               int target_page,
+                                               const std::string& target_text,
+                                               float target_x,
+                                               float target_y,
                                                float tolerance)
 {
     if (!ctx || !pdf || target_page < 1)

@@ -572,36 +572,41 @@ int DocumentLoadManager::calculate_max_concurrent_jobs() const
         max_jobs = 1;
         current_pressure_level = 4;
         if (last_memory_pressure_level_ < 4) {
-            logger::debug("MEMORY CRITICAL: Available: {} MB / {} MB ({}% pressure) - limiting to 1 concurrent page load",
-                          stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent);
+            logger::debug(
+                "MEMORY CRITICAL: Available: {} MB / {} MB ({}% pressure) - limiting to 1 concurrent page load",
+                stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent);
         }
     } else if (stats.memory_pressure_percent >= 85) {
         max_jobs = std::max(1, max_concurrent_jobs_ / 4);
         current_pressure_level = 3;
         if (last_memory_pressure_level_ < 3) {
-            logger::debug("MEMORY PRESSURE HIGH: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
-                          stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+            logger::debug(
+                "MEMORY PRESSURE HIGH: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
         }
     } else if (stats.memory_pressure_percent >= 70) {
         max_jobs = std::max(1, max_concurrent_jobs_ / 2);
         current_pressure_level = 2;
         if (last_memory_pressure_level_ < 2) {
-            logger::debug("MEMORY PRESSURE MEDIUM: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
-                        stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+            logger::debug(
+                "MEMORY PRESSURE MEDIUM: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
         }
     } else if (stats.memory_pressure_percent >= 50) {
         max_jobs = std::max(1, (max_concurrent_jobs_ * 3) / 4);
         current_pressure_level = 1;
         if (last_memory_pressure_level_ < 1) {
-            logger::debug("MEMORY PRESSURE LIGHT: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
-                        stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+            logger::debug(
+                "MEMORY PRESSURE LIGHT: Available: {} MB / {} MB ({}% pressure) - reducing to {} concurrent loads",
+                stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
         }
     }
 
     // Log when pressure decreases significantly
     if (current_pressure_level < last_memory_pressure_level_ && last_memory_pressure_level_ >= 2) {
-        logger::debug("MEMORY PRESSURE DECREASED: Available: {} MB / {} MB ({}% pressure) - restoring to {} concurrent loads",
-                    stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
+        logger::debug(
+            "MEMORY PRESSURE DECREASED: Available: {} MB / {} MB ({}% pressure) - restoring to {} concurrent loads",
+            stats.available_memory_mb, stats.total_memory_mb, stats.memory_pressure_percent, max_jobs);
     }
 
     last_memory_pressure_level_ = current_pressure_level;

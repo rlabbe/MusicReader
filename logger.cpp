@@ -252,7 +252,6 @@ void logger::enable_debug_logging(bool enable)
 }
 
 
-
 void logger::enable_trace_logging(bool enable)
 {
     if (!logger_)

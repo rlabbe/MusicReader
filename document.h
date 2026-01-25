@@ -62,8 +62,8 @@ public:
     bool remove_bookmark(const BookmarkHandle& handle);
 
     std::pair<BookmarkHandle, bool> add_bookmark(const std::string& title, int page_num);
-    std::pair<BookmarkHandle, bool> add_bookmark(const std::string& title, int page_num,
-                                                 const BookmarkHandle& parent_handle);
+    std::pair<BookmarkHandle, bool>
+    add_bookmark(const std::string& title, int page_num, const BookmarkHandle& parent_handle);
 
     // looks for a file named filename.txt in current directory, uses it to set bookmarks
     bool set_bookmarks_from_txt_file();
@@ -85,9 +85,12 @@ public:
 
     // Render page with an existing annotation shown at a different position (for move preview)
     // original_x/y are needed to find the annotation in the PDF file (before in-memory move)
-    QImage render_page_with_moved_annotation(int page_num, const AnnotationHandle& handle,
-                                             float original_x, float original_y,
-                                             float new_x, float new_y);
+    QImage render_page_with_moved_annotation(int page_num,
+                                             const AnnotationHandle& handle,
+                                             float original_x,
+                                             float original_y,
+                                             float new_x,
+                                             float new_y);
 
     void reload_page(int page_num);
 
@@ -128,7 +131,7 @@ private:
     Annotation* find_annotation(const AnnotationHandle& handle);
 
     // Individual PDF annotation operations - each opens PDF, modifies one annotation, saves
-    bool add_annotation_to_pdf(Annotation& ann);  // Updates ann with final rect from PDF
+    bool add_annotation_to_pdf(Annotation& ann); // Updates ann with final rect from PDF
     bool delete_annotation_from_pdf(const Annotation& ann);
     bool update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann);
     void clear_completed_features();

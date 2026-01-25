@@ -91,7 +91,8 @@ void test_annotation_coordinates()
     // PDF coordinate system: (0,0) = bottom-left, so top-left of US Letter (612x792) is (0, 792)
     TextResult r1 = add_text_to_pdf(test_pdf, "TOP-LEFT", 1, 50.0f, 742.0f, 14.0f, "Consolas", 255, 0, 0);
     std::cout << "Test 1 (top-left): x=50, y=742 (50pt from top) - Result: " << static_cast<int>(r1);
-    if (r1 != TextResult::Success) std::cout << " (FAILED - check if incremental save issue)";
+    if (r1 != TextResult::Success)
+        std::cout << " (FAILED - check if incremental save issue)";
     std::cout << std::endl;
 
     // Test 2: Middle of page
@@ -122,7 +123,8 @@ void test_create_blank_pdf()
         return;
     }
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         std::cout << "Created PDF document" << std::endl;
 
@@ -142,7 +144,8 @@ void test_create_blank_pdf()
 
         pdf_drop_document(ctx, pdf);
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
 
@@ -167,7 +170,8 @@ void test_bmp_to_pdf_annotation()
         return;
     }
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         fz_rect mediabox = fz_make_rect(0, 0, page_width, page_height);
         pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
@@ -209,7 +213,8 @@ void test_bmp_to_pdf_annotation()
 
         std::cout << "Saved blank PDF to " << pdf_path.string() << std::endl;
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
 
@@ -229,7 +234,8 @@ void test_add_one_annotation()
         return;
     }
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         std::cout << "Created PDF document" << std::endl;
 
@@ -254,10 +260,10 @@ void test_add_one_annotation()
             pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
             pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, 50.0f);   // x0
-            pdf_array_push_real(ctx, rect, 742.0f);  // y0
-            pdf_array_push_real(ctx, rect, 150.0f);  // x1
-            pdf_array_push_real(ctx, rect, 760.0f);  // y1
+            pdf_array_push_real(ctx, rect, 50.0f);  // x0
+            pdf_array_push_real(ctx, rect, 742.0f); // y0
+            pdf_array_push_real(ctx, rect, 150.0f); // x1
+            pdf_array_push_real(ctx, rect, 760.0f); // y1
             pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
             pdf_drop_obj(ctx, rect);
 
@@ -278,10 +284,10 @@ void test_add_one_annotation()
             pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
             pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, 462.0f);  // x0
-            pdf_array_push_real(ctx, rect, 742.0f);  // y0
-            pdf_array_push_real(ctx, rect, 562.0f);  // x1 (50pt from right edge)
-            pdf_array_push_real(ctx, rect, 760.0f);  // y1
+            pdf_array_push_real(ctx, rect, 462.0f); // x0
+            pdf_array_push_real(ctx, rect, 742.0f); // y0
+            pdf_array_push_real(ctx, rect, 562.0f); // x1 (50pt from right edge)
+            pdf_array_push_real(ctx, rect, 760.0f); // y1
             pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
             pdf_drop_obj(ctx, rect);
 
@@ -302,10 +308,10 @@ void test_add_one_annotation()
             pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
             pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, 50.0f);   // x0
-            pdf_array_push_real(ctx, rect, 32.0f);   // y0 (50pt from bottom = 50, minus 18pt height = 32)
-            pdf_array_push_real(ctx, rect, 180.0f);  // x1
-            pdf_array_push_real(ctx, rect, 50.0f);   // y1
+            pdf_array_push_real(ctx, rect, 50.0f);  // x0
+            pdf_array_push_real(ctx, rect, 32.0f);  // y0 (50pt from bottom = 50, minus 18pt height = 32)
+            pdf_array_push_real(ctx, rect, 180.0f); // x1
+            pdf_array_push_real(ctx, rect, 50.0f);  // y1
             pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
             pdf_drop_obj(ctx, rect);
 
@@ -326,10 +332,10 @@ void test_add_one_annotation()
             pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
             pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, 442.0f);  // x0
-            pdf_array_push_real(ctx, rect, 32.0f);   // y0
-            pdf_array_push_real(ctx, rect, 562.0f);  // x1
-            pdf_array_push_real(ctx, rect, 50.0f);   // y1
+            pdf_array_push_real(ctx, rect, 442.0f); // x0
+            pdf_array_push_real(ctx, rect, 32.0f);  // y0
+            pdf_array_push_real(ctx, rect, 562.0f); // x1
+            pdf_array_push_real(ctx, rect, 50.0f);  // y1
             pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
             pdf_drop_obj(ctx, rect);
 
@@ -350,10 +356,10 @@ void test_add_one_annotation()
             pdf_dict_put(ctx, annot, PDF_NAME(Subtype), PDF_NAME(FreeText));
 
             pdf_obj* rect = pdf_new_array(ctx, pdf, 4);
-            pdf_array_push_real(ctx, rect, 276.0f);  // x0 (center - 30)
-            pdf_array_push_real(ctx, rect, 387.0f);  // y0 (center - 9)
-            pdf_array_push_real(ctx, rect, 336.0f);  // x1 (center + 30)
-            pdf_array_push_real(ctx, rect, 405.0f);  // y1 (center + 9)
+            pdf_array_push_real(ctx, rect, 276.0f); // x0 (center - 30)
+            pdf_array_push_real(ctx, rect, 387.0f); // y0 (center - 9)
+            pdf_array_push_real(ctx, rect, 336.0f); // x1 (center + 30)
+            pdf_array_push_real(ctx, rect, 405.0f); // y1 (center + 9)
             pdf_dict_put(ctx, annot, PDF_NAME(Rect), rect);
             pdf_drop_obj(ctx, rect);
 
@@ -374,7 +380,8 @@ void test_add_one_annotation()
 
         pdf_drop_document(ctx, pdf);
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
 
@@ -393,9 +400,11 @@ void create_test_pdf_method1_simple_text()
 {
     std::filesystem::path test_pdf = "D:/dev/MusicReader/test_method1_simple.pdf";
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-    if (!ctx) return;
+    if (!ctx)
+        return;
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
         pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
@@ -443,7 +452,8 @@ void create_test_pdf_method1_simple_text()
         pdf_drop_document(ctx, pdf);
         std::cout << "Created: " << test_pdf.string() << std::endl;
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
     fz_drop_context(ctx);
@@ -453,9 +463,11 @@ void create_test_pdf_method2_textbox()
 {
     std::filesystem::path test_pdf = "D:/dev/MusicReader/test_method2_box.pdf";
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-    if (!ctx) return;
+    if (!ctx)
+        return;
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
         pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
@@ -486,14 +498,14 @@ void create_test_pdf_method2_textbox()
         pdf_drop_obj(ctx, font_dict);
 
         fz_buffer* buf = fz_new_buffer(ctx, 1024);
-        fz_append_string(ctx, buf, "q\n");  // Save state
-        fz_append_string(ctx, buf, "100 680 300 40 re W n\n");  // Clip to box
+        fz_append_string(ctx, buf, "q\n");                     // Save state
+        fz_append_string(ctx, buf, "100 680 300 40 re W n\n"); // Clip to box
         fz_append_string(ctx, buf, "BT\n");
         fz_append_string(ctx, buf, "/F1 24 Tf\n");
         fz_append_string(ctx, buf, "100 700 Td\n");
         fz_append_string(ctx, buf, "(hi) Tj\n");
         fz_append_string(ctx, buf, "ET\n");
-        fz_append_string(ctx, buf, "Q\n");  // Restore state
+        fz_append_string(ctx, buf, "Q\n"); // Restore state
 
         pdf_obj* contents = pdf_add_stream(ctx, pdf, buf, nullptr, 0);
         pdf_dict_put(ctx, page_obj, PDF_NAME(Contents), contents);
@@ -506,7 +518,8 @@ void create_test_pdf_method2_textbox()
         pdf_drop_document(ctx, pdf);
         std::cout << "Created: " << test_pdf.string() << std::endl;
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
     fz_drop_context(ctx);
@@ -516,9 +529,11 @@ void create_test_pdf_method3_xobject()
 {
     std::filesystem::path test_pdf = "D:/dev/MusicReader/test_method3_xobject.pdf";
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-    if (!ctx) return;
+    if (!ctx)
+        return;
 
-    fz_try(ctx) {
+    fz_try(ctx)
+    {
         pdf_document* pdf = pdf_create_document(ctx);
         fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
         pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
@@ -580,8 +595,8 @@ void create_test_pdf_method3_xobject()
         // Use XObject in page content
         fz_buffer* buf = fz_new_buffer(ctx, 256);
         fz_append_string(ctx, buf, "q\n");
-        fz_append_string(ctx, buf, "1 0 0 1 100 700 cm\n");  // Position
-        fz_append_string(ctx, buf, "/X1 Do\n");  // Draw XObject
+        fz_append_string(ctx, buf, "1 0 0 1 100 700 cm\n"); // Position
+        fz_append_string(ctx, buf, "/X1 Do\n");             // Draw XObject
         fz_append_string(ctx, buf, "Q\n");
 
         pdf_obj* contents = pdf_add_stream(ctx, pdf, buf, nullptr, 0);
@@ -595,7 +610,8 @@ void create_test_pdf_method3_xobject()
         pdf_drop_document(ctx, pdf);
         std::cout << "Created: " << test_pdf.string() << std::endl;
     }
-    fz_catch(ctx) {
+    fz_catch(ctx)
+    {
         std::cerr << "Error: " << fz_caught_message(ctx) << std::endl;
     }
     fz_drop_context(ctx);
@@ -607,7 +623,8 @@ void test_marked_content()
 
     // Create blank PDF
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-    if (!ctx) return;
+    if (!ctx)
+        return;
 
     pdf_document* pdf = pdf_create_document(ctx);
     fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
@@ -622,8 +639,8 @@ void test_marked_content()
 
     // Add marked text using Georgia font
     std::filesystem::path georgia_font = "C:/Windows/Fonts/georgia.ttf";
-    TextResult result = add_marked_text_to_pdf(test_pdf, "Hello Georgia!", 1, 100.0f, 700.0f, 24.0f,
-                                                "Georgia", georgia_font, 0, 0, 255);
+    TextResult result = add_marked_text_to_pdf(test_pdf, "Hello Georgia!", 1, 100.0f, 700.0f, 24.0f, "Georgia",
+                                               georgia_font, 0, 0, 255);
 
     if (result == TextResult::Success) {
         std::cout << "Created: " << test_pdf.string() << " with marked content" << std::endl;
@@ -636,8 +653,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
-    //test_marked_content();
-   //test_create_blank_pdf();
+    // test_marked_content();
+    // test_create_blank_pdf();
 
     int result = 0;
     {

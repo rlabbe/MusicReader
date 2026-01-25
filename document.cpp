@@ -573,8 +573,8 @@ std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string& title,
 }
 
 
-std::pair<BookmarkHandle, bool> Document::add_bookmark(const std::string& title, int page_num,
-                                                       const BookmarkHandle& parent_handle)
+std::pair<BookmarkHandle, bool>
+Document::add_bookmark(const std::string& title, int page_num, const BookmarkHandle& parent_handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -789,7 +789,7 @@ bool Document::add_annotation(const Annotation& annotation)
 
     if (save_success) {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-        annotations_.push_back(ann_copy);  // Use copy with updated rect from PDF
+        annotations_.push_back(ann_copy); // Use copy with updated rect from PDF
     }
 
     reload_page(page_num);
@@ -807,8 +807,9 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
         // Find and copy the annotation before removal
-        auto it = std::find_if(annotations_.begin(), annotations_.end(),
-                               [&](const Annotation& a) { return a.handle_ == handle; });
+        auto it = std::find_if(annotations_.begin(), annotations_.end(), [&](const Annotation& a) {
+            return a.handle_ == handle;
+        });
         if (it == annotations_.end()) {
             logger::error("remove_annotation: annotation not found with handle {}", static_cast<int>(handle));
             return false;
@@ -1058,9 +1059,12 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
 }
 
 
-QImage Document::render_page_with_moved_annotation(int page_num, const AnnotationHandle& handle,
-                                                   float original_x, float original_y,
-                                                   float new_x, float new_y)
+QImage Document::render_page_with_moved_annotation(int page_num,
+                                                   const AnnotationHandle& handle,
+                                                   float original_x,
+                                                   float original_y,
+                                                   float new_x,
+                                                   float new_y)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -1481,8 +1485,7 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
         pdf_drop_page(ctx, page);
 
         if (!found) {
-            logger::error("Annotation not found in PDF for deletion: '{}' at ({}, {})",
-                        ann.text_, ann.x_, ann.y_);
+            logger::error("Annotation not found in PDF for deletion: '{}' at ({}, {})", ann.text_, ann.x_, ann.y_);
         }
 
         pdf_write_options opts = pdf_default_write_options;
@@ -1560,8 +1563,8 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
 
         if (!target) {
             pdf_drop_page(ctx, page);
-            logger::error("Annotation not found in PDF for update: '{}' at ({}, {})",
-                         old_ann.text_, old_ann.x_, old_ann.y_);
+            logger::error("Annotation not found in PDF for update: '{}' at ({}, {})", old_ann.text_, old_ann.x_,
+                          old_ann.y_);
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "Annotation not found");
         }
 
