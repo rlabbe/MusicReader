@@ -5,6 +5,7 @@
 #include <QFontMetricsF>
 #include <unordered_set>
 #include <algorithm>
+#include <map>
 #include <qpainter.h>
 #include <Windows.h>
 #include <shlobj.h>
@@ -1220,26 +1221,35 @@ bool Document::save_annotations_to_pdf()
     bool success = false;
     fz_try(ctx)
     {
-        // First, delete all existing FreeText annotations
-        [[maybe_unused]] bool deleted_any = delete_all_freetext_annotations(ctx, pdf);
-
-        // Clear all /Annots arrays to remove deleted annotation references
-        int page_count = pdf_count_pages(ctx, pdf);
-        for (int page_idx = 0; page_idx < page_count; ++page_idx) {
-            pdf_obj* page_obj = pdf_lookup_page_obj(ctx, pdf, page_idx);
-            if (page_obj) {
-                // Create a new empty /Annots array (replaces old one with deleted refs)
-                pdf_obj* new_annots = pdf_new_array(ctx, pdf, 1);
-                pdf_dict_put(ctx, page_obj, PDF_NAME(Annots), new_annots);
-            }
-        }
+        // Cache loaded pages to avoid reloading (which would see annotations we just added)
+        std::map<int, pdf_page*> loaded_pages;
 
         // Add all our annotations
         for (const auto& annotation : annotations_) {
-            pdf_page* page = pdf_load_page(ctx, pdf, annotation.page_num_ - 1);
-            if (!page) {
-                logger::error("Failed to load page {} for annotation", annotation.page_num_);
-                continue;
+            int page_idx = annotation.page_num_ - 1;
+            pdf_page* page = nullptr;
+
+            auto it = loaded_pages.find(page_idx);
+            if (it != loaded_pages.end()) {
+                page = it->second;
+            } else {
+                page = pdf_load_page(ctx, pdf, page_idx);
+                if (!page) {
+                    logger::error("Failed to load page {} for annotation", annotation.page_num_);
+                    continue;
+                }
+                loaded_pages[page_idx] = page;
+
+                // Delete any existing FreeText annotations on this page
+                // (pdf_load_page may have loaded cached annotations)
+                pdf_annot* annot = pdf_first_annot(ctx, page);
+                while (annot) {
+                    pdf_annot* next = pdf_next_annot(ctx, annot);
+                    if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                        pdf_delete_annot(ctx, page, annot);
+                    }
+                    annot = next;
+                }
             }
 
             fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
@@ -1274,6 +1284,10 @@ bool Document::save_annotations_to_pdf()
             pdf_update_annot(ctx, annot);
 
             pdf_drop_annot(ctx, annot);
+        }
+
+        // Drop all cached pages
+        for (auto& [idx, page] : loaded_pages) {
             pdf_drop_page(ctx, page);
         }
 

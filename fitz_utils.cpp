@@ -303,6 +303,7 @@ BookmarkResult add_bookmarks_to_pdf(const std::filesystem::path& pdf_filename, c
     }
     fz_catch(ctx)
     {
+        logger::error("MuPDF exception in add_bookmarks_to_pdf: {}", fz_caught_message(ctx));
         if (fz_doc)
             fz_drop_document(ctx, fz_doc);
         fz_drop_context(ctx);

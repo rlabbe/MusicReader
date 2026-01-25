@@ -4,9 +4,6 @@
 #include <ShlObj.h>
 #include <filesystem>
 #include <QString>
-#include <QFont>
-#include <QFontMetrics>
-#include <QTextDocument>
 
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
@@ -79,35 +76,6 @@ std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
         return qt_font.toStdString();
 }
 
-QSize calculate_text_size(const QString& text, const FontInfo& font_info)
-{
-    QString qt_font_name = pdf_font_to_qt_font(font_info.family);
-    QFont font(qt_font_name);
-    font.setPixelSize(static_cast<int>(font_info.size));
-    QFontMetrics fm(font);
-
-    int width = fm.horizontalAdvance(text);
-    int height = fm.height();
-
-    // Add small padding
-    width += 4;
-    height += 4;
-
-    return QSize(width, height);
-}
-
-QPoint calculate_adjusted_position(const QPoint& click_pos, const FontInfo& font_info)
-{
-    QTextDocument doc;
-    QString qt_font_name = pdf_font_to_qt_font(font_info.family);
-    QFont font(qt_font_name, static_cast<int>(font_info.size));
-    QFontMetrics fm(font);
-
-    QPoint adjusted_pos = click_pos;
-    adjusted_pos.setX(click_pos.x() - static_cast<int>(doc.documentMargin()) - 2);
-    adjusted_pos.setY(click_pos.y() - fm.ascent() - static_cast<int>(doc.documentMargin()));
-    return adjusted_pos;
-}
 
 std::optional<std::string> lookup_font_file(const std::string& font_family)
 {
@@ -169,7 +137,6 @@ std::optional<std::string> lookup_font_file(const std::string& font_family)
 
             if (std::filesystem::exists(full_path)) {
                 found_file = full_path.string();
-                logger::info("Found font file: {} for family '{}'", full_path.string(), font_family);
                 break;
             }
         }

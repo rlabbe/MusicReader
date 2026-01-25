@@ -4,6 +4,34 @@
 #include "logger.h"
 #include <iostream>
 
+/*
+ * InPlaceAnnotationEditor Design
+ * ==============================
+ *
+ * This is a transparent text input widget overlaid on the PDF view. Its sole purpose
+ * is to capture keystrokes and provide a cursor - the actual text rendering is done
+ * by MuPDF.
+ *
+ * How it works:
+ * 1. User clicks on PDF in annotation mode -> start_editing() positions this widget
+ * 2. As user types, text_changed_for_preview signal triggers MuPDF to render a preview
+ * 3. set_preview_mode(true) makes Qt's text invisible (color: transparent) so only
+ *    MuPDF's rendered preview shows through
+ * 4. The widget still displays the cursor, allowing the user to see where they're typing
+ * 5. On Enter/focus loss, editing_finished signal sends final text to create the annotation
+ *
+ * Why this design:
+ * - MuPDF and Qt use different font metrics, so Qt-rendered text won't match the final
+ *   PDF annotation position/size
+ * - By making Qt text transparent and showing MuPDF preview, user sees exactly what
+ *   will be saved
+ * - Widget sizing/positioning uses MuPDF metrics so cursor aligns with rendered preview
+ *
+ * Key signals:
+ * - text_changed_for_preview: emitted on each keystroke for live MuPDF preview
+ * - editing_finished: emitted when user presses Enter or widget loses focus
+ * - escape_pressed: emitted to exit annotation mode entirely
+ */
 
 InPlaceAnnotationEditor::InPlaceAnnotationEditor(ConfigFile* config, QWidget* parent)
     : QTextEdit(parent)
@@ -37,35 +65,36 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
     setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
     const FontInfo& font_info = config_->annotation_font();
+    float scaled_font_size = font_info.size * dpi_scale_;
+
+    // Set Qt font for cursor display (text will be transparent in preview mode)
     QString qt_font_name = pdf_font_to_qt_font(font_info.family);
     QFont scaled_font(qt_font_name);
-    scaled_font.setPixelSize(static_cast<int>(font_info.size * dpi_scale_));
+    scaled_font.setPixelSize(static_cast<int>(scaled_font_size));
     setFont(scaled_font);
 
-    auto [r2, g2, b2] = font_info.color;
-    QString color_str = QString("rgb(%1, %2, %3)").arg(r2).arg(g2).arg(b2);
+    auto [r, g, b] = font_info.color;
+    QString color_str = QString("rgb(%1, %2, %3)").arg(r).arg(g).arg(b);
     setStyleSheet(QString("background-color: transparent; border: none; color: %1;").arg(color_str));
 
     setPlainText(initial_text);
 
-    FontInfo scaled_font_info = font_info;
-    scaled_font_info.size *= dpi_scale_;
+    // Size widget using MuPDF metrics to match rendered preview
+    std::string measure_text = initial_text.isEmpty() ? "M" : initial_text.toStdString();
+    float width = mupdf_measure_text_width(font_info.family, scaled_font_size, measure_text);
+    float height = mupdf_measure_text_height(font_info.family, scaled_font_size);
 
-    QSize size;
-    if (initial_text.isEmpty())
-        size = calculate_text_size("A", scaled_font_info);
-    else
-        size = calculate_text_size(initial_text, scaled_font_info);
-
-    resize(size);
-
-    // Position editor so baseline aligns with click point
     int doc_margin = static_cast<int>(document()->documentMargin());
-    QFontMetrics fm(scaled_font);
+    int widget_width = static_cast<int>(width) + 2 * doc_margin + 4;
+    int widget_height = static_cast<int>(height) + 2 * doc_margin + 4;
+    resize(widget_width, widget_height);
 
+    // Position editor so baseline aligns with click point, using MuPDF ascent
+    float ascent = mupdf_font_ascent(font_info.family, scaled_font_size);
     QPoint editor_pos;
     editor_pos.setX(position.x());
-    editor_pos.setY(AnnotationCoordinates::baseline_display_to_editor_widget_y(position.y(), doc_margin, fm.ascent()));
+    editor_pos.setY(AnnotationCoordinates::baseline_display_to_editor_widget_y(
+        position.y(), doc_margin, static_cast<int>(ascent)));
 
     move(editor_pos);
 
@@ -134,13 +163,21 @@ void InPlaceAnnotationEditor::cancel_editing()
 
 void InPlaceAnnotationEditor::resize_to_content()
 {
-    FontInfo scaled_font_info = config_->annotation_font();
-    scaled_font_info.size *= dpi_scale_;
+    const FontInfo& font_info = config_->annotation_font();
+    float scaled_font_size = font_info.size * dpi_scale_;
 
-    QSize new_size = calculate_text_size(toPlainText(), scaled_font_info);
+    // Size widget using MuPDF metrics to match rendered preview
+    QString text = toPlainText();
+    std::string measure_text = text.isEmpty() ? "M" : text.toStdString();
+    float width = mupdf_measure_text_width(font_info.family, scaled_font_size, measure_text);
+    float height = mupdf_measure_text_height(font_info.family, scaled_font_size);
+
+    int doc_margin = static_cast<int>(document()->documentMargin());
+    int widget_width = static_cast<int>(width) + 2 * doc_margin + 4;
+    int widget_height = static_cast<int>(height) + 2 * doc_margin + 4;
 
     QPoint current_pos = pos();
-    resize(new_size);
+    resize(widget_width, widget_height);
     move(current_pos);
 }
 
