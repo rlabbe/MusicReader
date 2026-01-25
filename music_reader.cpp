@@ -953,6 +953,10 @@ void MusicReader::on_tab_current_changed()
     auto viewer = current_viewer();
     TRACE_FUNCTION_MSG("{}", viewer ? viewer->document()->filename() : "no tabs");
 
+    // Clear annotation selection when switching tabs
+    if (viewer)
+        viewer->clear_selection();
+
     update_title();
     update_bookmark_panel();
     show_page_count();

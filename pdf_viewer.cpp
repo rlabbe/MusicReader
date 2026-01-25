@@ -193,10 +193,10 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
     TRACE_FUNCTION;
     auto key = event->key();
 
-    logger::debug("keyPressEvent: key={}, has_selection_={}", key, has_selection_);
+    logger::debug("keyPressEvent: key={}, selected_annotation_={}", key, static_cast<int>(selected_annotation_));
 
     if (key == Qt::Key_Delete || key == Qt::Key_Backspace) {
-        if (has_selection_) {
+        if (selected_annotation_) {
             bool removed = document_->remove_annotation(selected_annotation_);
             if (removed)
                 clear_selection();
@@ -205,7 +205,7 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         }
     }
 
-    if (key == Qt::Key_Escape && has_selection_) {
+    if (key == Qt::Key_Escape && selected_annotation_) {
         // Clear selection on Escape
         clear_selection();
         event->accept();
@@ -351,14 +351,14 @@ void PDFViewer::delete_shortcut()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (has_selection_ && document_) {
+    if (selected_annotation_ && document_) {
         logger::debug("Deleting annotation with handle {}", static_cast<int>(selected_annotation_));
         if (document_->remove_annotation(selected_annotation_))
             clear_selection();
         else
             logger::error("Failed to remove annotation with handle {}", static_cast<int>(selected_annotation_));
     } else {
-        logger::debug("delete_shortcut called but no selection (has_selection_={})", has_selection_);
+        logger::debug("delete_shortcut called but no selection");
     }
 }
 
@@ -520,6 +520,9 @@ void PDFViewer::get_page(int index)
         return;
     if (index < 1 || index > count)
         return;
+
+    // Clear any annotation selection when changing pages
+    clear_selection();
 
     // Update renderer position
     renderer_.goto_index(index);
@@ -748,7 +751,7 @@ void PDFViewer::update_image(const QString& message)
     }
 
     // Draw selection box around selected annotation only
-    if (has_selection_) {
+    if (selected_annotation_) {
         QPainter painter(&scaled_pixmap);
 
         // Find the selected annotation and draw dotted red box
@@ -1022,8 +1025,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             return;
         } else {
             // Clicked elsewhere - clear selection
-            if (has_selection_)
-                clear_selection();
+            clear_selection();
         }
     }
 
@@ -1376,7 +1378,6 @@ void PDFViewer::select_annotation(const AnnotationHandle& handle)
     TRACE_FUNCTION;
 
     selected_annotation_ = handle;
-    has_selection_ = true;
     update_image(); // Refresh to show selection
 }
 
@@ -1386,8 +1387,10 @@ void PDFViewer::clear_selection()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    if (!selected_annotation_)
+        return;
+
     selected_annotation_.clear();
-    has_selection_ = false;
     update_image(); // Refresh to hide selection
 }
 

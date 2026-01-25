@@ -65,6 +65,8 @@ public:
     PerformanceMode::Mode performance_mode() const;
     bool in_page_break_edit_mode() const { return page_break_edit_mode_; }
 
+    void clear_selection();
+
 signals:
     void annotation_mode_changed(bool enabled);
     void page_break_edit_mode_changed(bool enabled);
@@ -90,7 +92,6 @@ private:
     QRect calculate_annotation_bounding_box(const Annotation& annotation) const;
     AnnotationHandle find_annotation_at_point(QMouseEvent* event) const;
     void select_annotation(const AnnotationHandle& handle);
-    void clear_selection();
 
 
     struct ClickTarget {
@@ -181,7 +182,6 @@ private:
     QString last_annotation_text_;             // Last annotation text for debug rendering
     std::optional<QImage> preview_page_image_; // MuPDF-rendered page with preview annotation
     AnnotationHandle selected_annotation_;
-    bool has_selection_ = false;
     bool skip_resize_update_ = false;
     bool closing_ = false;
     bool dirty_ = false;
