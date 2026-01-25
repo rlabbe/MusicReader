@@ -18,6 +18,7 @@ signals:
     void editing_finished(const QString& text);
     void editing_cancelled();
     void text_changed_for_preview(const QString& text);
+    void escape_pressed();
 
 private slots:
     void resize_to_content();

@@ -81,7 +81,8 @@ void InPlaceAnnotationEditor::keyPressEvent(QKeyEvent* event)
         return;
     }
     if (event->key() == Qt::Key_Escape) {
-        cancel_editing();
+        emit escape_pressed(); // Signal to exit annotation mode BEFORE finishing (prevents re-entry)
+        finish_editing();
         return;
     }
     QTextEdit::keyPressEvent(event);

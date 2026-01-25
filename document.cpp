@@ -653,7 +653,6 @@ bool Document::save()
         std::lock_guard<std::mutex> lock(save_state_mutex_);
         if (is_saving_ || !modified_)
             return false;
-
         is_saving_ = true;
     }
     TRACE_FUNCTION;
@@ -844,6 +843,7 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
         reload_page(page_num);
         return save_success;
     }
+    logger::error("remove_annotation: annotation not found with handle {}", static_cast<int>(handle));
     return false;
 }
 
@@ -1254,8 +1254,8 @@ bool Document::save_annotations_to_pdf()
             float rect_y0 = coords.baseline_to_rect_top_screen(annotation.y_, font_size);
             float rect_y1 = rect_y0 + annotation.height_;
             fz_rect rect = fz_make_rect(annotation.x_, rect_y0, annotation.x_ + annotation.width_, rect_y1);
-            pdf_set_annot_rect(ctx, annot, rect);
 
+            pdf_set_annot_rect(ctx, annot, rect);
             pdf_set_annot_contents(ctx, annot, annotation.text_.c_str());
 
             // Set default appearance (font and color)
