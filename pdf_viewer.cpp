@@ -1064,11 +1064,14 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     } else if (event->button() == Qt::LeftButton) {
-        // Handle annotation selection
+        // Handle annotation selection and dragging
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);
         if (clicked_annotation) {
-            select_annotation(clicked_annotation);
-            setFocus(); // Ensure PDFViewer has focus so Delete shortcut works (after update_image)
+            if (clicked_annotation != selected_annotation_)
+                select_annotation(clicked_annotation);
+            dragging_annotation_ = true;
+            drag_start_pos_ = event->pos();
+            setFocus();
             event->accept();
             return;
         } else {
@@ -1104,6 +1107,16 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
         return;
     }
 
+    if (dragging_annotation_ && selected_annotation_) {
+        QPoint delta = event->pos() - drag_start_pos_;
+        if (delta.manhattanLength() > 3) {
+            move_selected_annotation(delta.x(), delta.y());
+            drag_start_pos_ = event->pos();
+        }
+        event->accept();
+        return;
+    }
+
     QWidget::mouseMoveEvent(event);
 }
 
@@ -1127,6 +1140,12 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
         dragging_page_break_ = false;
         dragging_existing_break_ = false;
         update_image();
+        event->accept();
+        return;
+    }
+
+    if (event->button() == Qt::LeftButton && dragging_annotation_) {
+        dragging_annotation_ = false;
         event->accept();
         return;
     }

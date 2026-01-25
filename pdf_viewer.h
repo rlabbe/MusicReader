@@ -187,6 +187,8 @@ private:
     float selected_annotation_original_x_ = 0.0f;
     float selected_annotation_original_y_ = 0.0f;
     bool selected_annotation_moved_ = false;
+    bool dragging_annotation_ = false;
+    QPoint drag_start_pos_;
     bool skip_resize_update_ = false;
     bool closing_ = false;
     bool dirty_ = false;
