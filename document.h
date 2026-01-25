@@ -118,7 +118,11 @@ private:
     bool reparent_bookmark(Bookmark bookmark, const BookmarkHandle& new_parent_handle, bool internal_call);
     Bookmark* find_bookmark(const BookmarkHandle& handle);
     Annotation* find_annotation(const AnnotationHandle& handle);
-    bool save_annotations_to_pdf(std::set<int> additional_pages_to_clear = {});
+
+    // Individual PDF annotation operations - each opens PDF, modifies one annotation, saves
+    bool add_annotation_to_pdf(Annotation& ann);  // Updates ann with final rect from PDF
+    bool delete_annotation_from_pdf(const Annotation& ann);
+    bool update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann);
     void clear_completed_features();
 
     std::vector<Bookmark> bookmarks_;

@@ -1,5 +1,5 @@
 """
-Create a minimal 1-page PDF with a blank white page for annotation testing.
+Create a multi-page PDF with blank white pages for annotation testing.
 Uses PyMuPDF (fitz) to create a simple A4 PDF.
 """
 import fitz  # PyMuPDF
@@ -9,15 +9,19 @@ import fitz  # PyMuPDF
 PAGE_WIDTH = 595
 PAGE_HEIGHT = 842
 
+page_count = 2
+
 doc = fitz.open()  # new empty PDF
-page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
 
-# Fill with white
-page.draw_rect(page.rect, color=(1, 1, 1), fill=(1, 1, 1))
+for i in range(page_count):
+    page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
 
-# Draw a simple box for click testing
-box_rect = fitz.Rect(100, 100, 300, 200)
-page.draw_rect(box_rect, color=(0, 0, 0), width=0.5)
+    # Fill with white
+    page.draw_rect(page.rect, color=(1, 1, 1), fill=(1, 1, 1))
+
+    # Draw a simple box for click testing
+    box_rect = fitz.Rect(100, 100, 300, 200)
+    page.draw_rect(box_rect, color=(0, 0, 0), width=0.5)
 
 # Save with no compression, no garbage collection - keep it simple and readable
 doc.save(
@@ -29,5 +33,5 @@ doc.save(
 )
 doc.close()
 
-print(f"Created test_blank.pdf: {PAGE_WIDTH}x{PAGE_HEIGHT} points (A4)")
+print(f"Created test_blank.pdf: {page_count} page(s), {PAGE_WIDTH}x{PAGE_HEIGHT} points (A4)")
 print("File saved to D:\\dev\\MusicReader\\bin\\test_blank.pdf")
