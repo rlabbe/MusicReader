@@ -1094,8 +1094,8 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         const FontInfo& font_info = config_->annotation_font();
 
         // Use MuPDF's own font metrics for accurate sizing
-        float width_points = mupdf_measure_text_width(font_info.family, font_info.size, text.toStdString());
-        float height_points = mupdf_measure_text_height(font_info.family, font_info.size);
+        float width_points = text_width(font_info.family, font_info.size, text.toStdString());
+        float height_points = text_height(font_info.family, font_info.size);
 
         Annotation annotation(text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
                               last_click_target_.points_y, width_points, height_points, font_info);
@@ -1138,8 +1138,8 @@ void PDFViewer::on_annotation_text_changed(const QString& text)
 
     // Use MuPDF metrics for accurate sizing
     std::string measure_text = text.isEmpty() ? "M" : text.toStdString();
-    float width_points = mupdf_measure_text_width(font_info.family, font_info.size, measure_text);
-    float height_points = mupdf_measure_text_height(font_info.family, font_info.size);
+    float width_points = text_width(font_info.family, font_info.size, measure_text);
+    float height_points = text_height(font_info.family, font_info.size);
 
     // Pass raw click coordinates as baseline - render_page_with_preview_annotation
     // will handle positioning the rect so baseline lands at click point
@@ -1275,9 +1275,9 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
 
     // annotation.y_ is the BASELINE in PDF coords (y from bottom)
     // Use MuPDF font metrics for accurate positioning (recalculate from text, don't use stored values)
-    float ascent = mupdf_font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-    float descent = mupdf_font_descent(annotation.font_info_.family, annotation.font_info_.size);
-    float text_width = mupdf_measure_text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+    float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+    float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+    float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
     float annot_top_pdf = annotation.y_ + ascent;
     float annot_bottom_pdf = annotation.y_ - descent;
 
@@ -1293,7 +1293,7 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
         // Convert PDF points to full page pixels (at render DPI)
         float annot_left_full = (annotation.x_ / pdf_width_points) * full_width;
         float annot_top_full = ((pdf_height_points - annot_top_pdf) / pdf_height_points) * full_height;
-        float annot_right_full = ((annotation.x_ + text_width) / pdf_width_points) * full_width;
+        float annot_right_full = ((annotation.x_ + width) / pdf_width_points) * full_width;
         float annot_bottom_full = ((pdf_height_points - annot_bottom_pdf) / pdf_height_points) * full_height;
 
         // When zoomed, displayed image is cropped to border
@@ -1318,7 +1318,7 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
         // Convert PDF points directly to display coordinates
         float annot_left_ratio = annotation.x_ / pdf_width_points;
         float annot_top_ratio = (pdf_height_points - annot_top_pdf) / pdf_height_points;
-        float annot_right_ratio = (annotation.x_ + text_width) / pdf_width_points;
+        float annot_right_ratio = (annotation.x_ + width) / pdf_width_points;
         float annot_bottom_ratio = (pdf_height_points - annot_bottom_pdf) / pdf_height_points;
 
         display_x = annot_left_ratio * displayed.width();
@@ -1352,12 +1352,12 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         // Annotation bounds in PDF points
         // annotation.y_ stores the BASELINE (not top edge)
         // Use MuPDF metrics for accurate hit testing (recalculate from text)
-        float ascent = mupdf_font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-        float descent = mupdf_font_descent(annotation.font_info_.family, annotation.font_info_.size);
-        float text_width = mupdf_measure_text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+        float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+        float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+        float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
         float annot_left = annotation.x_;
         float annot_top = annotation.y_ + ascent;
-        float annot_right = annotation.x_ + text_width;
+        float annot_right = annotation.x_ + width;
         float annot_bottom = annotation.y_ - descent;
 
         if (click.points_x >= annot_left && click.points_x <= annot_right && click.points_y >= annot_bottom &&

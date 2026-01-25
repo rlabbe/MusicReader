@@ -1241,7 +1241,6 @@ bool Document::save_annotations_to_pdf()
                 loaded_pages[page_idx] = page;
 
                 // Delete any existing FreeText annotations on this page
-                // (pdf_load_page may have loaded cached annotations)
                 pdf_annot* annot = pdf_first_annot(ctx, page);
                 while (annot) {
                     pdf_annot* next = pdf_next_annot(ctx, annot);

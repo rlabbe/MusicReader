@@ -4,34 +4,26 @@
 #include "logger.h"
 #include <iostream>
 
-/*
- * InPlaceAnnotationEditor Design
- * ==============================
- *
- * This is a transparent text input widget overlaid on the PDF view. Its sole purpose
- * is to capture keystrokes and provide a cursor - the actual text rendering is done
- * by MuPDF.
- *
- * How it works:
- * 1. User clicks on PDF in annotation mode -> start_editing() positions this widget
- * 2. As user types, text_changed_for_preview signal triggers MuPDF to render a preview
- * 3. set_preview_mode(true) makes Qt's text invisible (color: transparent) so only
- *    MuPDF's rendered preview shows through
- * 4. The widget still displays the cursor, allowing the user to see where they're typing
- * 5. On Enter/focus loss, editing_finished signal sends final text to create the annotation
- *
- * Why this design:
- * - MuPDF and Qt use different font metrics, so Qt-rendered text won't match the final
- *   PDF annotation position/size
- * - By making Qt text transparent and showing MuPDF preview, user sees exactly what
- *   will be saved
- * - Widget sizing/positioning uses MuPDF metrics so cursor aligns with rendered preview
- *
- * Key signals:
- * - text_changed_for_preview: emitted on each keystroke for live MuPDF preview
- * - editing_finished: emitted when user presses Enter or widget loses focus
- * - escape_pressed: emitted to exit annotation mode entirely
- */
+// InPlaceAnnotationEditor Design
+// ==============================
+//
+// This is a transparent text input widget overlaid on the PDF view. Its sole purpose
+// is to capture keystrokes and provide a cursor - the actual text rendering is done
+// by MuPDF. MuPDF and Qt use different font metrics, so Qt-rendered text won't match
+// the final PDF annotation position/size
+//
+// How it works:
+// 1. User clicks on PDF in annotation mode -> start_editing() positions this widget
+// 2. As user types, text_changed_for_preview signal triggers MuPDF to render a preview
+// 3. set_preview_mode(true) makes Qt's text invisible (color: transparent) so only
+//    MuPDF's rendered preview shows through
+// 4. The widget still displays the cursor, allowing the user to see where they're typing
+// 5. On Enter/focus loss, editing_finished signal sends final text to create the annotation
+//
+// Key signals:
+// - text_changed_for_preview: emitted on each keystroke for live MuPDF preview
+// - editing_finished: emitted when user presses Enter or widget loses focus
+// - escape_pressed: emitted to exit annotation mode entirely
 
 InPlaceAnnotationEditor::InPlaceAnnotationEditor(ConfigFile* config, QWidget* parent)
     : QTextEdit(parent)
@@ -81,8 +73,8 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
 
     // Size widget using MuPDF metrics to match rendered preview
     std::string measure_text = initial_text.isEmpty() ? "M" : initial_text.toStdString();
-    float width = mupdf_measure_text_width(font_info.family, scaled_font_size, measure_text);
-    float height = mupdf_measure_text_height(font_info.family, scaled_font_size);
+    float width = text_width(font_info.family, scaled_font_size, measure_text);
+    float height = text_height(font_info.family, scaled_font_size);
 
     int doc_margin = static_cast<int>(document()->documentMargin());
     int widget_width = static_cast<int>(width) + 2 * doc_margin + 4;
@@ -90,7 +82,7 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
     resize(widget_width, widget_height);
 
     // Position editor so baseline aligns with click point, using MuPDF ascent
-    float ascent = mupdf_font_ascent(font_info.family, scaled_font_size);
+    float ascent = font_ascent(font_info.family, scaled_font_size);
     QPoint editor_pos;
     editor_pos.setX(position.x());
     editor_pos.setY(AnnotationCoordinates::baseline_display_to_editor_widget_y(
@@ -139,9 +131,10 @@ void InPlaceAnnotationEditor::paintEvent(QPaintEvent* event)
 
 void InPlaceAnnotationEditor::finish_editing()
 {
-    if (!editing_finished_)
-        emit editing_finished(toPlainText());
+    if (editing_finished_)
+        return;
     editing_finished_ = true;
+    emit editing_finished(toPlainText());
 
     if (config_->debug_annotations()) {
         setReadOnly(true);
@@ -169,8 +162,8 @@ void InPlaceAnnotationEditor::resize_to_content()
     // Size widget using MuPDF metrics to match rendered preview
     QString text = toPlainText();
     std::string measure_text = text.isEmpty() ? "M" : text.toStdString();
-    float width = mupdf_measure_text_width(font_info.family, scaled_font_size, measure_text);
-    float height = mupdf_measure_text_height(font_info.family, scaled_font_size);
+    float width = text_width(font_info.family, scaled_font_size, measure_text);
+    float height = text_height(font_info.family, scaled_font_size);
 
     int doc_margin = static_cast<int>(document()->documentMargin());
     int widget_width = static_cast<int>(width) + 2 * doc_margin + 4;

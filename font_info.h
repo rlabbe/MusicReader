@@ -4,7 +4,6 @@
 #include <tuple>
 #include <optional>
 
-// Forward declaration for Qt type used in function signatures
 class QString;
 
 
@@ -35,14 +34,14 @@ std::string normalize_to_base14_font(const std::string& pdf_font_name);
 // Measures text width using MuPDF's Base-14 font metrics.
 // Returns width in PDF points. This matches what MuPDF actually renders.
 // pdf_font_name can be Base-14 name or short name (will be normalized internally)
-float mupdf_measure_text_width(const std::string& pdf_font_name, float font_size, const std::string& text);
+float text_width(const std::string& pdf_font_name, float font_size, const std::string& text);
 
 // Measures text height using MuPDF's Base-14 font metrics.
 // Returns the font's ascent + |descent| in PDF points.
-float mupdf_measure_text_height(const std::string& pdf_font_name, float font_size);
+float text_height(const std::string& pdf_font_name, float font_size);
 
 // Returns font ascent (distance from baseline to top) in PDF points.
-float mupdf_font_ascent(const std::string& pdf_font_name, float font_size);
+float font_ascent(const std::string& pdf_font_name, float font_size);
 
 // Returns font descent (distance from baseline to bottom, as positive value) in PDF points.
-float mupdf_font_descent(const std::string& pdf_font_name, float font_size);
+float font_descent(const std::string& pdf_font_name, float font_size);

@@ -1,11 +1,13 @@
 import fitz
 import sys
 
-if len(sys.argv) < 2:
-    print("Usage: python read_annots.py <pdf_file>")
-    sys.exit(1)
 
-doc = fitz.open(sys.argv[1])
+if len(sys.argv) == 2:
+    filename = sys.argv[1]
+else:
+    filename = r"D:\dev\MusicReader\bin\test_blank.pdf"
+
+doc = fitz.open(filename)
 
 for page_num in range(len(doc)):
     page = doc[page_num]

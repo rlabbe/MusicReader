@@ -26,6 +26,7 @@ QString pdf_font_to_qt_font(const std::string& pdf_font)
         return QString::fromStdString(pdf_font); // Unknown, use as-is
 }
 
+
 std::string pdf_font_to_mupdf_font(const std::string& pdf_font)
 {
     if (pdf_font.starts_with("Courier"))
@@ -41,6 +42,7 @@ std::string pdf_font_to_mupdf_font(const std::string& pdf_font)
     else
         return "Helv"; // Default fallback
 }
+
 
 std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
 {
@@ -191,7 +193,7 @@ std::string normalize_to_base14_font(const std::string& pdf_font_name)
     return "Helvetica";
 }
 
-float mupdf_measure_text_width(const std::string& pdf_font_name, float font_size, const std::string& text)
+float text_width(const std::string& pdf_font_name, float font_size, const std::string& text)
 {
     std::string base14_name = normalize_to_base14_font(pdf_font_name);
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -235,7 +237,7 @@ float mupdf_measure_text_width(const std::string& pdf_font_name, float font_size
     return width;
 }
 
-float mupdf_measure_text_height(const std::string& pdf_font_name, float font_size)
+float text_height(const std::string& pdf_font_name, float font_size)
 {
     std::string base14_name = normalize_to_base14_font(pdf_font_name);
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -275,7 +277,7 @@ float mupdf_measure_text_height(const std::string& pdf_font_name, float font_siz
     return height;
 }
 
-float mupdf_font_ascent(const std::string& pdf_font_name, float font_size)
+float font_ascent(const std::string& pdf_font_name, float font_size)
 {
     std::string base14_name = normalize_to_base14_font(pdf_font_name);
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -311,7 +313,7 @@ float mupdf_font_ascent(const std::string& pdf_font_name, float font_size)
     return ascent;
 }
 
-float mupdf_font_descent(const std::string& pdf_font_name, float font_size)
+float font_descent(const std::string& pdf_font_name, float font_size)
 {
     std::string base14_name = normalize_to_base14_font(pdf_font_name);
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
