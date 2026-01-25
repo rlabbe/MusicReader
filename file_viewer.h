@@ -5,9 +5,11 @@
 class FileViewer : public QMainWindow {
     Q_OBJECT
 public:
-    explicit FileViewer(const std::string& filename, QWidget* parent = nullptr)
+    explicit FileViewer(const std::string& filename, QWidget* parent = nullptr,
+                        const QString& initial_search = QString())
         : QMainWindow(parent)
         , m_filename(filename)
+        , m_searchText(initial_search)
     {
         QString q_filename = QString::fromStdString(filename);
         setWindowTitle(q_filename);
@@ -38,6 +40,15 @@ public:
     }
 
 protected:
+    void showEvent(QShowEvent* event) override
+    {
+        QMainWindow::showEvent(event);
+        if (!m_initialSearchDone && !m_searchText.isEmpty()) {
+            m_initialSearchDone = true;
+            QTimer::singleShot(0, this, &FileViewer::searchNext);
+        }
+    }
+
     void keyPressEvent(QKeyEvent* event) override
     {
         if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_F) {
@@ -85,17 +96,20 @@ private slots:
         }
     }
 
-void searchNext()
+    void searchNext()
     {
         if (m_searchText.isEmpty())
             return;
 
-        if (!m_textEdit->find(m_searchText)) {
+        bool found = m_textEdit->find(m_searchText);
+        if (!found) {
             QTextCursor cursor = m_textEdit->textCursor();
             cursor.movePosition(QTextCursor::Start);
             m_textEdit->setTextCursor(cursor);
-            m_textEdit->find(m_searchText);
+            found = m_textEdit->find(m_searchText);
         }
+        if (found)
+            selectCurrentLine();
     }
 
     void searchPrevious()
@@ -103,16 +117,29 @@ void searchNext()
         if (m_searchText.isEmpty())
             return;
 
-        if (!m_textEdit->find(m_searchText, QTextDocument::FindBackward)) {
+        bool found = m_textEdit->find(m_searchText, QTextDocument::FindBackward);
+        if (!found) {
             QTextCursor cursor = m_textEdit->textCursor();
             cursor.movePosition(QTextCursor::End);
             m_textEdit->setTextCursor(cursor);
-            m_textEdit->find(m_searchText, QTextDocument::FindBackward);
+            found = m_textEdit->find(m_searchText, QTextDocument::FindBackward);
         }
+        if (found)
+            selectCurrentLine();
+    }
+
+    void selectCurrentLine()
+    {
+        QTextCursor cursor = m_textEdit->textCursor();
+        cursor.movePosition(QTextCursor::StartOfBlock);
+        cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        m_textEdit->setTextCursor(cursor);
+        m_textEdit->setFocus();
     }
 
 private:
     std::string m_filename;
     QTextEdit* m_textEdit;
     QString m_searchText;
+    bool m_initialSearchDone = false;
 };

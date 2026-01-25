@@ -724,36 +724,8 @@ void MusicReader::show_log_content()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    QString log_content = QString::fromStdString(logger::get_log_content());
-
-    QDialog dialog(this);
-    dialog.setWindowTitle("Log Content");
-    dialog.setModal(true);
-
-    QVBoxLayout layout(&dialog);
-
-    QScrollArea scroll_area(&dialog);
-    scroll_area.setWidgetResizable(true);
-
-    QTextEdit text_edit;
-    text_edit.setText(log_content);
-    text_edit.setReadOnly(true);
-
-    scroll_area.setWidget(&text_edit);
-    layout.addWidget(&scroll_area);
-
-    QHBoxLayout button_layout;
-    QPushButton ok_button("OK");
-    QObject::connect(&ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
-
-    button_layout.addStretch();
-    button_layout.addWidget(&ok_button);
-
-    layout.addLayout(&button_layout);
-
-    dialog.setLayout(&layout);
-    dialog.resize(800, 600);
-    dialog.exec();
+    auto* viewer = new FileViewer(logger::log_file_path(), nullptr, "[error]");
+    viewer->show();
 }
 
 void MusicReader::set_bookmarks_from_file()
