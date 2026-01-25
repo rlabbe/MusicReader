@@ -2,6 +2,7 @@
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
 #include "bookmark.h"
+#include "music_reader.h"
 #include "pdf_viewer.h"
 #include "exception_logger.h"
 
@@ -233,6 +234,10 @@ void BookmarkPanel::populate()
 
     tree_widget_->expandAll();
     adjust_width();
+
+    auto [page, valid] = main_window_->current_page();
+    if (valid)
+        select_page(page);
 }
 
 

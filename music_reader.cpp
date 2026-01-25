@@ -248,8 +248,6 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
         auto doc = std::make_shared<Document>(filename, config_.dpi(), page_num);
         connect(doc.get(), &Document::bookmarks_loaded, this, [this]() {
             bookmark_panel_->populate();
-            if (auto viewer = current_viewer())
-                bookmark_panel_->select_page(viewer->current_page());
             update_background();
         });
         load_manager_.add_document(doc);
@@ -1086,8 +1084,6 @@ void MusicReader::update_bookmark_panel()
     TRACE_FUNCTION;
 
     bookmark_panel_->populate();
-    if (auto viewer = current_viewer())
-        bookmark_panel_->select_page(viewer->current_page());
     update_background();
 }
 
