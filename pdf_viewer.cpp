@@ -44,6 +44,7 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document, ConfigFile* config, int
 PDFViewer::~PDFViewer()
 {
     REQUIRES(document_);
+    flush_pending_annotation_move();
     document_->save();
 }
 
@@ -757,6 +758,29 @@ void PDFViewer::update_image(const QString& message)
     if (preview_page_image_.has_value()) {
         QPixmap preview_pixmap = QPixmap::fromImage(preview_page_image_.value());
         scaled_pixmap = preview_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    } else if (selected_annotation_moved_ && selected_annotation_) {
+        // Render page with annotation at its new in-memory position
+        const Annotation* ann = nullptr;
+        for (const auto& a : document_->annotations()) {
+            if (a.handle_ == selected_annotation_) {
+                ann = &a;
+                break;
+            }
+        }
+        if (ann) {
+            QImage moved_image = document_->render_page_with_moved_annotation(
+                ann->page_num_, selected_annotation_,
+                selected_annotation_original_x_, selected_annotation_original_y_,
+                ann->x_, ann->y_);
+            if (!moved_image.isNull()) {
+                QPixmap moved_pixmap = QPixmap::fromImage(moved_image);
+                scaled_pixmap = moved_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            } else {
+                scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+        } else {
+            scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
     } else {
         scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     }
@@ -1402,6 +1426,19 @@ void PDFViewer::select_annotation(const AnnotationHandle& handle)
     TRACE_FUNCTION;
 
     selected_annotation_ = handle;
+    selected_annotation_moved_ = false;
+
+    // Capture original position for later save
+    if (document_) {
+        for (const auto& ann : document_->annotations()) {
+            if (ann.handle_ == handle) {
+                selected_annotation_original_x_ = ann.x_;
+                selected_annotation_original_y_ = ann.y_;
+                break;
+            }
+        }
+    }
+
     update_image(); // Refresh to show selection
 }
 
@@ -1414,6 +1451,7 @@ void PDFViewer::clear_selection()
     if (!selected_annotation_)
         return;
 
+    flush_pending_annotation_move();
     selected_annotation_.clear();
     update_image(); // Refresh to hide selection
 }
@@ -1456,7 +1494,37 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
     float new_x = annotation->x_ + dx_points;
     float new_y = annotation->y_ - dy_points;
 
-    document_->move_annotation(selected_annotation_, new_x, new_y);
+    document_->move_annotation_in_memory(selected_annotation_, new_x, new_y);
+    selected_annotation_moved_ = true;
+    update_image();
+}
+
+
+void PDFViewer::flush_pending_annotation_move()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (!selected_annotation_moved_ || !selected_annotation_ || !document_)
+        return;
+
+    // Find the page number before saving
+    int page_num = -1;
+    for (const auto& ann : document_->annotations()) {
+        if (ann.handle_ == selected_annotation_) {
+            page_num = ann.page_num_;
+            break;
+        }
+    }
+
+    document_->save_moved_annotation(selected_annotation_,
+                                     selected_annotation_original_x_,
+                                     selected_annotation_original_y_);
+    selected_annotation_moved_ = false;
+
+    // Reload page so annotation renders in new position
+    if (page_num > 0)
+        document_->reload_page(page_num);
 }
 
 

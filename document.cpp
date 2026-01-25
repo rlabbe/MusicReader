@@ -879,6 +879,46 @@ bool Document::move_annotation(const AnnotationHandle& handle, float new_x, floa
 }
 
 
+void Document::move_annotation_in_memory(const AnnotationHandle& handle, float new_x, float new_y)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+    auto* annotation = find_annotation(handle);
+    if (!annotation)
+        return;
+
+    annotation->x_ = new_x;
+    annotation->y_ = new_y;
+}
+
+
+bool Document::save_moved_annotation(const AnnotationHandle& handle, float original_x, float original_y)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    std::optional<Annotation> old_ann;
+    std::optional<Annotation> new_ann;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+
+        auto* annotation = find_annotation(handle);
+        if (!annotation)
+            return false;
+
+        new_ann = *annotation;
+        old_ann = *annotation;
+        old_ann->x_ = original_x;
+        old_ann->y_ = original_y;
+    }
+
+    return update_annotation_in_pdf(*old_ann, *new_ann);
+}
+
+
 void Document::reload_page(int page_num)
 {
     SAFE_METHOD;
@@ -1013,6 +1053,128 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
             pdf_drop_page(ctx, page);
     }
 
+    close_fitz(ctx, doc);
+    return result;
+}
+
+
+QImage Document::render_page_with_moved_annotation(int page_num, const AnnotationHandle& handle,
+                                                   float original_x, float original_y,
+                                                   float new_x, float new_y)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (page_num < 1 || page_num > page_count())
+        return QImage();
+
+    // Find the annotation in our list (for font info, dimensions, text)
+    const Annotation* ann = nullptr;
+    for (const auto& a : annotations_) {
+        if (a.handle_ == handle) {
+            ann = &a;
+            break;
+        }
+    }
+    if (!ann || ann->page_num_ != page_num)
+        return QImage();
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc)
+        return QImage();
+
+    pdf_document* pdf = pdf_specifics(ctx, doc);
+    if (!pdf) {
+        close_fitz(ctx, doc);
+        return QImage();
+    }
+
+    QImage result;
+    pdf_page* page = nullptr;
+    fz_try(ctx)
+    {
+        page = pdf_load_page(ctx, pdf, page_num - 1);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception loading page {} for move preview: {}", page_num, fz_caught_message(ctx));
+        close_fitz(ctx, doc);
+        return QImage();
+    }
+
+    if (!page) {
+        close_fitz(ctx, doc);
+        return QImage();
+    }
+
+    fz_try(ctx)
+    {
+        fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
+        float page_height = page_bounds.y1 - page_bounds.y0;
+
+        AnnotationCoordinates coords;
+        coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
+        float font_size = ann->font_info_.size;
+
+        // Compute the rect at the ORIGINAL position to find the annotation in the PDF
+        float old_rect_y0 = coords.baseline_to_rect_top_screen(original_y, font_size);
+
+        // Find the matching PDF annotation using original position
+        pdf_annot* target = nullptr;
+        pdf_annot* annot = pdf_first_annot(ctx, page);
+        while (annot && !target) {
+            if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT) {
+                fz_rect annot_rect = pdf_annot_rect(ctx, annot);
+                const char* contents = pdf_annot_contents(ctx, annot);
+
+                constexpr float tolerance = 1.0f;
+                bool x_match = std::abs(annot_rect.x0 - original_x) < tolerance;
+                bool y_match = std::abs(annot_rect.y0 - old_rect_y0) < tolerance;
+                bool text_match = (contents && ann->text_ == contents);
+
+                if (x_match && y_match && text_match)
+                    target = annot;
+            }
+            if (!target)
+                annot = pdf_next_annot(ctx, annot);
+        }
+
+        if (target) {
+            // Move it to the new position for rendering
+            float new_rect_y0 = coords.baseline_to_rect_top_screen(new_y, font_size);
+            float new_rect_y1 = new_rect_y0 + ann->height_;
+            fz_rect new_rect = fz_make_rect(new_x, new_rect_y0, new_x + ann->width_, new_rect_y1);
+
+            pdf_set_annot_rect(ctx, target, new_rect);
+            pdf_update_annot(ctx, target);
+        }
+
+        // Render the page
+        fz_matrix transform = fz_scale(dpi_ / 72.0f, dpi_ / 72.0f);
+        fz_pixmap* pixmap = fz_new_pixmap_from_page(ctx, (fz_page*)page, transform, fz_device_rgb(ctx), 0);
+
+        if (pixmap) {
+            int width = fz_pixmap_width(ctx, pixmap);
+            int height = fz_pixmap_height(ctx, pixmap);
+            unsigned char* samples = fz_pixmap_samples(ctx, pixmap);
+            int stride = fz_pixmap_stride(ctx, pixmap);
+
+            QImage img(samples, width, height, stride, QImage::Format_RGB888);
+            result = img.copy();
+
+            fz_drop_pixmap(ctx, pixmap);
+        }
+
+        pdf_drop_page(ctx, page);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception rendering moved annotation on page {}: {}", page_num, fz_caught_message(ctx));
+        if (page)
+            pdf_drop_page(ctx, page);
+    }
+
+    // Don't save - just close. The in-memory changes are discarded.
     close_fitz(ctx, doc);
     return result;
 }

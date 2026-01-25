@@ -93,6 +93,7 @@ private:
     AnnotationHandle find_annotation_at_point(QMouseEvent* event) const;
     void select_annotation(const AnnotationHandle& handle);
     void move_selected_annotation(int dx_pixels, int dy_pixels);
+    void flush_pending_annotation_move();
 
 
     struct ClickTarget {
@@ -183,6 +184,9 @@ private:
     QString last_annotation_text_;             // Last annotation text for debug rendering
     std::optional<QImage> preview_page_image_; // MuPDF-rendered page with preview annotation
     AnnotationHandle selected_annotation_;
+    float selected_annotation_original_x_ = 0.0f;
+    float selected_annotation_original_y_ = 0.0f;
+    bool selected_annotation_moved_ = false;
     bool skip_resize_update_ = false;
     bool closing_ = false;
     bool dirty_ = false;

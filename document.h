@@ -76,10 +76,18 @@ public:
     bool remove_annotation(const AnnotationHandle& handle);
     bool edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text);
     bool move_annotation(const AnnotationHandle& handle, float new_x, float new_y);
+    void move_annotation_in_memory(const AnnotationHandle& handle, float new_x, float new_y);
+    bool save_moved_annotation(const AnnotationHandle& handle, float original_x, float original_y);
 
     // In-memory annotation preview: renders page with a temporary annotation without saving to disk.
     // Returns the rendered page as QImage with the preview annotation overlaid.
     QImage render_page_with_preview_annotation(int page_num, const Annotation& preview_annotation);
+
+    // Render page with an existing annotation shown at a different position (for move preview)
+    // original_x/y are needed to find the annotation in the PDF file (before in-memory move)
+    QImage render_page_with_moved_annotation(int page_num, const AnnotationHandle& handle,
+                                             float original_x, float original_y,
+                                             float new_x, float new_y);
 
     void reload_page(int page_num);
 
