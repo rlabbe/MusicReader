@@ -221,6 +221,31 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         return;
     }
 
+    // Arrow keys move selected annotation, otherwise navigate pages
+    constexpr int move_pixels = 2;
+    if (selected_annotation_) {
+        switch (key) {
+            case Qt::Key_Up:
+                move_selected_annotation(0, -move_pixels);
+                event->accept();
+                return;
+            case Qt::Key_Down:
+                move_selected_annotation(0, move_pixels);
+                event->accept();
+                return;
+            case Qt::Key_Left:
+                move_selected_annotation(-move_pixels, 0);
+                event->accept();
+                return;
+            case Qt::Key_Right:
+                move_selected_annotation(move_pixels, 0);
+                event->accept();
+                return;
+            default:
+                break;
+        }
+    }
+
     switch (key) {
         case Qt::Key_PageUp:
         case Qt::Key_Up:
@@ -236,7 +261,6 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         case Qt::Key_Left:
             change_page(-1);
             event->accept();
-
             break;
         case Qt::Key_Right:
             change_page(1);
@@ -1392,6 +1416,47 @@ void PDFViewer::clear_selection()
 
     selected_annotation_.clear();
     update_image(); // Refresh to hide selection
+}
+
+
+void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (!selected_annotation_ || !document_)
+        return;
+
+    // Find the selected annotation to get its current position
+    const Annotation* annotation = nullptr;
+    for (const auto& ann : document_->annotations()) {
+        if (ann.handle_ == selected_annotation_) {
+            annotation = &ann;
+            break;
+        }
+    }
+    if (!annotation)
+        return;
+
+    // Convert pixel delta to points delta
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return;
+
+    auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annotation->page_num_);
+
+    // Simple ratio conversion (ignoring zoom mode for now - the delta is small enough it won't matter much)
+    float points_per_pixel_x = pdf_width_points / displayed.width();
+    float points_per_pixel_y = pdf_height_points / displayed.height();
+
+    float dx_points = dx_pixels * points_per_pixel_x;
+    float dy_points = dy_pixels * points_per_pixel_y;
+
+    // PDF y-axis is from bottom, so positive dy_pixels (down on screen) means negative dy_points
+    float new_x = annotation->x_ + dx_points;
+    float new_y = annotation->y_ - dy_points;
+
+    document_->move_annotation(selected_annotation_, new_x, new_y);
 }
 
 
