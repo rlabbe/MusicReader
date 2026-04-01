@@ -100,6 +100,13 @@ void PDFViewer::refresh()
     TRACE_FUNCTION;
     REQUIRES(document_);
 
+    // Finish any in-progress annotation editing when mode changes
+    if (annotation_editor_->isVisible())
+        annotation_editor_->clearFocus();
+
+    // Clear any annotation selection when mode changes (zoom, page view, performance mode)
+    clear_selection();
+
     const int count = renderer_.page_count();
     if (count == 0)
         return;
@@ -381,6 +388,9 @@ void PDFViewer::delete_shortcut()
     TRACE_FUNCTION;
 
     if (selected_annotation_ && document_) {
+        // If annotation was moved, save the move first so we delete at the correct PDF position
+        flush_pending_annotation_move();
+
         logger::debug("Deleting annotation with handle {}", static_cast<int>(selected_annotation_));
         if (document_->remove_annotation(selected_annotation_))
             clear_selection();
@@ -761,6 +771,32 @@ void PDFViewer::update_image(const QString& message)
     QPixmap scaled_pixmap;
     if (preview_page_image_.has_value()) {
         QPixmap preview_pixmap = QPixmap::fromImage(preview_page_image_.value());
+
+        // In double-page mode, compose preview with the other page
+        int current = current_page();
+        if (in_double_page_view() && last_click_target_.page_num > 0 &&
+            current + 1 <= document_->page_count()) {
+            bool preview_is_page2 = (last_click_target_.page_num == current + 1);
+
+            // Get the non-preview page
+            Page other_page = document_->get_page(preview_is_page2 ? current : current + 1, false);
+            QPixmap other_pixmap = other_page.as_pixmap();
+
+            // Create PixmapPage for preview (use the target page's border info)
+            Page preview_page_info = document_->get_page(last_click_target_.page_num, false);
+            PixmapPage preview_pp(preview_pixmap, last_click_target_.page_num, false);
+            preview_pp.border = preview_page_info.border;
+
+            PixmapPage other_pp(other_pixmap, preview_is_page2 ? current : current + 1, false);
+            other_pp.border = other_page.border;
+
+            // Compose in correct order
+            if (preview_is_page2)
+                preview_pixmap = compose_double_page(other_pp, preview_pp);
+            else
+                preview_pixmap = compose_double_page(preview_pp, other_pp);
+        }
+
         scaled_pixmap = preview_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     } else if (selected_annotation_moved_ && selected_annotation_) {
         // Render page with annotation at its new in-memory position
@@ -771,12 +807,65 @@ void PDFViewer::update_image(const QString& message)
                 break;
             }
         }
-        if (ann) {
+
+        // Only show moved annotation if it's on a currently visible page
+        int current = current_page();
+        bool annotation_visible = ann && (ann->page_num_ == current ||
+                                          (in_double_page_view() && ann->page_num_ == current + 1));
+
+        if (ann && annotation_visible) {
             QImage moved_image = document_->render_page_with_moved_annotation(
                 ann->page_num_, selected_annotation_, selected_annotation_original_x_, selected_annotation_original_y_,
                 ann->x_, ann->y_);
             if (!moved_image.isNull()) {
                 QPixmap moved_pixmap = QPixmap::fromImage(moved_image);
+
+                // In double-page mode, compose with the other page
+                if (in_double_page_view() && current + 1 <= document_->page_count()) {
+                    bool moved_is_page2 = (ann->page_num_ == current + 1);
+
+                    Page other_page = document_->get_page(moved_is_page2 ? current : current + 1, false);
+                    QPixmap other_pixmap = other_page.as_pixmap();
+
+                    Page moved_page_info = document_->get_page(ann->page_num_, false);
+                    PixmapPage moved_pp(moved_pixmap, ann->page_num_, false);
+                    moved_pp.border = moved_page_info.border;
+
+                    PixmapPage other_pp(other_pixmap, moved_is_page2 ? current : current + 1, false);
+                    other_pp.border = other_page.border;
+
+                    if (moved_is_page2)
+                        moved_pixmap = compose_double_page(other_pp, moved_pp);
+                    else
+                        moved_pixmap = compose_double_page(moved_pp, other_pp);
+                } else {
+                    // Single-page mode: handle performance mode and/or zoom mode cropping
+                    if (PerformanceMode::is_performance()) {
+                        PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+                        const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+                        if (!breaks.empty()) {
+                            double segment_top = 0.0;
+                            double segment_bottom = 1.0;
+                            if (pos.segment_index == 0) {
+                                segment_bottom = breaks[0];
+                            } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+                                segment_top = breaks[pos.segment_index - 1];
+                                segment_bottom = breaks[pos.segment_index];
+                            } else {
+                                segment_top = breaks.back();
+                            }
+                            int y_start = static_cast<int>(segment_top * moved_image.height());
+                            int y_end = static_cast<int>(segment_bottom * moved_image.height());
+                            moved_image = moved_image.copy(0, y_start, moved_image.width(), y_end - y_start);
+                        }
+                    }
+                    if (config_->zoom_to_content()) {
+                        Page full_page = document_->get_page(ann->page_num_, false);
+                        moved_image = resize_by_border(moved_image, full_page.border, config_->border_margin());
+                    }
+                    moved_pixmap = QPixmap::fromImage(moved_image);
+                }
+
                 scaled_pixmap = moved_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
             } else {
                 scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -808,7 +897,7 @@ void PDFViewer::update_image(const QString& message)
         // Find the selected annotation and draw dotted red box
         for (const auto& annotation : document_->annotations()) {
             if (annotation.handle_ == selected_annotation_) {
-                QRect bounding_box = calculate_annotation_bounding_box(annotation);
+                QRect bounding_box = calculate_annotation_bounding_box(annotation, scaled_pixmap);
                 if (!bounding_box.isEmpty()) {
                     painter.setPen(QPen(Qt::red, 1, Qt::DotLine));
                     painter.drawRect(bounding_box);
@@ -989,15 +1078,25 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         QPoint adjusted_pos(event->pos().x(), event->pos().y() + cursor_offset);
         last_click_display_pos_ = QPoint(adjusted_pos.x() - offset_x, adjusted_pos.y() - offset_y);
         last_click_target_ = get_click_target(event);
-        // Adjust the stored target Y as well
+
+        // Calculate the effective PDF width that maps to displayed pixels
+        // In zoom mode, this is the cropped portion's width in points
+        auto [pdf_width_pts, _] = document_->get_page_dimensions_points(last_click_target_.page_num);
+        float effective_pdf_width = pdf_width_pts;
+        if (config_->zoom_to_content()) {
+            Page full_page = document_->get_page(last_click_target_.page_num, false);
+            float cropped_width_ratio =
+                static_cast<float>(full_page.border.right - full_page.border.left) / full_page.width();
+            effective_pdf_width = cropped_width_ratio * pdf_width_pts;
+        }
+
+        // Adjust the stored target Y for cursor offset
         if (cursor_offset > 0) {
-            auto [pdf_width_pts, pdf_height_pts] = document_->get_page_dimensions_points(last_click_target_.page_num);
-            float pixels_to_points_ratio = pdf_width_pts / static_cast<float>(displayed.width());
+            float pixels_to_points_ratio = effective_pdf_width / static_cast<float>(displayed.width());
             last_click_target_.points_y -= cursor_offset * pixels_to_points_ratio;
         }
 
-        auto [pdf_width, _] = document_->get_page_dimensions_points(last_click_target_.page_num);
-        float points_to_pixels = static_cast<float>(displayed.width()) / pdf_width;
+        float points_to_pixels = static_cast<float>(displayed.width()) / effective_pdf_width;
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
         annotation_editor_->start_editing(adjusted_pos);
@@ -1161,6 +1260,10 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
+    // Clear preview state before adding annotation so any update_image() calls show actual page
+    preview_page_image_.reset();
+    annotation_editor_->set_preview_mode(false);
+
     if (!text.trimmed().isEmpty() && last_click_target_.page_num > 0) {
 
         const FontInfo& font_info = config_->annotation_font();
@@ -1177,8 +1280,6 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         last_annotation_text_ = text;
     }
 
-    preview_page_image_.reset();
-    annotation_editor_->set_preview_mode(false);
     setFocus(); // Return focus so we can receive Escape key
     // Stay in annotation mode - user can click again to add more annotations
 }
@@ -1224,6 +1325,39 @@ void PDFViewer::on_annotation_text_changed(const QString& text)
         document_->render_page_with_preview_annotation(last_click_target_.page_num, preview_annotation);
 
     if (!preview_image.isNull()) {
+        // Crop for performance mode segmentation
+        if (PerformanceMode::is_performance()) {
+            PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+            const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+            if (!breaks.empty()) {
+                int height = preview_image.height();
+                double top_normalized = 0.0;
+                double bottom_normalized = 1.0;
+
+                if (pos.segment_index == 0) {
+                    bottom_normalized = breaks[0];
+                } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+                    top_normalized = breaks[pos.segment_index - 1];
+                    bottom_normalized = breaks[pos.segment_index];
+                } else {
+                    top_normalized = breaks.back();
+                }
+
+                int top_pixel = static_cast<int>(top_normalized * height);
+                int bottom_pixel = static_cast<int>(bottom_normalized * height);
+                int crop_height = bottom_pixel - top_pixel;
+                if (crop_height > 0)
+                    preview_image = preview_image.copy(0, top_pixel, preview_image.width(), crop_height);
+            }
+        }
+
+        // Crop to match displayed page when in zoom mode (only for single-page view)
+        // In double-page view, compose_double_page() handles cropping
+        if (config_->zoom_to_content() && in_single_page_view()) {
+            // Detect borders on the (possibly segment-cropped) image
+            Border segment_border = find_content_edges(preview_image);
+            preview_image = resize_by_border(preview_image, segment_border, config_->border_margin());
+        }
         preview_page_image_ = preview_image;
         annotation_editor_->set_preview_mode(true);
         update_image();
@@ -1273,39 +1407,126 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
     int mouse_x = mouse_pos.x() - offset_x;
     int mouse_y = mouse_pos.y() - offset_y;
 
-    // Use pixmap dimensions for calculations
-    int display_width = pixmap_width;
-    int display_height = pixmap_height;
-
     bool double_page = in_double_page_view();
-    if (double_page)
-        display_width /= 2;
-    if (double_page && mouse_x > display_width) {
-        target_page++;
-        mouse_x -= display_width;
+    bool zoom_mode = config_ && config_->zoom_to_content();
+
+    // In double-page mode, determine which page was clicked and adjust coordinates
+    int page1_display_width = pixmap_width;
+    int page1_display_height = pixmap_height;
+    int page_y_offset = 0; // Vertical offset for the target page within the combined display
+
+    if (double_page && target_page + 1 <= document_->page_count()) {
+        constexpr int line_width = 8; // Must match compose_double_page()
+        Page p1 = document_->get_page(target_page, false);
+        Page p2 = document_->get_page(target_page + 1, false);
+        int margin = config_->border_margin();
+
+        // Calculate dimensions at render DPI (before scaling)
+        int p1_render_width, p1_render_height, p2_render_width, p2_render_height;
+        if (zoom_mode) {
+            p1_render_width = p1.border.right - p1.border.left + 2 * margin;
+            p1_render_height = p1.border.bottom - p1.border.top + 2 * margin;
+            p2_render_width = p2.border.right - p2.border.left + 2 * margin;
+            p2_render_height = p2.border.bottom - p2.border.top + 2 * margin;
+        } else {
+            p1_render_width = p1.width();
+            p1_render_height = p1.height();
+            p2_render_width = p2.width();
+            p2_render_height = p2.height();
+        }
+
+        int total_render_width = p1_render_width + line_width + p2_render_width;
+        int max_render_height = std::max(p1_render_height, p2_render_height);
+
+        // Calculate scaled display dimensions (preserving aspect ratio)
+        float scale = static_cast<float>(pixmap_width) / total_render_width;
+        int p1_display_w = static_cast<int>(p1_render_width * scale);
+        int p1_display_h = static_cast<int>(p1_render_height * scale);
+        int p2_display_w = static_cast<int>(p2_render_width * scale);
+        int p2_display_h = static_cast<int>(p2_render_height * scale);
+        int line_display_w = static_cast<int>(line_width * scale);
+        int max_display_h = static_cast<int>(max_render_height * scale);
+
+        int p1_y_offset = (max_display_h - p1_display_h) / 2;
+        int p2_y_offset = (max_display_h - p2_display_h) / 2;
+
+        // Determine which page was clicked based on x position
+        if (mouse_x > p1_display_w + line_display_w / 2) {
+            // Clicked on second page
+            target_page++;
+            mouse_x -= (p1_display_w + line_display_w);
+            page1_display_width = p2_display_w;
+            page1_display_height = p2_display_h;
+            page_y_offset = p2_y_offset;
+        } else {
+            page1_display_width = p1_display_w;
+            page1_display_height = p1_display_h;
+            page_y_offset = p1_y_offset;
+        }
+
+        // Adjust mouse_y for the vertical centering offset of this page
+        mouse_y -= page_y_offset;
     }
 
     // Get the full page to check for border/cropping
     Page full_page = document_->get_page(target_page, false);
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(target_page);
 
-    // Calculate click ratio in display space
-    float click_ratio_x = float(mouse_x) / display_width;
-    float click_ratio_y = float(mouse_y) / display_height;
+    // Calculate click ratio in display space (relative to this page's display area)
+    float click_ratio_x = float(mouse_x) / page1_display_width;
+    float click_ratio_y = float(mouse_y) / page1_display_height;
+
+    // In performance mode, map the click ratio to the segment's portion of the full page
+    double segment_top_normalized = 0.0;
+    double segment_bottom_normalized = 1.0;
+
+    if (PerformanceMode::is_performance()) {
+        PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+        const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+        if (!breaks.empty()) {
+            if (pos.segment_index == 0) {
+                segment_bottom_normalized = breaks[0];
+            } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+                segment_top_normalized = breaks[pos.segment_index - 1];
+                segment_bottom_normalized = breaks[pos.segment_index];
+            } else {
+                segment_top_normalized = breaks.back();
+            }
+        }
+    }
+
+    // Map click_ratio_y from segment space to full page space
+    double segment_height_normalized = segment_bottom_normalized - segment_top_normalized;
+    float full_page_ratio_y = static_cast<float>(segment_top_normalized + click_ratio_y * segment_height_normalized);
 
     float points_x, points_y;
 
     float full_width = full_page.width();
     float full_height = full_page.height();
 
-    bool zoom_mode = config_ && config_->zoom_to_content();
-
     if (zoom_mode) {
         // When zoomed, the displayed image is cropped to border
-        float border_left = full_page.border.left;
-        float border_top = full_page.border.top;
-        float border_width = full_page.border.right - full_page.border.left;
-        float border_height = full_page.border.bottom - full_page.border.top;
+        // Need to get border for the segment, not the full page
+        Border effective_border = full_page.border;
+
+        if (PerformanceMode::is_performance() && segment_height_normalized < 1.0) {
+            // Recalculate border for the segment
+            int seg_top_pixel = static_cast<int>(segment_top_normalized * full_height);
+            int seg_bottom_pixel = static_cast<int>(segment_bottom_normalized * full_height);
+            int seg_height = seg_bottom_pixel - seg_top_pixel;
+            if (seg_height > 0) {
+                QImage segment_img = full_page.img.copy(0, seg_top_pixel, full_page.width(), seg_height);
+                effective_border = find_content_edges(segment_img);
+                // Adjust border coordinates to full page space
+                effective_border.top += seg_top_pixel;
+                effective_border.bottom += seg_top_pixel;
+            }
+        }
+
+        float border_left = effective_border.left;
+        float border_top = effective_border.top;
+        float border_width = effective_border.right - effective_border.left;
+        float border_height = effective_border.bottom - effective_border.top;
 
         // Click position within the cropped area (in full page pixels at render DPI)
         float cropped_x = click_ratio_x * border_width;
@@ -1319,31 +1540,33 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
         points_x = (full_x / full_width) * pdf_width_points;
         points_y = pdf_height_points - (full_y / full_height) * pdf_height_points;
     } else {
-        // When not zoomed, direct mapping
+        // When not zoomed, direct mapping using full page ratio
         points_x = click_ratio_x * pdf_width_points;
-        points_y = pdf_height_points - (click_ratio_y * pdf_height_points);
+        points_y = pdf_height_points - (full_page_ratio_y * pdf_height_points);
     }
 
     return {target_page, points_x, points_y};
 }
 
 
-QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation) const
+QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation, const QPixmap& displayed) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     int current_page_num = current_page();
-    if (annotation.page_num_ != current_page_num) {
-        return QRect(); // Empty rect for annotations not on current page
-    }
+    bool double_page = in_double_page_view();
+    bool is_on_second_page = double_page && annotation.page_num_ == current_page_num + 1;
 
-    // Get the displayed pixmap (already scaled)
-    QPixmap displayed = label_->pixmap();
+    // Check if annotation is on a visible page
+    if (annotation.page_num_ != current_page_num && !is_on_second_page)
+        return QRect();
+
     if (displayed.isNull())
         return QRect();
 
-    auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(current_page_num);
+    int annot_page = annotation.page_num_;
+    auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annot_page);
 
     // annotation.y_ is the BASELINE in PDF coords (y from bottom)
     // Use MuPDF font metrics for accurate positioning (recalculate from text, don't use stored values)
@@ -1354,49 +1577,126 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation)
     float annot_bottom_pdf = annotation.y_ - descent;
 
     float display_x, display_y, display_w, display_h;
+    int x_offset = 0;
+    int y_offset = 0;
 
     bool zoom_mode = config_ && config_->zoom_to_content();
+    Page full_page = document_->get_page(annot_page, false);
+    float full_width = full_page.width();
+    float full_height = full_page.height();
+
+    // Performance mode segment boundaries
+    double segment_top_normalized = 0.0;
+    double segment_bottom_normalized = 1.0;
+
+    if (PerformanceMode::is_performance()) {
+        PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+        const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+        if (!breaks.empty()) {
+            if (pos.segment_index == 0) {
+                segment_bottom_normalized = breaks[0];
+            } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+                segment_top_normalized = breaks[pos.segment_index - 1];
+                segment_bottom_normalized = breaks[pos.segment_index];
+            } else {
+                segment_top_normalized = breaks.back();
+            }
+        }
+    }
+
+    // Calculate offsets for double-page mode
+    float page_display_width = static_cast<float>(displayed.width());
+    float page_display_height = static_cast<float>(displayed.height());
+
+    if (double_page && current_page_num + 1 <= document_->page_count()) {
+        constexpr int line_width = 8;
+        Page p1 = document_->get_page(current_page_num, false);
+        Page p2 = document_->get_page(current_page_num + 1, false);
+        int margin = config_->border_margin();
+
+        int p1_render_width, p1_render_height, p2_render_width, p2_render_height;
+        if (zoom_mode) {
+            p1_render_width = p1.border.right - p1.border.left + 2 * margin;
+            p1_render_height = p1.border.bottom - p1.border.top + 2 * margin;
+            p2_render_width = p2.border.right - p2.border.left + 2 * margin;
+            p2_render_height = p2.border.bottom - p2.border.top + 2 * margin;
+        } else {
+            p1_render_width = p1.width();
+            p1_render_height = p1.height();
+            p2_render_width = p2.width();
+            p2_render_height = p2.height();
+        }
+
+        int total_render_width = p1_render_width + line_width + p2_render_width;
+        int max_render_height = std::max(p1_render_height, p2_render_height);
+        float scale = static_cast<float>(displayed.width()) / total_render_width;
+
+        if (is_on_second_page) {
+            x_offset = static_cast<int>((p1_render_width + line_width) * scale);
+            page_display_width = p2_render_width * scale;
+            page_display_height = p2_render_height * scale;
+            y_offset = static_cast<int>((max_render_height - p2_render_height) * scale / 2);
+        } else {
+            page_display_width = p1_render_width * scale;
+            page_display_height = p1_render_height * scale;
+            y_offset = static_cast<int>((max_render_height - p1_render_height) * scale / 2);
+        }
+    }
+
+    // Convert annotation PDF coords to ratios within the full page
+    float annot_left_ratio = annotation.x_ / pdf_width_points;
+    float annot_top_ratio = (pdf_height_points - annot_top_pdf) / pdf_height_points;
+    float annot_right_ratio = (annotation.x_ + width) / pdf_width_points;
+    float annot_bottom_ratio = (pdf_height_points - annot_bottom_pdf) / pdf_height_points;
+
+    // In performance mode, map from full page ratio to segment ratio
+    double segment_height = segment_bottom_normalized - segment_top_normalized;
+    float segment_annot_top_ratio = static_cast<float>((annot_top_ratio - segment_top_normalized) / segment_height);
+    float segment_annot_bottom_ratio = static_cast<float>((annot_bottom_ratio - segment_top_normalized) / segment_height);
+
     if (zoom_mode) {
-        // Get full page to access border info for zoom mode
-        Page full_page = document_->get_page(current_page_num, false);
-        float full_width = full_page.width();
-        float full_height = full_page.height();
+        // Get effective border for the segment (or full page if not in performance mode)
+        Border effective_border = full_page.border;
 
-        // Convert PDF points to full page pixels (at render DPI)
-        float annot_left_full = (annotation.x_ / pdf_width_points) * full_width;
-        float annot_top_full = ((pdf_height_points - annot_top_pdf) / pdf_height_points) * full_height;
-        float annot_right_full = ((annotation.x_ + width) / pdf_width_points) * full_width;
-        float annot_bottom_full = ((pdf_height_points - annot_bottom_pdf) / pdf_height_points) * full_height;
+        if (PerformanceMode::is_performance() && segment_height < 1.0) {
+            int seg_top_pixel = static_cast<int>(segment_top_normalized * full_height);
+            int seg_bottom_pixel = static_cast<int>(segment_bottom_normalized * full_height);
+            int seg_height = seg_bottom_pixel - seg_top_pixel;
+            if (seg_height > 0) {
+                QImage segment_img = full_page.img.copy(0, seg_top_pixel, full_page.width(), seg_height);
+                effective_border = find_content_edges(segment_img);
+            }
+        }
 
-        // When zoomed, displayed image is cropped to border
-        float border_left = full_page.border.left;
-        float border_top = full_page.border.top;
-        float border_width = full_page.border.right - full_page.border.left;
-        float border_height = full_page.border.bottom - full_page.border.top;
+        float border_left = effective_border.left;
+        float border_top = effective_border.top;
+        float border_width = effective_border.right - effective_border.left;
+        float border_height = effective_border.bottom - effective_border.top;
 
-        // Convert from full page coords to cropped/border coords
-        float cropped_left = annot_left_full - border_left;
-        float cropped_top = annot_top_full - border_top;
-        float cropped_right = annot_right_full - border_left;
-        float cropped_bottom = annot_bottom_full - border_top;
+        // Convert annotation to segment pixel coords, then to cropped coords
+        float seg_height_pixels = static_cast<float>(segment_height * full_height);
+        float annot_left_seg_px = annot_left_ratio * full_width;
+        float annot_top_seg_px = segment_annot_top_ratio * seg_height_pixels;
+        float annot_right_seg_px = annot_right_ratio * full_width;
+        float annot_bottom_seg_px = segment_annot_bottom_ratio * seg_height_pixels;
 
-        // Convert to display coords (ratio within cropped area * display size)
-        display_x = (cropped_left / border_width) * displayed.width();
-        display_y = (cropped_top / border_height) * displayed.height();
-        display_w = ((cropped_right - cropped_left) / border_width) * displayed.width();
-        display_h = ((cropped_bottom - cropped_top) / border_height) * displayed.height();
+        // Convert from segment pixel coords to cropped/border coords
+        float cropped_left = annot_left_seg_px - border_left;
+        float cropped_top = annot_top_seg_px - border_top;
+        float cropped_right = annot_right_seg_px - border_left;
+        float cropped_bottom = annot_bottom_seg_px - border_top;
+
+        // Convert to display coords (ratio within cropped area * page display size)
+        display_x = (cropped_left / border_width) * page_display_width + x_offset;
+        display_y = (cropped_top / border_height) * page_display_height + y_offset;
+        display_w = ((cropped_right - cropped_left) / border_width) * page_display_width;
+        display_h = ((cropped_bottom - cropped_top) / border_height) * page_display_height;
     } else {
-        // No zoom - page_.pixmap is the full page, displayed is scaled from it
-        // Convert PDF points directly to display coordinates
-        float annot_left_ratio = annotation.x_ / pdf_width_points;
-        float annot_top_ratio = (pdf_height_points - annot_top_pdf) / pdf_height_points;
-        float annot_right_ratio = (annotation.x_ + width) / pdf_width_points;
-        float annot_bottom_ratio = (pdf_height_points - annot_bottom_pdf) / pdf_height_points;
-
-        display_x = annot_left_ratio * displayed.width();
-        display_y = annot_top_ratio * displayed.height();
-        display_w = (annot_right_ratio - annot_left_ratio) * displayed.width();
-        display_h = (annot_bottom_ratio - annot_top_ratio) * displayed.height();
+        // No zoom - use segment ratios directly
+        display_x = annot_left_ratio * page_display_width + x_offset;
+        display_y = segment_annot_top_ratio * page_display_height + y_offset;
+        display_w = (annot_right_ratio - annot_left_ratio) * page_display_width;
+        display_h = (segment_annot_bottom_ratio - segment_annot_top_ratio) * page_display_height;
     }
 
     return QRect(int(display_x), int(display_y), int(display_w), int(display_h));
@@ -1417,6 +1717,8 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         return AnnotationHandle();
 
     // Check all annotations on the clicked page
+    logger::info("find_annotation_at_point: click at page={} x={:.1f} y={:.1f}", click.page_num, click.points_x,
+                 click.points_y);
     for (const auto& annotation : document_->annotations()) {
         if (annotation.page_num_ != click.page_num)
             continue;
@@ -1432,12 +1734,17 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         float annot_right = annotation.x_ + width;
         float annot_bottom = annotation.y_ - descent;
 
+        logger::info("  annotation '{}': x={:.1f} y={:.1f} bounds=[{:.1f},{:.1f}]-[{:.1f},{:.1f}]", annotation.text_,
+                     annotation.x_, annotation.y_, annot_left, annot_bottom, annot_right, annot_top);
+
         if (click.points_x >= annot_left && click.points_x <= annot_right && click.points_y >= annot_bottom &&
             click.points_y <= annot_top) {
+            logger::info("  -> HIT");
             return annotation.handle_;
         }
     }
 
+    logger::info("  -> no annotation found");
     return AnnotationHandle(); // No annotation found
 }
 
@@ -1446,6 +1753,9 @@ void PDFViewer::select_annotation(const AnnotationHandle& handle)
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
+
+    // Flush any pending move from previously selected annotation
+    flush_pending_annotation_move();
 
     selected_annotation_ = handle;
     selected_annotation_moved_ = false;
@@ -1498,16 +1808,88 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
     if (!annotation)
         return;
 
-    // Convert pixel delta to points delta
     QPixmap displayed = label_->pixmap();
     if (displayed.isNull())
         return;
 
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annotation->page_num_);
 
-    // Simple ratio conversion (ignoring zoom mode for now - the delta is small enough it won't matter much)
-    float points_per_pixel_x = pdf_width_points / displayed.width();
-    float points_per_pixel_y = pdf_height_points / displayed.height();
+    // Calculate the effective display dimensions for this annotation's page
+    // Must account for double-page mode and zoom mode
+    float page_display_width = static_cast<float>(displayed.width());
+    float page_display_height = static_cast<float>(displayed.height());
+
+    int current = current_page();
+    bool double_page = in_double_page_view();
+    bool zoom_mode = config_ && config_->zoom_to_content();
+
+    if (double_page && current + 1 <= document_->page_count()) {
+        Page p1 = document_->get_page(current, false);
+        Page p2 = document_->get_page(current + 1, false);
+        int margin = config_->border_margin();
+        constexpr int line_width = 8;
+
+        int p1_render_width, p1_render_height, p2_render_width, p2_render_height;
+        if (zoom_mode) {
+            p1_render_width = p1.border.right - p1.border.left + 2 * margin;
+            p1_render_height = p1.border.bottom - p1.border.top + 2 * margin;
+            p2_render_width = p2.border.right - p2.border.left + 2 * margin;
+            p2_render_height = p2.border.bottom - p2.border.top + 2 * margin;
+        } else {
+            p1_render_width = p1.width();
+            p1_render_height = p1.height();
+            p2_render_width = p2.width();
+            p2_render_height = p2.height();
+        }
+
+        int total_render_width = p1_render_width + line_width + p2_render_width;
+        float scale = displayed.width() / static_cast<float>(total_render_width);
+
+        bool is_on_page2 = (annotation->page_num_ == current + 1);
+        if (is_on_page2) {
+            page_display_width = p2_render_width * scale;
+            page_display_height = p2_render_height * scale;
+        } else {
+            page_display_width = p1_render_width * scale;
+            page_display_height = p1_render_height * scale;
+        }
+    }
+
+    // Calculate effective PDF dimensions (accounting for zoom cropping and performance mode)
+    float effective_pdf_width = pdf_width_points;
+    float effective_pdf_height = pdf_height_points;
+
+    // Performance mode: we're only showing a segment of the page
+    if (PerformanceMode::is_performance()) {
+        PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+        const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+        if (!breaks.empty()) {
+            double segment_top = 0.0;
+            double segment_bottom = 1.0;
+            if (pos.segment_index == 0) {
+                segment_bottom = breaks[0];
+            } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+                segment_top = breaks[pos.segment_index - 1];
+                segment_bottom = breaks[pos.segment_index];
+            } else {
+                segment_top = breaks.back();
+            }
+            effective_pdf_height = static_cast<float>(segment_bottom - segment_top) * pdf_height_points;
+        }
+    }
+
+    if (zoom_mode) {
+        Page full_page = document_->get_page(annotation->page_num_, false);
+        float cropped_width_ratio =
+            static_cast<float>(full_page.border.right - full_page.border.left) / full_page.width();
+        float cropped_height_ratio =
+            static_cast<float>(full_page.border.bottom - full_page.border.top) / full_page.height();
+        effective_pdf_width = cropped_width_ratio * pdf_width_points;
+        effective_pdf_height = cropped_height_ratio * effective_pdf_height;
+    }
+
+    float points_per_pixel_x = effective_pdf_width / page_display_width;
+    float points_per_pixel_y = effective_pdf_height / page_display_height;
 
     float dx_points = dx_pixels * points_per_pixel_x;
     float dy_points = dy_pixels * points_per_pixel_y;

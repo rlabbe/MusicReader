@@ -6,6 +6,7 @@ if len(sys.argv) == 2:
     filename = sys.argv[1]
 else:
     filename = r"D:\dev\MusicReader\bin\test_blank.pdf"
+    filename = r"C:\smusic\scarlatti\K466.pdf"
 
 doc = fitz.open(filename)
 

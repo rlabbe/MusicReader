@@ -94,7 +94,7 @@ private slots:
     void delete_shortcut();
 
 private:
-    QRect calculate_annotation_bounding_box(const Annotation& annotation) const;
+    QRect calculate_annotation_bounding_box(const Annotation& annotation, const QPixmap& displayed) const;
     AnnotationHandle find_annotation_at_point(QMouseEvent* event) const;
     void select_annotation(const AnnotationHandle& handle);
     void move_selected_annotation(int dx_pixels, int dy_pixels);
