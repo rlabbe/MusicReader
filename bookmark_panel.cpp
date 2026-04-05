@@ -583,8 +583,7 @@ void BookmarkPanel::select_page(int page_num)
 
     auto [bookmark_page, target_handle] = find_bookmark_for_page(page_num, doc->bookmarks());
 
-    // Only select if the bookmark is exactly on this page, otherwise clear selection
-    if (bookmark_page != page_num) {
+    if (bookmark_page < 0) {
         tree_widget_->clearSelection();
         tree_widget_->setCurrentItem(nullptr);
         return;

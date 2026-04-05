@@ -90,6 +90,7 @@
     <ClInclude Include="utils.h" />
     <ClInclude Include="vertical_tabs_widget.h" />
     <ClInclude Include="wait_cursor.h" />
+    <ClInclude Include="annotation_coords.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
