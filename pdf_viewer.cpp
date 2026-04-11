@@ -234,6 +234,15 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         return;
     }
 
+    // 'x' inside page break edit mode toggles the paper-crop submode.
+    if (page_break_edit_mode_ && key == Qt::Key_X) {
+        set_page_break_sub_mode(page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop
+                                    ? PageBreakSubMode::EditBreaks
+                                    : PageBreakSubMode::EditPaperCrop);
+        event->accept();
+        return;
+    }
+
     // Arrow keys move selected annotation, otherwise navigate pages
     constexpr int move_pixels = 2;
     if (selected_annotation_) {
@@ -525,12 +534,38 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageReques
     Page page = renderer_.get_page_at_index(index, request_type);
     entry.p1 = page;
 
-    if (!entry.p1.is_empty()) {
-        if (config_->zoom_to_content())
-            entry.rendered = entry.p1.resize_by_border(config_->border_margin());
-        else
-            entry.rendered = entry.p1.as_pixmap();
+    if (entry.p1.is_empty())
+        return entry;
+
+    const bool zoom = config_->zoom_to_content() && !force_full_page_;
+    if (!zoom) {
+        entry.rendered = entry.p1.as_pixmap();
+        return entry;
     }
+
+    const int margin = config_->border_margin();
+    const PaperCrop* crop = document_->performance_data().get_paper_crop(entry.p1.page_num);
+
+    if (!crop || (!crop->top && !crop->bottom)) {
+        // No user crop - use existing border + symmetric margin.
+        entry.rendered = entry.p1.resize_by_border(margin);
+        return entry;
+    }
+
+    // User crop overrides top and/or bottom. Build the final QRect directly so
+    // the overridden sides get no relief (the user explicitly asked to cut
+    // there); unoverridden sides still get the configured margin.
+    Border b = apply_paper_crop(entry.p1.border, *crop, entry.p1.height());
+
+    const int img_w = entry.p1.width();
+    const int img_h = entry.p1.height();
+    const int left = std::max(0, b.left - margin);
+    const int right = std::min(img_w, b.right + margin);
+    const int top = crop->top ? b.top : std::max(0, b.top - margin);
+    const int bottom = crop->bottom ? b.bottom : std::min(img_h, b.bottom + margin);
+
+    QRect rect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+    entry.rendered = entry.p1.pixmap.copy(rect);
     return entry;
 }
 
@@ -625,11 +660,29 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1, const PixmapPage& p
     TRACE_FUNCTION;
     REQUIRES_RET(config_, QPixmap());
 
-    const bool zoom = config_->zoom_to_content();
+    const bool zoom = config_->zoom_to_content() && !force_full_page_;
     const int margin = config_->border_margin();
 
-    QRect p1_crop = zoom ? border_to_qrect(p1.border, margin) : QRect(0, 0, p1.width(), p1.height());
-    QRect p2_crop = zoom ? border_to_qrect(p2.border, margin) : QRect(0, 0, p2.width(), p2.height());
+    // Compute the crop rect for a single page, honoring user paper crops (which
+    // override top/bottom and suppress relief on those sides).
+    auto page_crop_rect = [&](const PixmapPage& p) -> QRect {
+        if (!zoom)
+            return QRect(0, 0, p.width(), p.height());
+
+        const PaperCrop* crop = document_->performance_data().get_paper_crop(p.page_num);
+        if (!crop || (!crop->top && !crop->bottom))
+            return border_to_qrect(p.border, margin);
+
+        Border b = apply_paper_crop(p.border, *crop, p.height());
+        const int left = std::max(0, b.left - margin);
+        const int right = std::min(p.width(), b.right + margin);
+        const int top = crop->top ? b.top : std::max(0, b.top - margin);
+        const int bottom = crop->bottom ? b.bottom : std::min(p.height(), b.bottom + margin);
+        return QRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+    };
+
+    QRect p1_crop = page_crop_rect(p1);
+    QRect p2_crop = page_crop_rect(p2);
 
     int line_width = 8;
     int combined_width = p1_crop.width() + p2_crop.width() + line_width;
@@ -709,7 +762,9 @@ int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height
     int full_height = full_page.height();
     int break_y_full = static_cast<int>(normalized_pos * full_height);
 
-    if (config_->zoom_to_content()) {
+    // force_full_page_ means the displayed pixmap is the uncropped page even
+    // though zoom_to_content is on in config, so the mapping is direct.
+    if (config_->zoom_to_content() && !force_full_page_) {
         // When zoomed, the displayed image is cropped to border
         int border_top = full_page.border.top;
         int border_height = full_page.border.bottom - full_page.border.top;
@@ -728,7 +783,7 @@ double PDFViewer::display_y_to_normalized(int display_y, int display_height) con
     int full_height = full_page.height();
     float click_ratio = static_cast<float>(display_y) / display_height;
 
-    if (config_->zoom_to_content()) {
+    if (config_->zoom_to_content() && !force_full_page_) {
         // When zoomed, the displayed image is cropped to border
         int border_top = full_page.border.top;
         int border_height = full_page.border.bottom - full_page.border.top;
@@ -908,10 +963,11 @@ void PDFViewer::update_image(const QString& message)
         painter.end();
     }
 
-    // Draw page break lines in edit mode
-    if (page_break_edit_mode_) {
+    // Draw page break lines in edit mode (EditBreaks submode only).
+    if (page_break_edit_mode_ && page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
         const auto& breaks = document_->performance_data().get_page_breaks(current_page());
-        if (!breaks.empty() || dragging_page_break_) {
+        const bool dragging_break = (drag_kind_ == DragKind::Break);
+        if (!breaks.empty() || dragging_break) {
             QPainter painter(&scaled_pixmap);
             painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
 
@@ -920,7 +976,7 @@ void PDFViewer::update_image(const QString& message)
             // Draw existing breaks (skip the one being dragged)
             for (double break_pos : breaks) {
                 // Skip drawing the break we're currently dragging
-                if (dragging_existing_break_ && std::abs(break_pos - original_break_position_) < 0.01)
+                if (dragging_break && drag_is_existing_ && std::abs(break_pos - drag_original_position_) < 0.01)
                     continue;
 
                 int break_y_display = normalized_to_display_y(break_pos, display_height);
@@ -931,8 +987,8 @@ void PDFViewer::update_image(const QString& message)
             }
 
             // Draw the line being dragged (if any)
-            if (dragging_page_break_) {
-                int break_y_display = normalized_to_display_y(dragging_break_position_, display_height);
+            if (dragging_break) {
+                int break_y_display = normalized_to_display_y(drag_position_, display_height);
 
                 if (break_y_display >= 0 && break_y_display < display_height)
                     painter.drawLine(0, break_y_display, scaled_pixmap.width(), break_y_display);
@@ -940,6 +996,52 @@ void PDFViewer::update_image(const QString& message)
 
             painter.end();
         }
+    }
+
+    // Draw paper crop lines and excluded-region hatch in EditPaperCrop submode.
+    if (page_break_edit_mode_ && page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
+        const PaperCrop* stored = document_->performance_data().get_paper_crop(current_page());
+
+        // Determine the top and bottom lines currently shown. During a drag of
+        // an existing line the original is hidden and the dragged position is
+        // used; during a drag of a new line the new position is used.
+        std::optional<double> top_line;
+        std::optional<double> bottom_line;
+        if (stored) {
+            if (stored->top && !(drag_kind_ == DragKind::CropTop && drag_is_existing_))
+                top_line = *stored->top;
+            if (stored->bottom && !(drag_kind_ == DragKind::CropBottom && drag_is_existing_))
+                bottom_line = *stored->bottom;
+        }
+        if (drag_kind_ == DragKind::CropTop)
+            top_line = drag_position_;
+        else if (drag_kind_ == DragKind::CropBottom)
+            bottom_line = drag_position_;
+
+        const int display_height = scaled_pixmap.height();
+        const int display_width = scaled_pixmap.width();
+
+        QPainter painter(&scaled_pixmap);
+        QBrush hatch(QColor(255, 0, 0, 60), Qt::BDiagPattern);
+
+        if (top_line) {
+            int y = normalized_to_display_y(*top_line, display_height);
+            y = std::clamp(y, 0, display_height);
+            if (y > 0)
+                painter.fillRect(QRect(0, 0, display_width, y), hatch);
+            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+            painter.drawLine(0, y, display_width, y);
+        }
+        if (bottom_line) {
+            int y = normalized_to_display_y(*bottom_line, display_height);
+            y = std::clamp(y, 0, display_height);
+            if (y < display_height)
+                painter.fillRect(QRect(0, y, display_width, display_height - y), hatch);
+            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+            painter.drawLine(0, y, display_width, y);
+        }
+
+        painter.end();
     }
 
     label_->setPixmap(scaled_pixmap);
@@ -1019,9 +1121,50 @@ void PDFViewer::set_page_break_edit_mode(bool enabled)
     SAFE_METHOD;
     TRACE_CALL;
     page_break_edit_mode_ = enabled;
+    // Always reset submode state so we re-enter in the default submode and
+    // restore normal zoom display when exiting.
+    page_break_sub_mode_ = PageBreakSubMode::EditBreaks;
+    force_full_page_ = false;
+    drag_kind_ = DragKind::None;
+    drag_is_existing_ = false;
+    clear_prefetch();
     setCursor(enabled ? Qt::CrossCursor : Qt::ArrowCursor);
     refresh();
     emit page_break_edit_mode_changed(enabled);
+}
+
+
+void PDFViewer::set_page_break_sub_mode(PageBreakSubMode mode)
+{
+    SAFE_METHOD;
+    TRACE_CALL;
+    if (!page_break_edit_mode_)
+        return;
+    if (page_break_sub_mode_ == mode)
+        return;
+
+    page_break_sub_mode_ = mode;
+    drag_kind_ = DragKind::None;
+    drag_is_existing_ = false;
+
+    switch (mode) {
+        case PageBreakSubMode::EditBreaks:
+            force_full_page_ = false;
+            setCursor(Qt::CrossCursor);
+            break;
+        case PageBreakSubMode::EditPaperCrop:
+            // Force full-page display so the user can see titles/footers even
+            // when zoom_to_content is on in normal navigation.
+            force_full_page_ = true;
+            setCursor(Qt::SplitVCursor);
+            break;
+    }
+
+    // Prefetched pages were rendered with the prior force_full_page_ setting
+    // (or with the prior crop state) and must be discarded.
+    clear_prefetch();
+    refresh();
+    emit page_break_sub_mode_changed(mode);
 }
 
 
@@ -1103,7 +1246,8 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         event->accept();
         return;
-    } else if (event->button() == Qt::LeftButton && page_break_edit_mode_) {
+    } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
         // Handle page break editing - left button to add/move
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
@@ -1125,23 +1269,23 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             }
         }
 
+        drag_kind_ = DragKind::Break;
         if (clicked_break >= 0.0) {
             // Clicked on existing break - start dragging it
-            dragging_page_break_ = true;
-            dragging_existing_break_ = true;
-            dragging_break_position_ = clicked_break;
-            original_break_position_ = clicked_break;
+            drag_is_existing_ = true;
+            drag_position_ = clicked_break;
+            drag_original_position_ = clicked_break;
         } else {
             // Clicked in empty space - start creating new break
-            dragging_page_break_ = true;
-            dragging_existing_break_ = false;
-            dragging_break_position_ = normalized_pos;
+            drag_is_existing_ = false;
+            drag_position_ = normalized_pos;
         }
 
         update_image();
         event->accept();
         return;
-    } else if (event->button() == Qt::RightButton && page_break_edit_mode_) {
+    } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
         // Handle page break deletion - right button
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
@@ -1158,8 +1302,93 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             if (std::abs(click_y - break_y_display) <= 5) {
                 document_->performance_data().remove_page_break(current_page(), break_pos);
                 document_->performance_data().save(document_->path());
+                clear_prefetch();
                 update_image();
                 break;
+            }
+        }
+
+        event->accept();
+        return;
+    } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
+        // Handle paper crop editing - left button to add/move
+        int click_y = event->pos().y();
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull())
+            return;
+
+        int display_height = displayed.height();
+        double normalized_pos = display_y_to_normalized(click_y, display_height);
+        normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
+
+        // Hit-test against existing crop lines first (5 pixel tolerance).
+        const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
+        DragKind hit = DragKind::None;
+        double hit_pos = 0.0;
+        if (crop) {
+            if (crop->top) {
+                int top_y = normalized_to_display_y(*crop->top, display_height);
+                if (std::abs(click_y - top_y) <= 5) {
+                    hit = DragKind::CropTop;
+                    hit_pos = *crop->top;
+                }
+            }
+            if (hit == DragKind::None && crop->bottom) {
+                int bot_y = normalized_to_display_y(*crop->bottom, display_height);
+                if (std::abs(click_y - bot_y) <= 5) {
+                    hit = DragKind::CropBottom;
+                    hit_pos = *crop->bottom;
+                }
+            }
+        }
+
+        if (hit != DragKind::None) {
+            drag_kind_ = hit;
+            drag_is_existing_ = true;
+            drag_position_ = hit_pos;
+            drag_original_position_ = hit_pos;
+        } else {
+            // No hit - decide by which half of the page was clicked.
+            drag_kind_ = (normalized_pos < 0.5) ? DragKind::CropTop : DragKind::CropBottom;
+            drag_is_existing_ = false;
+            drag_position_ = normalized_pos;
+        }
+
+        update_image();
+        event->accept();
+        return;
+    } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
+        // Handle paper crop deletion - right button
+        int click_y = event->pos().y();
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull())
+            return;
+
+        int display_height = displayed.height();
+
+        const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
+        if (crop) {
+            bool deleted = false;
+            if (crop->top) {
+                int top_y = normalized_to_display_y(*crop->top, display_height);
+                if (std::abs(click_y - top_y) <= 5) {
+                    document_->performance_data().clear_paper_crop_top(current_page());
+                    deleted = true;
+                }
+            }
+            if (!deleted && crop->bottom) {
+                int bot_y = normalized_to_display_y(*crop->bottom, display_height);
+                if (std::abs(click_y - bot_y) <= 5) {
+                    document_->performance_data().clear_paper_crop_bottom(current_page());
+                    deleted = true;
+                }
+            }
+            if (deleted) {
+                document_->performance_data().save(document_->path());
+                clear_prefetch();
+                update_image();
             }
         }
 
@@ -1191,7 +1420,7 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (dragging_page_break_) {
+    if (drag_kind_ != DragKind::None) {
         int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
         if (displayed.isNull())
@@ -1203,7 +1432,7 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
         // Clamp to valid range
         normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
 
-        dragging_break_position_ = normalized_pos;
+        drag_position_ = normalized_pos;
         update_image();
         event->accept();
         return;
@@ -1228,19 +1457,47 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (event->button() == Qt::LeftButton && dragging_page_break_) {
-        // Finalize the break
-        if (dragging_existing_break_) {
-            // Moving existing break - remove from original position
-            document_->performance_data().remove_page_break(current_page(), original_break_position_);
+    if (event->button() == Qt::LeftButton && drag_kind_ != DragKind::None) {
+        const int page = current_page();
+        auto& perf = document_->performance_data();
+
+        switch (drag_kind_) {
+            case DragKind::Break: {
+                if (drag_is_existing_)
+                    perf.remove_page_break(page, drag_original_position_);
+                perf.add_page_break(page, drag_position_);
+                break;
+            }
+            case DragKind::CropTop: {
+                // Clamp above any existing bottom crop on this page.
+                double pos = drag_position_;
+                if (const PaperCrop* existing = perf.get_paper_crop(page); existing && existing->bottom) {
+                    double limit = *existing->bottom - 1e-4;
+                    if (pos >= limit)
+                        pos = std::max(0.0, limit);
+                }
+                perf.set_paper_crop_top(page, pos);
+                break;
+            }
+            case DragKind::CropBottom: {
+                // Clamp below any existing top crop on this page.
+                double pos = drag_position_;
+                if (const PaperCrop* existing = perf.get_paper_crop(page); existing && existing->top) {
+                    double limit = *existing->top + 1e-4;
+                    if (pos <= limit)
+                        pos = std::min(1.0, limit);
+                }
+                perf.set_paper_crop_bottom(page, pos);
+                break;
+            }
+            case DragKind::None: break;
         }
 
-        // Add at new position
-        document_->performance_data().add_page_break(current_page(), dragging_break_position_);
-        document_->performance_data().save(document_->path());
+        perf.save(document_->path());
+        clear_prefetch();
 
-        dragging_page_break_ = false;
-        dragging_existing_break_ = false;
+        drag_kind_ = DragKind::None;
+        drag_is_existing_ = false;
         update_image();
         event->accept();
         return;

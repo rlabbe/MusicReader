@@ -1,4 +1,5 @@
 #include "performance_data.h"
+#include "logger.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -24,9 +25,12 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
         return false;
 
     page_breaks_.clear();
+    paper_crops_.clear();
+
+    enum class Section { None, PageBreaks, PaperCrops };
+    Section section = Section::None;
 
     std::string line;
-    bool in_page_breaks_section = false;
 
     while (std::getline(file, line)) {
         // Skip comments and empty lines
@@ -42,45 +46,68 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
 
         // Section headers start with '['
         if (line == "[page_breaks]") {
-            in_page_breaks_section = true;
+            section = Section::PageBreaks;
             continue;
         }
-
+        if (line == "[paper_crops]") {
+            section = Section::PaperCrops;
+            continue;
+        }
         if (line[0] == '[') {
-            in_page_breaks_section = false;
+            section = Section::None;
             continue;
         }
 
-        // Parse page break entries: "page: N, position: P"
-        if (in_page_breaks_section) {
-            std::istringstream iss(line);
-            std::string token;
-            int page_num = -1;
-            double position = 0.0;
+        // Parse key:value pairs shared by both sections.
+        std::istringstream iss(line);
+        std::string token;
+        int page_num = -1;
+        double position = 0.0;
+        std::optional<double> crop_top;
+        std::optional<double> crop_bottom;
 
-            // Split by comma, then parse key:value pairs
-            while (std::getline(iss, token, ',')) {
-                size_t colon = token.find(':');
-                if (colon != std::string::npos) {
-                    std::string key = token.substr(0, colon);
-                    std::string value = token.substr(colon + 1);
+        while (std::getline(iss, token, ',')) {
+            size_t colon = token.find(':');
+            if (colon == std::string::npos)
+                continue;
 
-                    // Trim whitespace
-                    key.erase(0, key.find_first_not_of(" \t"));
-                    key.erase(key.find_last_not_of(" \t") + 1);
-                    value.erase(0, value.find_first_not_of(" \t"));
-                    value.erase(value.find_last_not_of(" \t") + 1);
+            std::string key = token.substr(0, colon);
+            std::string value = token.substr(colon + 1);
 
-                    if (key == "page")
-                        page_num = std::stoi(value);
-                    else if (key == "position")
-                        position = std::stod(value);
-                }
-            }
+            key.erase(0, key.find_first_not_of(" \t"));
+            key.erase(key.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
 
-            // Validate and add the break
+            if (key == "page")
+                page_num = std::stoi(value);
+            else if (key == "position")
+                position = std::stod(value);
+            else if (key == "top")
+                crop_top = std::stod(value);
+            else if (key == "bottom")
+                crop_bottom = std::stod(value);
+        }
+
+        if (section == Section::PageBreaks) {
             if (page_num >= 0 && position >= 0.0 && position <= 1.0)
                 add_page_break(page_num, position);
+        } else if (section == Section::PaperCrops) {
+            if (page_num < 0)
+                continue;
+            // Validate individual bounds, and reject a crop where top >= bottom.
+            if (crop_top && (*crop_top < 0.0 || *crop_top > 1.0))
+                crop_top.reset();
+            if (crop_bottom && (*crop_bottom < 0.0 || *crop_bottom > 1.0))
+                crop_bottom.reset();
+            if (crop_top && crop_bottom && *crop_top >= *crop_bottom) {
+                logger::warning("Paper crop for page {} has top >= bottom; dropping both", page_num);
+                continue;
+            }
+            if (crop_top)
+                set_paper_crop_top(page_num, *crop_top);
+            if (crop_bottom)
+                set_paper_crop_bottom(page_num, *crop_bottom);
         }
     }
 
@@ -106,6 +133,21 @@ bool PerformanceData::save(const std::filesystem::path& pdf_path) const
         for (const auto& [page_num, positions] : page_breaks_) {
             for (double pos : positions)
                 file << "page: " << page_num << ", position: " << pos << "\n";
+        }
+        file << "\n";
+    }
+
+    if (!paper_crops_.empty()) {
+        file << "[paper_crops]\n";
+        for (const auto& [page_num, crop] : paper_crops_) {
+            if (!crop.top && !crop.bottom)
+                continue;
+            file << "page: " << page_num;
+            if (crop.top)
+                file << ", top: " << *crop.top;
+            if (crop.bottom)
+                file << ", bottom: " << *crop.bottom;
+            file << "\n";
         }
     }
 
@@ -168,4 +210,49 @@ bool PerformanceData::has_breaks(int page_num) const
 {
     auto it = page_breaks_.find(page_num);
     return it != page_breaks_.end() && !it->second.empty();
+}
+
+
+void PerformanceData::set_paper_crop_top(int page_num, double normalized_position)
+{
+    paper_crops_[page_num].top = normalized_position;
+}
+
+
+void PerformanceData::set_paper_crop_bottom(int page_num, double normalized_position)
+{
+    paper_crops_[page_num].bottom = normalized_position;
+}
+
+
+void PerformanceData::clear_paper_crop_top(int page_num)
+{
+    auto it = paper_crops_.find(page_num);
+    if (it == paper_crops_.end())
+        return;
+
+    it->second.top.reset();
+    if (!it->second.top && !it->second.bottom)
+        paper_crops_.erase(it);
+}
+
+
+void PerformanceData::clear_paper_crop_bottom(int page_num)
+{
+    auto it = paper_crops_.find(page_num);
+    if (it == paper_crops_.end())
+        return;
+
+    it->second.bottom.reset();
+    if (!it->second.top && !it->second.bottom)
+        paper_crops_.erase(it);
+}
+
+
+const PaperCrop* PerformanceData::get_paper_crop(int page_num) const
+{
+    auto it = paper_crops_.find(page_num);
+    if (it == paper_crops_.end())
+        return nullptr;
+    return &it->second;
 }

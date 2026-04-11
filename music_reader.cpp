@@ -2382,6 +2382,19 @@ void MusicReader::create_global_shortcuts()
         toggle_text_annotation_mode();
     });
 
+    shortcut = new QShortcut(Qt::Key_X, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        auto viewer = current_viewer();
+        if (!viewer || !viewer->in_page_break_edit_mode())
+            return;
+        viewer->set_page_break_sub_mode(viewer->page_break_sub_mode() == PageBreakSubMode::EditPaperCrop
+                                            ? PageBreakSubMode::EditBreaks
+                                            : PageBreakSubMode::EditPaperCrop);
+    });
+
     shortcut = new QShortcut(Qt::Key_Space, this);
     shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {

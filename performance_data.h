@@ -3,12 +3,25 @@
 #include <filesystem>
 #include <vector>
 #include <map>
+#include <optional>
+
+// Per-page paper boundary crop. top/bottom are independent normalized
+// positions (0.0-1.0 of full page height). When set, they override the
+// auto-detected top/bottom border in zoom-to-content rendering; left/right
+// always come from auto detection. Either field may be unset.
+struct PaperCrop {
+    std::optional<double> top;
+    std::optional<double> bottom;
+};
 
 // Manages performance-related data for sheet music performance mode.
 //
 // Stores page breaks that split physical PDF pages into multiple virtual pages
 // for performance use. Break positions are stored as normalized coordinates (0.0-1.0)
 // relative to page height, making them DPI-independent.
+//
+// Also stores optional per-page paper crops (top/bottom cutoff lines) used
+// to exclude titles and footers when zoom-to-content is on.
 //
 // Data is persisted in a .perf (performance) file alongside the PDF, using a simple
 // text format that allows for future extensions (repeats, jumps, etc.).
@@ -21,6 +34,11 @@
 //   page: 3, position: 0.65
 //   page: 3, position: 0.85
 //   page: 7, position: 0.42
+//
+//   [paper_crops]
+//   page: 3, top: 0.08
+//   page: 5, top: 0.05, bottom: 0.93
+//   page: 7, bottom: 0.94
 class PerformanceData {
 public:
     PerformanceData() = default;
@@ -55,8 +73,26 @@ public:
     // Check if a specific page has any breaks.
     bool has_breaks(int page_num) const;
 
+    // Set the top paper crop line for a page. Normalized 0.0-1.0 of full page height.
+    // Replaces any existing top crop for this page.
+    void set_paper_crop_top(int page_num, double normalized_position);
+
+    // Set the bottom paper crop line for a page. Normalized 0.0-1.0 of full page height.
+    // Replaces any existing bottom crop for this page.
+    void set_paper_crop_bottom(int page_num, double normalized_position);
+
+    // Clear the top paper crop for a page (if any). If no crop remains on the
+    // page, the page entry is erased entirely.
+    void clear_paper_crop_top(int page_num);
+
+    // Clear the bottom paper crop for a page (if any).
+    void clear_paper_crop_bottom(int page_num);
+
+    // Get the paper crop for a page, or nullptr if none exists.
+    const PaperCrop* get_paper_crop(int page_num) const;
+
     // Check if there is any playback data at all.
-    bool empty() const { return page_breaks_.empty(); }
+    bool empty() const { return page_breaks_.empty() && paper_crops_.empty(); }
 
 private:
     // Constructs the .perf filename from the PDF path (same name, .perf extension).
@@ -65,6 +101,9 @@ private:
     // Map from page number to list of break positions (normalized 0.0-1.0).
     // Each vector is kept sorted.
     std::map<int, std::vector<double>> page_breaks_;
+
+    // Map from page number to its paper crop. Absent pages have no crop.
+    std::map<int, PaperCrop> paper_crops_;
 
     // File format version for future compatibility.
     int version_ = 1;

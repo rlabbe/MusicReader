@@ -3,8 +3,10 @@
 #include <QPixmap>
 #include <QImage>
 #include <QSize>
+#include <algorithm>
 #include "border.h"
 #include "logger.h"
+#include "performance_data.h"
 
 QPixmap resize_by_border(const QPixmap& img, const Border& border, int relief);
 QImage resize_by_border(const QImage& img, const Border& border, int relief);
@@ -142,6 +144,26 @@ inline QRect border_to_qrect(const Border& border, int relief)
 {
     return QRect(border.left - relief, border.top - relief, border.right - border.left + (2 * relief),
                  border.bottom - border.top + (2 * relief));
+}
+
+
+// Override the top and/or bottom of an auto-detected border with a user-defined
+// paper crop. page_img_height_pixels MUST be the height in pixels of the
+// rendered QImage the border was computed from (same pixel space). Left/right
+// come through unchanged. If the crop sets only one side, the other side
+// retains its auto-detected value.
+inline Border apply_paper_crop(const Border& b, const PaperCrop& crop, int page_img_height_pixels)
+{
+    Border result = b;
+    if (crop.top) {
+        int y = static_cast<int>(*crop.top * page_img_height_pixels);
+        result.top = std::clamp(y, 0, page_img_height_pixels);
+    }
+    if (crop.bottom) {
+        int y = static_cast<int>(*crop.bottom * page_img_height_pixels);
+        result.bottom = std::clamp(y, 0, page_img_height_pixels);
+    }
+    return result;
 }
 
 

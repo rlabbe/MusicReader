@@ -17,6 +17,27 @@ class MusicReader;
 class BookmarkPanel;
 
 
+// Submodes of the page break edit mode. EditBreaks is the existing behavior
+// (drag horizontal break lines). EditPaperCrop adds top/bottom paper crop
+// lines used to hide titles and footers in zoom-to-content rendering.
+// New edit types should be added here.
+enum class PageBreakSubMode {
+    EditBreaks,
+    EditPaperCrop,
+};
+
+
+// What the user is currently dragging during a page break edit operation.
+// All current drag kinds are a single horizontal normalized y, so they share
+// the same drag-state members.
+enum class DragKind {
+    None,
+    Break,
+    CropTop,
+    CropBottom,
+};
+
+
 class PDFViewer : public QWidget {
     Q_OBJECT
 
@@ -66,15 +87,18 @@ public:
 
     void set_text_annotation_mode(bool enabled);
     void set_page_break_edit_mode(bool enabled);
+    void set_page_break_sub_mode(PageBreakSubMode mode);
     void set_performance_mode(PerformanceMode::Mode mode);
     PerformanceMode::Mode performance_mode() const;
     bool in_page_break_edit_mode() const { return page_break_edit_mode_; }
+    PageBreakSubMode page_break_sub_mode() const { return page_break_sub_mode_; }
 
     void clear_selection();
 
 signals:
     void annotation_mode_changed(bool enabled);
     void page_break_edit_mode_changed(bool enabled);
+    void page_break_sub_mode_changed(PageBreakSubMode mode);
     void page_changed(int page_num);
 
 protected:
@@ -179,10 +203,15 @@ private:
     QRect margin_rect_;
     bool text_annotation_mode_ = false;
     bool page_break_edit_mode_ = false;
-    bool dragging_page_break_ = false;
-    double dragging_break_position_ = 0.0;
-    double original_break_position_ = 0.0;
-    bool dragging_existing_break_ = false;
+    PageBreakSubMode page_break_sub_mode_ = PageBreakSubMode::EditBreaks;
+    // When true, single-page rendering ignores zoom_to_content so the full
+    // (uncropped) page is shown. Used while editing paper crops so titles and
+    // footers are visible to click on.
+    bool force_full_page_ = false;
+    DragKind drag_kind_ = DragKind::None;
+    bool drag_is_existing_ = false;
+    double drag_position_ = 0.0;
+    double drag_original_position_ = 0.0;
     InPlaceAnnotationEditor* annotation_editor_;
     ClickTarget last_click_target_;
     QPoint last_click_display_pos_;            // Display coordinates of last click for crosshair
