@@ -75,6 +75,17 @@ public:
     };
     Position index_to_position(int index) const;
 
+    // Full-page normalized (0.0-1.0) vertical range that this index's segment
+    // covers. In normal mode or for pages without breaks, returns [0.0, 1.0].
+    // Used to translate per-page normalized data (e.g. paper crops) from
+    // full-page coordinates into the coordinate space of an already-sliced
+    // segment image.
+    struct SegmentRange {
+        double top = 0.0;
+        double bottom = 1.0;
+    };
+    SegmentRange get_segment_range(int index) const;
+
 private:
     Document* document_;
 

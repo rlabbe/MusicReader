@@ -491,6 +491,59 @@ void PDFViewer::clear_prefetch()
 }
 
 
+// Compute the crop QRect for a single page image, taking the user paper crop
+// and the segment range into account. The returned rect is in the image's
+// pixel space.
+//
+// seg is the full-page normalized vertical range [0..1] that this image
+// actually covers. For a full page or normal (non-performance) mode this is
+// [0, 1]; for a split segment (e.g. "14b") it is the slice of the full page
+// that the image represents. Crop positions are stored in full-page
+// normalized coordinates, so they must be translated into the segment-local
+// coordinate space before being converted to pixels. A crop line that lies
+// outside the segment's range doesn't apply to this segment.
+static QRect compute_page_crop_rect(const PixmapPage& p,
+                                    const PaperCrop* crop,
+                                    PageRenderer::SegmentRange seg,
+                                    int margin)
+{
+    const int w = p.width();
+    const int h = p.height();
+
+    bool apply_top = false;
+    bool apply_bottom = false;
+    int crop_top_px = 0;
+    int crop_bottom_px = h;
+
+    if (crop) {
+        const double seg_span = seg.bottom - seg.top;
+        if (seg_span > 0.0) {
+            if (crop->top) {
+                const double local = (*crop->top - seg.top) / seg_span;
+                if (local > 0.0 && local < 1.0) {
+                    apply_top = true;
+                    crop_top_px = std::clamp(static_cast<int>(local * h), 0, h);
+                }
+            }
+            if (crop->bottom) {
+                const double local = (*crop->bottom - seg.top) / seg_span;
+                if (local > 0.0 && local < 1.0) {
+                    apply_bottom = true;
+                    crop_bottom_px = std::clamp(static_cast<int>(local * h), 0, h);
+                }
+            }
+        }
+    }
+
+    const int left = std::max(0, p.border.left - margin);
+    const int right = std::min(w, p.border.right + margin);
+    const int top = apply_top ? crop_top_px : std::max(0, p.border.top - margin);
+    const int bottom = apply_bottom ? crop_bottom_px : std::min(h, p.border.bottom + margin);
+
+    return QRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+}
+
+
 PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index, PageRequestType request_type) const
 {
     SAFE_METHOD;
@@ -507,14 +560,18 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index, PageReques
 
     // Get page at next index if it exists
     int count = renderer_.page_count();
+    PageRenderer::SegmentRange seg2;
     if (index + 1 <= count) {
         Page page2 = renderer_.get_page_at_index(index + 1, request_type);
         entry.p2 = PixmapPage(page2);
+        seg2 = renderer_.get_segment_range(index + 1);
     } else
         copy_blank_image(entry.p1, entry.p2);
 
-    if (!entry.p1.is_empty() && !entry.p2.is_empty())
-        entry.rendered = compose_double_page(entry.p1, entry.p2);
+    if (!entry.p1.is_empty() && !entry.p2.is_empty()) {
+        const PageRenderer::SegmentRange seg1 = renderer_.get_segment_range(index);
+        entry.rendered = compose_double_page(entry.p1, entry.p2, seg1, seg2);
+    }
 
     return entry;
 }
@@ -545,26 +602,9 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageReques
 
     const int margin = config_->border_margin();
     const PaperCrop* crop = document_->performance_data().get_paper_crop(entry.p1.page_num);
+    const PageRenderer::SegmentRange seg = renderer_.get_segment_range(index);
 
-    if (!crop || (!crop->top && !crop->bottom)) {
-        // No user crop - use existing border + symmetric margin.
-        entry.rendered = entry.p1.resize_by_border(margin);
-        return entry;
-    }
-
-    // User crop overrides top and/or bottom. Build the final QRect directly so
-    // the overridden sides get no relief (the user explicitly asked to cut
-    // there); unoverridden sides still get the configured margin.
-    Border b = apply_paper_crop(entry.p1.border, *crop, entry.p1.height());
-
-    const int img_w = entry.p1.width();
-    const int img_h = entry.p1.height();
-    const int left = std::max(0, b.left - margin);
-    const int right = std::min(img_w, b.right + margin);
-    const int top = crop->top ? b.top : std::max(0, b.top - margin);
-    const int bottom = crop->bottom ? b.bottom : std::min(img_h, b.bottom + margin);
-
-    QRect rect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+    const QRect rect = compute_page_crop_rect(entry.p1, crop, seg, margin);
     entry.rendered = entry.p1.pixmap.copy(rect);
     return entry;
 }
@@ -654,7 +694,10 @@ void PDFViewer::get_page(int index)
 }
 
 
-QPixmap PDFViewer::compose_double_page(const PixmapPage& p1, const PixmapPage& p2) const
+QPixmap PDFViewer::compose_double_page(const PixmapPage& p1,
+                                       const PixmapPage& p2,
+                                       PageRenderer::SegmentRange seg1,
+                                       PageRenderer::SegmentRange seg2) const
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
@@ -663,26 +706,15 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1, const PixmapPage& p
     const bool zoom = config_->zoom_to_content() && !force_full_page_;
     const int margin = config_->border_margin();
 
-    // Compute the crop rect for a single page, honoring user paper crops (which
-    // override top/bottom and suppress relief on those sides).
-    auto page_crop_rect = [&](const PixmapPage& p) -> QRect {
+    auto page_crop_rect = [&](const PixmapPage& p, PageRenderer::SegmentRange seg) -> QRect {
         if (!zoom)
             return QRect(0, 0, p.width(), p.height());
-
         const PaperCrop* crop = document_->performance_data().get_paper_crop(p.page_num);
-        if (!crop || (!crop->top && !crop->bottom))
-            return border_to_qrect(p.border, margin);
-
-        Border b = apply_paper_crop(p.border, *crop, p.height());
-        const int left = std::max(0, b.left - margin);
-        const int right = std::min(p.width(), b.right + margin);
-        const int top = crop->top ? b.top : std::max(0, b.top - margin);
-        const int bottom = crop->bottom ? b.bottom : std::min(p.height(), b.bottom + margin);
-        return QRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+        return compute_page_crop_rect(p, crop, seg, margin);
     };
 
-    QRect p1_crop = page_crop_rect(p1);
-    QRect p2_crop = page_crop_rect(p2);
+    QRect p1_crop = page_crop_rect(p1, seg1);
+    QRect p2_crop = page_crop_rect(p2, seg2);
 
     int line_width = 8;
     int combined_width = p1_crop.width() + p2_crop.width() + line_width;
@@ -845,11 +877,13 @@ void PDFViewer::update_image(const QString& message)
             PixmapPage other_pp(other_pixmap, preview_is_page2 ? current : current + 1, false);
             other_pp.border = other_page.border;
 
-            // Compose in correct order
+            // Compose in correct order. Annotation preview works with full
+            // physical pages, so the segments are [0,1] for both.
+            PageRenderer::SegmentRange full_seg;
             if (preview_is_page2)
-                preview_pixmap = compose_double_page(other_pp, preview_pp);
+                preview_pixmap = compose_double_page(other_pp, preview_pp, full_seg, full_seg);
             else
-                preview_pixmap = compose_double_page(preview_pp, other_pp);
+                preview_pixmap = compose_double_page(preview_pp, other_pp, full_seg, full_seg);
         }
 
         scaled_pixmap = preview_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -889,10 +923,11 @@ void PDFViewer::update_image(const QString& message)
                     PixmapPage other_pp(other_pixmap, moved_is_page2 ? current : current + 1, false);
                     other_pp.border = other_page.border;
 
+                    PageRenderer::SegmentRange full_seg;
                     if (moved_is_page2)
-                        moved_pixmap = compose_double_page(other_pp, moved_pp);
+                        moved_pixmap = compose_double_page(other_pp, moved_pp, full_seg, full_seg);
                     else
-                        moved_pixmap = compose_double_page(moved_pp, other_pp);
+                        moved_pixmap = compose_double_page(moved_pp, other_pp, full_seg, full_seg);
                 } else {
                     // Single-page mode: handle performance mode and/or zoom mode cropping
                     if (PerformanceMode::is_performance()) {
@@ -963,48 +998,32 @@ void PDFViewer::update_image(const QString& message)
         painter.end();
     }
 
-    // Draw page break lines in edit mode (EditBreaks submode only).
-    if (page_break_edit_mode_ && page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
+    // In edit mode, always draw both overlays regardless of submode: page
+    // break separators (blue) and paper crop lines + excluded-region hatch
+    // (red). The active submode only controls which overlays the mouse edits.
+    if (page_break_edit_mode_) {
+        QPainter painter(&scaled_pixmap);
+        const int display_height = scaled_pixmap.height();
+        const int display_width = scaled_pixmap.width();
+
         const auto& breaks = document_->performance_data().get_page_breaks(current_page());
         const bool dragging_break = (drag_kind_ == DragKind::Break);
-        if (!breaks.empty() || dragging_break) {
-            QPainter painter(&scaled_pixmap);
-            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
 
-            int display_height = scaled_pixmap.height();
-
-            // Draw existing breaks (skip the one being dragged)
-            for (double break_pos : breaks) {
-                // Skip drawing the break we're currently dragging
-                if (dragging_break && drag_is_existing_ && std::abs(break_pos - drag_original_position_) < 0.01)
-                    continue;
-
-                int break_y_display = normalized_to_display_y(break_pos, display_height);
-
-                // Only draw if within visible area
-                if (break_y_display >= 0 && break_y_display < display_height)
-                    painter.drawLine(0, break_y_display, scaled_pixmap.width(), break_y_display);
-            }
-
-            // Draw the line being dragged (if any)
-            if (dragging_break) {
-                int break_y_display = normalized_to_display_y(drag_position_, display_height);
-
-                if (break_y_display >= 0 && break_y_display < display_height)
-                    painter.drawLine(0, break_y_display, scaled_pixmap.width(), break_y_display);
-            }
-
-            painter.end();
+        painter.setPen(QPen(Qt::blue, 1, Qt::SolidLine));
+        for (double break_pos : breaks) {
+            if (dragging_break && drag_is_existing_ && std::abs(break_pos - drag_original_position_) < 0.01)
+                continue;
+            int y = normalized_to_display_y(break_pos, display_height);
+            if (y >= 0 && y < display_height)
+                painter.drawLine(0, y, display_width, y);
         }
-    }
+        if (dragging_break) {
+            int y = normalized_to_display_y(drag_position_, display_height);
+            if (y >= 0 && y < display_height)
+                painter.drawLine(0, y, display_width, y);
+        }
 
-    // Draw paper crop lines and excluded-region hatch in EditPaperCrop submode.
-    if (page_break_edit_mode_ && page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
         const PaperCrop* stored = document_->performance_data().get_paper_crop(current_page());
-
-        // Determine the top and bottom lines currently shown. During a drag of
-        // an existing line the original is hidden and the dragged position is
-        // used; during a drag of a new line the new position is used.
         std::optional<double> top_line;
         std::optional<double> bottom_line;
         if (stored) {
@@ -1018,18 +1037,14 @@ void PDFViewer::update_image(const QString& message)
         else if (drag_kind_ == DragKind::CropBottom)
             bottom_line = drag_position_;
 
-        const int display_height = scaled_pixmap.height();
-        const int display_width = scaled_pixmap.width();
-
-        QPainter painter(&scaled_pixmap);
         QBrush hatch(QColor(255, 0, 0, 60), Qt::BDiagPattern);
+        painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
 
         if (top_line) {
             int y = normalized_to_display_y(*top_line, display_height);
             y = std::clamp(y, 0, display_height);
             if (y > 0)
                 painter.fillRect(QRect(0, 0, display_width, y), hatch);
-            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
             painter.drawLine(0, y, display_width, y);
         }
         if (bottom_line) {
@@ -1037,7 +1052,6 @@ void PDFViewer::update_image(const QString& message)
             y = std::clamp(y, 0, display_height);
             if (y < display_height)
                 painter.fillRect(QRect(0, y, display_width, display_height - y), hatch);
-            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
             painter.drawLine(0, y, display_width, y);
         }
 
@@ -1121,10 +1135,10 @@ void PDFViewer::set_page_break_edit_mode(bool enabled)
     SAFE_METHOD;
     TRACE_CALL;
     page_break_edit_mode_ = enabled;
-    // Always reset submode state so we re-enter in the default submode and
-    // restore normal zoom display when exiting.
+    // Always reset submode state; while editing we force full-page display so
+    // titles/footers are visible, then restore normal zoom on exit.
     page_break_sub_mode_ = PageBreakSubMode::EditBreaks;
-    force_full_page_ = false;
+    force_full_page_ = enabled;
     drag_kind_ = DragKind::None;
     drag_is_existing_ = false;
     clear_prefetch();
@@ -1148,22 +1162,14 @@ void PDFViewer::set_page_break_sub_mode(PageBreakSubMode mode)
     drag_is_existing_ = false;
 
     switch (mode) {
-        case PageBreakSubMode::EditBreaks:
-            force_full_page_ = false;
-            setCursor(Qt::CrossCursor);
-            break;
-        case PageBreakSubMode::EditPaperCrop:
-            // Force full-page display so the user can see titles/footers even
-            // when zoom_to_content is on in normal navigation.
-            force_full_page_ = true;
-            setCursor(Qt::SplitVCursor);
-            break;
+        case PageBreakSubMode::EditBreaks: setCursor(Qt::CrossCursor); break;
+        case PageBreakSubMode::EditPaperCrop: setCursor(Qt::SplitVCursor); break;
     }
 
-    // Prefetched pages were rendered with the prior force_full_page_ setting
-    // (or with the prior crop state) and must be discarded.
-    clear_prefetch();
-    refresh();
+    // Submode switches only change interaction and cursor; the rendered page
+    // is identical (edit mode always renders full-page) and both break and
+    // crop overlays are drawn in both submodes. Just repaint overlays.
+    update_image();
     emit page_break_sub_mode_changed(mode);
 }
 

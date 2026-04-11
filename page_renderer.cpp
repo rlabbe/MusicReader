@@ -233,6 +233,31 @@ std::string PageRenderer::format_display(int physical_page, int segment_index) c
 }
 
 
+PageRenderer::SegmentRange PageRenderer::get_segment_range(int index) const
+{
+    SegmentRange range;
+    if (!document_ || !PerformanceMode::is_performance())
+        return range;
+
+    Position pos = index_to_position(index);
+    const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
+    if (breaks.empty())
+        return range;
+
+    if (pos.segment_index == 0) {
+        range.top = 0.0;
+        range.bottom = breaks[0];
+    } else if (pos.segment_index < static_cast<int>(breaks.size())) {
+        range.top = breaks[pos.segment_index - 1];
+        range.bottom = breaks[pos.segment_index];
+    } else {
+        range.top = breaks.back();
+        range.bottom = 1.0;
+    }
+    return range;
+}
+
+
 Page PageRenderer::get_page_at_index(int index, PageRequestType request_type) const
 {
     if (!document_)

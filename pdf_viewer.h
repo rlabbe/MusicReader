@@ -168,7 +168,10 @@ private:
     mutable std::mutex prefetch_mutex_;
 
     void prefetch_async(int index);
-    QPixmap compose_double_page(const PixmapPage& p1, const PixmapPage& p2) const;
+    QPixmap compose_double_page(const PixmapPage& p1,
+                                const PixmapPage& p2,
+                                PageRenderer::SegmentRange seg1,
+                                PageRenderer::SegmentRange seg2) const;
     void clear_prefetch();
     PrefetchEntry make_double_page_entry(int index, PageRequestType request_type = PageRequestType::Prefetch) const;
     PrefetchEntry make_single_page_entry(int index, PageRequestType request_type = PageRequestType::Prefetch) const;
