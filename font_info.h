@@ -27,6 +27,16 @@ std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic);
 // Returns the full path to the .ttf file, or nullopt if not found.
 std::optional<std::string> lookup_font_file(const std::string& font_family);
 
+// Standard Windows-style point-size sequence: 6,7,8,9,10,11,12,14,16,18,20,22,
+// 24,26,28,36,48,72. Used by the annotation font picker and +/- key shortcuts.
+extern const float k_standard_font_sizes[];
+extern const int k_standard_font_sizes_count;
+
+// Returns the next standard size larger (or smaller) than `current`. If
+// `current` is outside the table, snaps to the nearest standard size in the
+// requested direction. Clamps at the table ends.
+float next_standard_font_size(float current, bool larger);
+
 // Normalizes a PDF font name to the MuPDF Base-14 font name.
 // Handles short names like "Helv" -> "Helvetica", "Cour" -> "Courier", etc.
 std::string normalize_to_base14_font(const std::string& pdf_font_name);

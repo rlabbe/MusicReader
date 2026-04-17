@@ -267,6 +267,22 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
                 move_selected_annotation(move_pixels, 0);
                 event->accept();
                 return;
+            case Qt::Key_Plus:
+            case Qt::Key_Equal:  // unshifted '+' on US keyboards
+            case Qt::Key_Minus: {
+                const Annotation* current = nullptr;
+                for (const auto& a : document_->annotations())
+                    if (a.handle_ == selected_annotation_) { current = &a; break; }
+                if (current) {
+                    bool larger = (key != Qt::Key_Minus);
+                    FontInfo new_font = current->font_info_;
+                    new_font.size = next_standard_font_size(new_font.size, larger);
+                    if (new_font.size != current->font_info_.size)
+                        document_->change_annotation_font(selected_annotation_, new_font);
+                }
+                event->accept();
+                return;
+            }
             default: break;
         }
     }

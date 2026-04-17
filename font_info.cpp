@@ -3,7 +3,28 @@
 #include <Windows.h>
 #include <ShlObj.h>
 #include <filesystem>
+#include <algorithm>
 #include <QString>
+
+
+const float k_standard_font_sizes[] = {6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72};
+const int k_standard_font_sizes_count = sizeof(k_standard_font_sizes) / sizeof(k_standard_font_sizes[0]);
+
+
+float next_standard_font_size(float current, bool larger)
+{
+    const float* begin = k_standard_font_sizes;
+    const float* end = k_standard_font_sizes + k_standard_font_sizes_count;
+    if (larger) {
+        // First entry strictly greater than current.
+        auto it = std::upper_bound(begin, end, current);
+        return (it == end) ? *(end - 1) : *it;
+    } else {
+        // Largest entry strictly less than current.
+        auto it = std::lower_bound(begin, end, current);
+        return (it == begin) ? *begin : *(it - 1);
+    }
+}
 
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>

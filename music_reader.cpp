@@ -1737,11 +1737,12 @@ std::optional<FontInfo> MusicReader::show_font_picker(QWidget* parent, const Fon
     QLabel* size_label = new QLabel("Font Size:", &dialog);
     layout->addWidget(size_label);
 
-    QSpinBox* size_spin = new QSpinBox(&dialog);
-    size_spin->setMinimum(8);
-    size_spin->setMaximum(72);
-    size_spin->setValue(static_cast<int>(current.size));
-    layout->addWidget(size_spin);
+    QComboBox* size_combo = new QComboBox(&dialog);
+    size_combo->setEditable(true);
+    for (int i = 0; i < k_standard_font_sizes_count; ++i)
+        size_combo->addItem(QString::number(static_cast<int>(k_standard_font_sizes[i])));
+    size_combo->setCurrentText(QString::number(static_cast<int>(current.size)));
+    layout->addWidget(size_combo);
 
     QLabel* color_label = new QLabel("Font Color:", &dialog);
     layout->addWidget(color_label);
@@ -1776,7 +1777,9 @@ std::optional<FontInfo> MusicReader::show_font_picker(QWidget* parent, const Fon
 
     FontInfo result;
     result.family = font_combo->currentText().toStdString();
-    result.size = static_cast<float>(size_spin->value());
+    bool ok = false;
+    float typed = size_combo->currentText().toFloat(&ok);
+    result.size = ok ? typed : current.size;
     result.color = {selected_color.red(), selected_color.green(), selected_color.blue()};
     return result;
 }
