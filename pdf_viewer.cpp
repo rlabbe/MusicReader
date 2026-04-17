@@ -107,6 +107,10 @@ void PDFViewer::refresh()
     // Clear any annotation selection when mode changes (zoom, page view, performance mode)
     clear_selection();
 
+    // PrefetchEntry::valid() does not track every piece of state that triggers
+    // a refresh, so drop cached pixmaps to force a re-render on next navigation.
+    clear_prefetch();
+
     const int count = renderer_.page_count();
     if (count == 0)
         return;
@@ -505,7 +509,8 @@ void PDFViewer::clear_prefetch()
 static QRect compute_page_crop_rect(const PixmapPage& p,
                                     const PaperCrop* crop,
                                     PageRenderer::SegmentRange seg,
-                                    int margin)
+                                    int margin,
+                                    bool use_border)
 {
     const int w = p.width();
     const int h = p.height();
@@ -535,12 +540,53 @@ static QRect compute_page_crop_rect(const PixmapPage& p,
         }
     }
 
-    const int left = std::max(0, p.border.left - margin);
-    const int right = std::min(w, p.border.right + margin);
-    const int top = apply_top ? crop_top_px : std::max(0, p.border.top - margin);
-    const int bottom = apply_bottom ? crop_bottom_px : std::min(h, p.border.bottom + margin);
+    int left, right, top, bottom;
+    if (use_border) {
+        left = std::max(0, p.border.left - margin);
+        right = std::min(w, p.border.right + margin);
+        top = apply_top ? crop_top_px : std::max(0, p.border.top - margin);
+        bottom = apply_bottom ? crop_bottom_px : std::min(h, p.border.bottom + margin);
 
-    return QRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+        // QPixmap::copy() treats an empty rect as "copy whole pixmap", so fall
+        // back to the segment bound on the non-cropped side when the content
+        // border and user crop don't overlap.
+        if (top >= bottom) {
+            if (!apply_top)
+                top = 0;
+            if (!apply_bottom)
+                bottom = h;
+        }
+    } else {
+        left = 0;
+        right = w;
+        top = apply_top ? crop_top_px : 0;
+        bottom = apply_bottom ? crop_bottom_px : h;
+    }
+
+    return QRect(left, top, std::max(1, right - left), std::max(1, bottom - top));
+}
+
+
+QRect PDFViewer::compute_display_rect(const PixmapPage& p, PageRenderer::SegmentRange seg) const
+{
+    const int w = p.width();
+    const int h = p.height();
+
+    // While editing paper crops, show the raw full page so the user can click
+    // anywhere in the real page extent.
+    if (force_full_page_)
+        return QRect(0, 0, w, h);
+
+    const bool zoom = config_->zoom_to_content();
+    const bool perf = PerformanceMode::is_performance();
+    if (!zoom && !perf)
+        return QRect(0, 0, w, h);
+
+    const PaperCrop* crop = document_->performance_data().get_paper_crop(p.page_num);
+    if (!zoom && !crop)
+        return QRect(0, 0, w, h);
+
+    return compute_page_crop_rect(p, crop, seg, config_->border_margin(), zoom);
 }
 
 
@@ -594,18 +640,9 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageReques
     if (entry.p1.is_empty())
         return entry;
 
-    const bool zoom = config_->zoom_to_content() && !force_full_page_;
-    if (!zoom) {
-        entry.rendered = entry.p1.as_pixmap();
-        return entry;
-    }
-
-    const int margin = config_->border_margin();
-    const PaperCrop* crop = document_->performance_data().get_paper_crop(entry.p1.page_num);
     const PageRenderer::SegmentRange seg = renderer_.get_segment_range(index);
-
-    const QRect rect = compute_page_crop_rect(entry.p1, crop, seg, margin);
-    entry.rendered = entry.p1.pixmap.copy(rect);
+    const QRect rect = compute_display_rect(entry.p1, seg);
+    entry.rendered = (rect == entry.p1.pixmap.rect()) ? entry.p1.as_pixmap() : entry.p1.pixmap.copy(rect);
     return entry;
 }
 
@@ -703,18 +740,8 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1,
     TRACE_FUNCTION;
     REQUIRES_RET(config_, QPixmap());
 
-    const bool zoom = config_->zoom_to_content() && !force_full_page_;
-    const int margin = config_->border_margin();
-
-    auto page_crop_rect = [&](const PixmapPage& p, PageRenderer::SegmentRange seg) -> QRect {
-        if (!zoom)
-            return QRect(0, 0, p.width(), p.height());
-        const PaperCrop* crop = document_->performance_data().get_paper_crop(p.page_num);
-        return compute_page_crop_rect(p, crop, seg, margin);
-    };
-
-    QRect p1_crop = page_crop_rect(p1, seg1);
-    QRect p2_crop = page_crop_rect(p2, seg2);
+    QRect p1_crop = compute_display_rect(p1, seg1);
+    QRect p2_crop = compute_display_rect(p2, seg2);
 
     int line_width = 8;
     int combined_width = p1_crop.width() + p2_crop.width() + line_width;
