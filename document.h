@@ -73,6 +73,10 @@ public:
     std::vector<Annotation>& annotations() { return annotations_; }
 
     bool add_annotation(const Annotation& annotation);
+    // Place a single SMuFL music glyph (Bravura) as a FreeText annotation with
+    // a hand-built appearance stream. baseline_x/y are click coordinates: x in
+    // PDF points, y as baseline in PDF Y-up coords.
+    bool add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y, int codepoint, float font_size);
     bool remove_annotation(const AnnotationHandle& handle);
     bool edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text);
     bool move_annotation(const AnnotationHandle& handle, float new_x, float new_y);

@@ -1154,7 +1154,24 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
     SAFE_METHOD;
     TRACE_CALL;
     text_annotation_mode_ = enabled;
+    if (!enabled)
+        pending_music_symbol_codepoint_ = 0;
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
+}
+
+
+void PDFViewer::set_pending_music_symbol(int codepoint)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION_MSG("U+{:04X}", codepoint);
+
+    // Editor commits text via its focusOutEvent path, so dropping focus is
+    // the public way to flush an in-progress edit.
+    if (annotation_editor_ && annotation_editor_->isVisible())
+        annotation_editor_->clearFocus();
+
+    pending_music_symbol_codepoint_ = codepoint;
+    setCursor(codepoint != 0 ? Qt::CrossCursor : (text_annotation_mode_ ? Qt::IBeamCursor : Qt::ArrowCursor));
 }
 
 void PDFViewer::set_page_break_edit_mode(bool enabled)
@@ -1274,6 +1291,20 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         float points_to_pixels = static_cast<float>(displayed.width()) / effective_pdf_width;
         annotation_editor_->set_dpi_scale(points_to_pixels);
+
+        if (pending_music_symbol_codepoint_ != 0) {
+            // The IBeam cursor compensation above shifts last_click_target_.points_y
+            // downward in PDF coords to match where users perceive the IBeam
+            // hotspot. With the crosshair cursor used for music symbols, the
+            // hotspot is the actual click point, so undo that shift here.
+            ClickTarget raw = get_click_target(event);
+            float font_size = config_->annotation_font().size;
+            document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y,
+                                                   pending_music_symbol_codepoint_, font_size);
+            // Stay in this mode so consecutive clicks place more of the same glyph.
+            event->accept();
+            return;
+        }
 
         annotation_editor_->start_editing(adjusted_pos);
 
@@ -1859,10 +1890,19 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annot_page);
 
     // annotation.y_ is the BASELINE in PDF coords (y from bottom)
-    // Use MuPDF font metrics for accurate positioning (recalculate from text, don't use stored values)
-    float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-    float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-    float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+    // Music symbols use Bravura's per-glyph ink bounds (font_ascent/etc. only
+    // know the Base-14 fonts and would fall back to Helvetica metrics).
+    float ascent, descent, width;
+    if (annotation.is_music_symbol_) {
+        // Same as find_annotation_at_point: drive the box from the saved /Rect.
+        ascent = annotation.rect_top_pdf_ - annotation.y_;
+        descent = annotation.height_ - ascent;
+        width = annotation.width_;
+    } else {
+        ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+        descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+        width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+    }
     float annot_top_pdf = annotation.y_ + ascent;
     float annot_bottom_pdf = annotation.y_ - descent;
 
@@ -2015,10 +2055,21 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
 
         // Annotation bounds in PDF points
         // annotation.y_ stores the BASELINE (not top edge)
-        // Use MuPDF metrics for accurate hit testing (recalculate from text)
-        float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-        float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-        float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+        // Music symbols use Bravura metrics, which the Base-14 helpers don't
+        // know about; query the font directly for those.
+        float ascent, descent, width;
+        if (annotation.is_music_symbol_) {
+            // Use the saved /Rect directly — same hit-test Foxit/Acrobat do.
+            // Derive the fake "ascent"/"descent" from rect_top_pdf_ and
+            // height_ so the existing baseline-relative code below works.
+            ascent = annotation.rect_top_pdf_ - annotation.y_;
+            descent = annotation.height_ - ascent;
+            width = annotation.width_;
+        } else {
+            ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+            descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+            width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+        }
         float annot_left = annotation.x_;
         float annot_top = annotation.y_ + ascent;
         float annot_right = annotation.x_ + width;

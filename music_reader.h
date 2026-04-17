@@ -219,6 +219,16 @@ private:
     QAction* performance_mode_action_ = nullptr;
     bool text_annotation_mode_ = false;
 
+    // SMuFL music-symbol palette: shown only while in annotation mode. Each
+    // action is checkable and exclusive within music_palette_group_; selecting
+    // one sets the active viewer's pending music symbol so the next click
+    // places that glyph. Selecting it again (or none) clears the pending state.
+    QActionGroup* music_palette_group_ = nullptr;
+    std::vector<QAction*> music_palette_actions_;
+    void create_music_palette();
+    void on_music_symbol_action_toggled();
+    void update_music_palette_visibility(bool annotation_mode_on);
+
     QIcon single_icon_;
     QIcon double_icon_;
     QIcon zoomin_icon_;

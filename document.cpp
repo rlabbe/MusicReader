@@ -776,6 +776,61 @@ Annotation* Document::find_annotation(const AnnotationHandle& handle)
     return nullptr;
 }
 
+bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
+                                           int codepoint, float font_size)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION_MSG("page={} cp=U+{:04X} size={}", page_num, codepoint, font_size);
+
+    auto bravura = lookup_font_file("Bravura");
+    if (!bravura) {
+        logger::error("Bravura font not found in registry; cannot place music symbol");
+        return false;
+    }
+
+    GlyphMetrics m = measure_glyph(*bravura, "Bravura", codepoint, font_size);
+    if (m.width <= 0.0f || m.height <= 0.0f) {
+        logger::error("Glyph U+{:04X} has zero metrics in Bravura", codepoint);
+        return false;
+    }
+
+    if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
+        return false;
+    float page_height = page_info_[page_num - 1].height_points;
+
+    // baseline_y is in PDF Y-up coords (matches Annotation.y_ convention).
+    // Convert to screen coords for the on-page rect: rect top sits one ascent
+    // above the baseline.
+    float baseline_screen_y = page_height - baseline_y;
+    float rect_top_screen = baseline_screen_y - m.ascent;
+    float rect_left = baseline_x;
+
+    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num,
+                                                  rect_left, rect_top_screen, m.width, m.height,
+                                                  font_size, "Bravura", *bravura, 0, 0, 0);
+    if (tr != TextResult::Success) {
+        logger::error("Failed to write music symbol U+{:04X} to PDF, code={}",
+                      codepoint, static_cast<int>(tr));
+        return false;
+    }
+
+    FontInfo font_info {.family = "Bravura", .size = font_size, .color = {0, 0, 0}};
+    Annotation ann {codepoint_to_utf8(codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
+    ann.is_music_symbol_ = true;
+    ann.symbol_codepoint_ = codepoint;
+    // Mirror the saved /Rect: top in PDF Y-up = baseline + ascent.
+    ann.rect_top_pdf_ = baseline_y + m.ascent;
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        annotations_.push_back(ann);
+    }
+
+    reload_page(page_num);
+    return true;
+}
+
+
 bool Document::add_annotation(const Annotation& annotation)
 {
     SAFE_METHOD;
@@ -1287,19 +1342,48 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                             }
                         }
 
-                        if (text && strlen(text) > 0) {
+                        // "F1" is the internal font name add_freetext_with_custom_font writes
+                        // into /DA for music-symbol annotations. Detecting it lets us recover
+                        // the is_music_symbol_ flag after a save+reload.
+                        bool is_music = (font_name == "F1");
+
+                        if ((text && strlen(text) > 0) || is_music) {
                             FontInfo loaded_font;
-                            if (!font_name.empty())
+                            if (is_music)
+                                loaded_font.family = "Bravura";
+                            else if (!font_name.empty())
                                 loaded_font.family = font_name;
                             loaded_font.size = font_size;
                             loaded_font.color = {r, g, b};
 
-                            // Convert rect top to baseline
-                            AnnotationCoordinates coords;
-                            float baseline_y = coords.rect_top_to_baseline_pdf(y1, font_size);
+                            // For music symbols recover the SMuFL codepoint from /Contents
+                            // so per-glyph metrics (fz_bound_glyph) work after a reload.
+                            int recovered_codepoint = 0;
+                            if (is_music && text && text[0] != '\0')
+                                fz_chartorune(&recovered_codepoint, text);
 
-                            Annotation annotation(std::string(text), page_idx + 1, x, baseline_y, width, height,
-                                                  loaded_font);
+                            // For music symbols the rect top sits one per-glyph ascent
+                            // above the baseline (Base-14 formula assumes ascent == font_size).
+                            AnnotationCoordinates coords;
+                            float baseline_y;
+                            if (is_music) {
+                                auto bravura = lookup_font_file("Bravura");
+                                if (bravura && recovered_codepoint != 0) {
+                                    GlyphMetrics m = measure_glyph(*bravura, "Bravura",
+                                                                   recovered_codepoint, font_size);
+                                    baseline_y = y1 - m.ascent;
+                                } else {
+                                    baseline_y = coords.rect_top_to_baseline_pdf(y1, font_size);
+                                }
+                            } else {
+                                baseline_y = coords.rect_top_to_baseline_pdf(y1, font_size);
+                            }
+
+                            Annotation annotation(text ? std::string(text) : std::string(), page_idx + 1,
+                                                  x, baseline_y, width, height, loaded_font);
+                            annotation.is_music_symbol_ = is_music;
+                            annotation.symbol_codepoint_ = recovered_codepoint;
+                            annotation.rect_top_pdf_ = y1;
                             annotations.push_back(annotation);
                         }
                     }
@@ -1458,6 +1542,13 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
         float font_size = ann.font_info_.size;
         float rect_y0 = coords.baseline_to_rect_top_screen(ann.y_, font_size);
 
+        // For music symbols, derive the screen rect-top directly from the
+        // saved rect's top y (PDF Y-up) — this is exactly the value mupdf
+        // stored, so the round-trip is exact.
+        float music_rect_y0 = 0.0f;
+        if (ann.is_music_symbol_)
+            music_rect_y0 = page_height - ann.rect_top_pdf_;
+
         // Find and delete the matching annotation
         pdf_annot* annot = pdf_first_annot(ctx, page);
         bool found = false;
@@ -1467,11 +1558,16 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
                 fz_rect annot_rect = pdf_annot_rect(ctx, annot);
                 const char* contents = pdf_annot_contents(ctx, annot);
 
-                // Match by position (within tolerance) and contents
+                // Match by position (within tolerance) and contents.
+                // For music symbols we skip text_match: SMuFL PUA codepoints
+                // don't always survive the PDF text-string round-trip cleanly,
+                // and a single glyph at an exact rect is unique enough.
                 constexpr float tolerance = 1.0f;
                 bool x_match = std::abs(annot_rect.x0 - ann.x_) < tolerance;
-                bool y_match = std::abs(annot_rect.y0 - rect_y0) < tolerance;
-                bool text_match = (contents && ann.text_ == contents);
+                bool y_match = ann.is_music_symbol_
+                                   ? std::abs(annot_rect.y0 - music_rect_y0) < tolerance
+                                   : std::abs(annot_rect.y0 - rect_y0) < tolerance;
+                bool text_match = ann.is_music_symbol_ ? true : (contents && ann.text_ == contents);
 
                 if (x_match && y_match && text_match) {
                     pdf_delete_annot(ctx, page, annot);

@@ -79,37 +79,25 @@ std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
 }
 
 
-std::optional<std::string> lookup_font_file(const std::string& font_family)
+// Search a single Fonts registry hive (HKLM = system, HKCU = per-user).
+// HKCU entries typically store an absolute path; HKLM stores a bare filename
+// to be resolved against the system Fonts directory.
+static std::optional<std::string> lookup_font_in_hive(HKEY hive,
+                                                     const std::string& font_family,
+                                                     const std::filesystem::path& system_fonts_dir)
 {
-    TRACE_FUNCTION_MSG("Looking up font: {}", font_family);
-
-    // Get Windows Fonts directory
-    wchar_t fonts_path[MAX_PATH];
-    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_FONTS, nullptr, 0, fonts_path))) {
-        logger::error("Failed to get Windows Fonts directory");
-        return std::nullopt;
-    }
-
-    std::filesystem::path fonts_dir(fonts_path);
-
-    // Open registry key for fonts
     HKEY hkey;
-    LONG result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0,
-                                KEY_READ, &hkey);
-
-    if (result != ERROR_SUCCESS) {
-        logger::error("Failed to open fonts registry key");
+    LONG result = RegOpenKeyExW(hive, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0, KEY_READ, &hkey);
+    if (result != ERROR_SUCCESS)
         return std::nullopt;
-    }
 
     std::optional<std::string> found_file;
     DWORD index = 0;
     wchar_t value_name[512];
-    BYTE value_data[512];
+    BYTE value_data[1024];
 
     QString search_family = QString::fromStdString(font_family);
 
-    // Iterate through all registry values
     while (true) {
         DWORD name_size = sizeof(value_name) / sizeof(wchar_t);
         DWORD data_size = sizeof(value_data);
@@ -121,24 +109,20 @@ std::optional<std::string> lookup_font_file(const std::string& font_family)
             break;
 
         if (result != ERROR_SUCCESS) {
-            logger::warning("Failed to enumerate registry value at index {}", index);
             index++;
             continue;
         }
 
-        // value_name contains something like "Georgia (TrueType)"
-        // value_data contains the filename like "georgia.ttf"
         QString reg_font_name = QString::fromWCharArray(value_name);
         QString reg_font_file = QString::fromWCharArray(reinterpret_cast<wchar_t*>(value_data));
 
-        // Check if this registry entry matches our font family
-        // The registry name format is typically "FontName (TrueType)"
         if (reg_font_name.contains(search_family, Qt::CaseInsensitive)) {
-            // Build full path
-            std::filesystem::path full_path = fonts_dir / reg_font_file.toStdWString();
+            std::filesystem::path candidate(reg_font_file.toStdWString());
+            if (!candidate.is_absolute())
+                candidate = system_fonts_dir / candidate;
 
-            if (std::filesystem::exists(full_path)) {
-                found_file = full_path.string();
+            if (std::filesystem::exists(candidate)) {
+                found_file = candidate.string();
                 break;
             }
         }
@@ -147,11 +131,30 @@ std::optional<std::string> lookup_font_file(const std::string& font_family)
     }
 
     RegCloseKey(hkey);
-
-    if (!found_file)
-        logger::warning("Font '{}' not found in Windows Registry", font_family);
-
     return found_file;
+}
+
+
+std::optional<std::string> lookup_font_file(const std::string& font_family)
+{
+    TRACE_FUNCTION_MSG("Looking up font: {}", font_family);
+
+    wchar_t fonts_path[MAX_PATH];
+    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_FONTS, nullptr, 0, fonts_path))) {
+        logger::error("Failed to get Windows Fonts directory");
+        return std::nullopt;
+    }
+
+    std::filesystem::path fonts_dir(fonts_path);
+
+    // System-wide install first, then per-user (no-admin) install.
+    if (auto f = lookup_font_in_hive(HKEY_LOCAL_MACHINE, font_family, fonts_dir))
+        return f;
+    if (auto f = lookup_font_in_hive(HKEY_CURRENT_USER, font_family, fonts_dir))
+        return f;
+
+    logger::warning("Font '{}' not found in Windows Registry", font_family);
+    return std::nullopt;
 }
 
 std::string normalize_to_base14_font(const std::string& pdf_font_name)

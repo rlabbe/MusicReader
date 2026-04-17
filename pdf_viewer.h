@@ -86,6 +86,12 @@ public:
     void replace_document(std::shared_ptr<Document> document, int page);
 
     void set_text_annotation_mode(bool enabled);
+    // While in annotation mode, set a SMuFL codepoint that the next click
+    // should place as a music symbol. 0 clears the pending symbol and reverts
+    // to normal text-entry behavior. If a text edit is in progress when this
+    // is called, it is committed first.
+    void set_pending_music_symbol(int codepoint);
+    int pending_music_symbol() const { return pending_music_symbol_codepoint_; }
     void set_page_break_edit_mode(bool enabled);
     void set_page_break_sub_mode(PageBreakSubMode mode);
     void set_performance_mode(PerformanceMode::Mode mode);
@@ -206,6 +212,7 @@ private:
     double aspect_ratio_ = 1.0;
     QRect margin_rect_;
     bool text_annotation_mode_ = false;
+    int pending_music_symbol_codepoint_ = 0;
     bool page_break_edit_mode_ = false;
     PageBreakSubMode page_break_sub_mode_ = PageBreakSubMode::EditBreaks;
     // When true, single-page rendering ignores zoom_to_content so the full

@@ -1,6 +1,7 @@
 #include "fitz_utils.h"
 #include <mutex>
 #include <format>
+#include <algorithm>
 #include "utils.h"
 
 #pragma warning(push, 1)
@@ -563,7 +564,7 @@ TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename,
         } while (pdf_dict_gets(ctx, fonts, font_name));
 
         // Embed TrueType font as CID font
-        fz_font_obj = fz_new_font_from_file(ctx, font_family.c_str(), font_file.string().c_str(), 0, 0);
+        fz_font_obj = fz_new_font_from_file(ctx, font_family.c_str(), font_file.string().c_str(), 0, 1);
         pdf_obj* font_dict = pdf_add_cid_font(ctx, pdf, fz_font_obj);
         pdf_dict_puts(ctx, fonts, font_name, font_dict);
         pdf_drop_obj(ctx, font_dict);
@@ -625,6 +626,232 @@ TextResult add_marked_text_to_pdf(const std::filesystem::path& pdf_filename,
         return TextResult::MuPdfException;
     }
 
+    if (fz_font_obj)
+        fz_drop_font(ctx, fz_font_obj);
+    if (fz_doc)
+        fz_drop_document(ctx, fz_doc);
+    fz_drop_context(ctx);
+    return TextResult::Success;
+}
+
+
+std::string codepoint_to_utf8(int cp)
+{
+    std::string s;
+    if (cp < 0x80) {
+        s.push_back(static_cast<char>(cp));
+    } else if (cp < 0x800) {
+        s.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+        s.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else if (cp < 0x10000) {
+        s.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+        s.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else {
+        s.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+        s.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    }
+    return s;
+}
+
+
+GlyphMetrics measure_glyph(const std::filesystem::path& font_file,
+                           const std::string& font_family,
+                           int codepoint,
+                           float font_size)
+{
+    GlyphMetrics m {0.0f, 0.0f, 0.0f, 0.0f};
+
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx)
+        return m;
+
+    fz_font* font = nullptr;
+    fz_try(ctx)
+    {
+        font = fz_new_font_from_file(ctx, font_family.c_str(), font_file.string().c_str(), 0, 1);
+        int gid = fz_encode_character(ctx, font, codepoint);
+        float advance = fz_advance_glyph(ctx, font, gid, 0);
+        // Per-glyph ink box, not the font-wide bbox. SMuFL fonts have a huge
+        // font_bbox covering the largest possible glyph (8va lines, brackets);
+        // a single flat or sharp occupies a tiny fraction of that.
+        fz_rect gb = fz_bound_glyph(ctx, font, gid, fz_identity);
+        m.width = advance * font_size;
+        m.ascent = gb.y1 * font_size;
+        m.descent = -gb.y0 * font_size;
+        m.height = m.ascent + m.descent;
+    }
+    fz_catch(ctx)
+    {
+        logger::error("measure_glyph failed for U+{:04X} in '{}': {}",
+                      codepoint, font_family, fz_caught_message(ctx));
+    }
+
+    if (font)
+        fz_drop_font(ctx, font);
+    fz_drop_context(ctx);
+    return m;
+}
+
+
+TextResult add_freetext_with_custom_font(const std::filesystem::path& pdf_filename,
+                                         const std::string& text,
+                                         int page_num,
+                                         float x,
+                                         float y,
+                                         float width,
+                                         float height,
+                                         float font_size,
+                                         const std::string& font_family,
+                                         const std::filesystem::path& font_file,
+                                         int r,
+                                         int g,
+                                         int b)
+{
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx)
+        return TextResult::ContextCreationFailed;
+
+    fz_register_document_handlers(ctx);
+
+    fz_document* fz_doc = nullptr;
+    pdf_document* pdf = nullptr;
+    fz_font* fz_font_obj = nullptr;
+    pdf_page* page = nullptr;
+    pdf_annot* annot = nullptr;
+    pdf_obj* res = nullptr;
+    fz_buffer* buf = nullptr;
+
+    std::string utf8_filename = wide_to_utf8(pdf_filename.wstring());
+
+    // Internal name for the font inside the Form XObject's resource dict.
+    // Scope is only the appearance stream, so a fixed short name is fine.
+    constexpr const char* kFormFontName = "F1";
+
+    fz_try(ctx)
+    {
+        fz_doc = fz_open_document(ctx, utf8_filename.c_str());
+        pdf = pdf_specifics(ctx, fz_doc);
+        if (!pdf)
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "Not a PDF document");
+
+        int page_count = fz_count_pages(ctx, fz_doc);
+        if (page_num < 1 || page_num > page_count)
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "Page not found");
+
+        page = pdf_load_page(ctx, pdf, page_num - 1);
+
+        fz_font_obj = fz_new_font_from_file(ctx, font_family.c_str(), font_file.string().c_str(), 0, 1);
+
+        // Form XObject's own resource dict — carries the embedded CID font so
+        // viewers that don't consult page /Resources for annotation APs still resolve it.
+        res = pdf_new_dict(ctx, pdf, 1);
+        pdf_obj* res_font = pdf_dict_put_dict(ctx, res, PDF_NAME(Font), 1);
+        pdf_dict_puts_drop(ctx, res_font, kFormFontName, pdf_add_cid_font(ctx, pdf, fz_font_obj));
+
+        // SMuFL fonts have a huge font-wide bbox. For tight rects (a single
+        // sharp shouldn't be sized like an 8va bracket), walk the actual text
+        // and union the per-glyph ink bounds.
+        float ascent = 0.0f, descent = 0.0f;
+        {
+            const char* p = text.c_str();
+            const char* end = p + text.size();
+            bool any = false;
+            while (p < end) {
+                int rune = 0;
+                int n = fz_chartorune(&rune, p);
+                int gid = fz_encode_character(ctx, fz_font_obj, rune);
+                fz_rect gb = fz_bound_glyph(ctx, fz_font_obj, gid, fz_identity);
+                float a = gb.y1 * font_size;
+                float d = -gb.y0 * font_size;
+                if (!any) { ascent = a; descent = d; any = true; }
+                else { ascent = std::max(ascent, a); descent = std::max(descent, d); }
+                p += n;
+            }
+        }
+        float ink_height = ascent + descent;
+
+        // Build the appearance stream. Origin (0,0) is bottom-left of bbox;
+        // baseline sits one descent above the bottom so descenders fit.
+        buf = fz_new_buffer(ctx, 256);
+        fz_append_string(ctx, buf, "q\n");
+        fz_append_printf(ctx, buf, "%.3f %.3f %.3f rg\n", r / 255.0f, g / 255.0f, b / 255.0f);
+        fz_append_string(ctx, buf, "BT\n");
+        fz_append_printf(ctx, buf, "/%s %.2f Tf\n", kFormFontName, font_size);
+        fz_append_printf(ctx, buf, "0 %.2f Td\n", descent);
+        fz_append_string(ctx, buf, "<");
+        const char* p = text.c_str();
+        const char* end = p + text.size();
+        while (p < end)
+        {
+            int rune = 0;
+            int n = fz_chartorune(&rune, p);
+            int gid = fz_encode_character(ctx, fz_font_obj, rune);
+            // CID fonts use 2-byte glyph indices in show strings.
+            fz_append_printf(ctx, buf, "%04x", gid);
+            p += n;
+        }
+        fz_append_string(ctx, buf, "> Tj\n");
+        fz_append_string(ctx, buf, "ET\n");
+        fz_append_string(ctx, buf, "Q\n");
+
+        // Expand the on-page rect height to fit the font's ink box if the
+        // caller's height is too small. Width is left to the caller.
+        float final_height = std::max(height, ink_height);
+
+        annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
+        fz_rect rect = fz_make_rect(x, y, x + width, y + final_height);
+        pdf_set_annot_rect(ctx, annot, rect);
+        pdf_set_annot_contents(ctx, annot, text.c_str());
+        pdf_set_annot_border(ctx, annot, 0);
+
+        // Write /DA so any future re-edit by Acrobat/Foxit has a font hint.
+        // mupdf's own writer would map this back to Helvetica, but we override
+        // its appearance below before that ever runs.
+        char da[96];
+        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg",
+                 kFormFontName, font_size, r / 255.0f, g / 255.0f, b / 255.0f);
+        pdf_dict_put_string(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(DA), da, strlen(da));
+
+        // Inject our hand-built form. mupdf calls pdf_set_annot_resynthesised
+        // internally so its appearance writer leaves us alone.
+        // Bbox must match the rect dimensions so the form maps 1:1 (no scaling).
+        fz_rect bbox = fz_make_rect(0, 0, width, final_height);
+        pdf_set_annot_appearance(ctx, annot, "N", nullptr, fz_identity, bbox, res, buf);
+
+        pdf_write_options opts = pdf_default_write_options;
+        opts.do_incremental = 1;
+        pdf_save_document(ctx, pdf, utf8_filename.c_str(), &opts);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("Failed to add custom-font annotation to '{}': {}", utf8_filename, fz_caught_message(ctx));
+        if (annot)
+            pdf_drop_annot(ctx, annot);
+        if (page)
+            pdf_drop_page(ctx, page);
+        if (res)
+            pdf_drop_obj(ctx, res);
+        if (buf)
+            fz_drop_buffer(ctx, buf);
+        if (fz_font_obj)
+            fz_drop_font(ctx, fz_font_obj);
+        if (fz_doc)
+            fz_drop_document(ctx, fz_doc);
+        fz_drop_context(ctx);
+        return TextResult::MuPdfException;
+    }
+
+    if (annot)
+        pdf_drop_annot(ctx, annot);
+    if (page)
+        pdf_drop_page(ctx, page);
+    if (res)
+        pdf_drop_obj(ctx, res);
+    if (buf)
+        fz_drop_buffer(ctx, buf);
     if (fz_font_obj)
         fz_drop_font(ctx, fz_font_obj);
     if (fz_doc)

@@ -1388,6 +1388,7 @@ void MusicReader::on_annotation_mode_changed(bool enabled)
 
     text_annotation_mode_ = enabled;
     text_annotation_action_->setChecked(enabled);
+    update_music_palette_visibility(enabled);
 }
 
 void MusicReader::toggle_text_annotation_mode()
@@ -1401,6 +1402,99 @@ void MusicReader::toggle_text_annotation_mode()
     auto viewer = current_viewer();
     if (viewer)
         viewer->set_text_annotation_mode(text_annotation_mode_);
+
+    update_music_palette_visibility(text_annotation_mode_);
+}
+
+
+// SMuFL codepoints (Bravura). Listed roughly in order of expected usage.
+static const struct {
+    int codepoint;
+    const char* tooltip;
+} k_music_palette_glyphs[] = {
+    {0xE262, "Sharp"},
+    {0xE260, "Flat"},
+    {0xE261, "Natural"},
+    {0xE263, "Double Sharp"},
+    {0xE264, "Double Flat"},
+};
+
+
+// Render a single Bravura glyph into a QIcon. We rely on Qt finding the system
+// "Bravura" font (the same lookup the C++ side uses via lookup_font_file).
+static QIcon make_glyph_icon(int codepoint, int pixel_size)
+{
+    QPixmap pix(pixel_size, pixel_size);
+    pix.fill(Qt::transparent);
+
+    QFont font("Bravura");
+    font.setPixelSize(pixel_size);
+
+    QPainter p(&pix);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    p.setFont(font);
+    p.setPen(QApplication::palette().color(QPalette::ButtonText));
+
+    // SMuFL Private-Use codepoints (U+E000–U+F8FF) all fit in a single QChar.
+    QString glyph(QChar(static_cast<char16_t>(codepoint)));
+    p.drawText(pix.rect(), Qt::AlignCenter, glyph);
+
+    return QIcon(pix);
+}
+
+
+void MusicReader::create_music_palette()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    music_palette_group_ = new QActionGroup(this);
+    music_palette_group_->setExclusive(true);
+
+    const int icon_px = toolbar_->iconSize().height();
+    for (const auto& g : k_music_palette_glyphs) {
+        QAction* action = new QAction(make_glyph_icon(g.codepoint, icon_px), "", this);
+        action->setToolTip(g.tooltip);
+        action->setCheckable(true);
+        action->setData(g.codepoint);
+        music_palette_group_->addAction(action);
+        toolbar_->addAction(action);
+        action->setVisible(false);
+        connect(action, &QAction::toggled, this, &MusicReader::on_music_symbol_action_toggled);
+        music_palette_actions_.push_back(action);
+    }
+}
+
+
+void MusicReader::update_music_palette_visibility(bool annotation_mode_on)
+{
+    for (QAction* a : music_palette_actions_)
+        a->setVisible(annotation_mode_on);
+
+    if (!annotation_mode_on) {
+        // Leaving annotation mode clears any selected palette glyph and the
+        // viewer's pending state. setChecked emits toggled(false) which routes
+        // through on_music_symbol_action_toggled and clears the viewer.
+        for (QAction* a : music_palette_actions_)
+            if (a->isChecked())
+                a->setChecked(false);
+    }
+}
+
+
+void MusicReader::on_music_symbol_action_toggled()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto viewer = current_viewer();
+    if (!viewer)
+        return;
+
+    QAction* checked = music_palette_group_->checkedAction();
+    int codepoint = checked ? checked->data().toInt() : 0;
+    viewer->set_pending_music_symbol(codepoint);
 }
 
 void MusicReader::on_application_state_changed(Qt::ApplicationState state)
@@ -2493,6 +2587,8 @@ void MusicReader::create_toolbar()
             select_annotation_font();
         });
     }
+
+    create_music_palette();
 
     {
         auto* action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);

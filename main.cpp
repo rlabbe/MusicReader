@@ -4,6 +4,7 @@
 #include <iostream>
 #include "imslp_client.h"
 #include "fitz_utils.h"
+#include "font_info.h"
 #include <filesystem>
 #include <QImage>
 #include <QPainter>
@@ -649,12 +650,52 @@ void test_marked_content()
     }
 }
 
+void test_bravura_freetext()
+{
+    std::filesystem::path test_pdf = "D:/dev/MusicReader/test_bravura_annot.pdf";
+
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    if (!ctx)
+        return;
+
+    pdf_document* pdf = pdf_create_document(ctx);
+    fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
+    pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
+    pdf_insert_page(ctx, pdf, 0, page_obj);
+
+    pdf_write_options opts = pdf_default_write_options;
+    opts.do_incremental = 0;
+    pdf_save_document(ctx, pdf, test_pdf.string().c_str(), &opts);
+    pdf_drop_document(ctx, pdf);
+    fz_drop_context(ctx);
+
+    // Bravura SMuFL: U+E262 sharp, U+E260 flat, U+E261 natural — UTF-8 encoded.
+    std::string text = "\xEE\x89\xA2 \xEE\x89\xA0 \xEE\x89\xA1";
+
+    auto bravura = lookup_font_file("Bravura");
+    if (!bravura) {
+        std::cerr << "Bravura font not found via Windows registry. Is it installed?" << std::endl;
+        return;
+    }
+
+    TextResult result = add_freetext_with_custom_font(test_pdf, text, 1,
+                                                     100.0f, 650.0f, 200.0f, 60.0f,
+                                                     48.0f, "Bravura", *bravura,
+                                                     0, 0, 0);
+
+    if (result == TextResult::Success)
+        std::cout << "Created: " << test_pdf.string() << " with Bravura FreeText annotation" << std::endl;
+    else
+        std::cerr << "Failed to add Bravura annotation, error code: " << static_cast<int>(result) << std::endl;
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     // test_marked_content();
     // test_create_blank_pdf();
+    //test_bravura_freetext();
 
     int result = 0;
     {
