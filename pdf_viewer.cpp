@@ -1298,9 +1298,11 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             // hotspot. With the crosshair cursor used for music symbols, the
             // hotspot is the actual click point, so undo that shift here.
             ClickTarget raw = get_click_target(event);
-            float font_size = config_->annotation_font().size;
+            const FontInfo& fi = config_->annotation_font();
+            auto [cr, cg, cb] = fi.color;
             document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y,
-                                                   pending_music_symbol_codepoint_, font_size);
+                                                   pending_music_symbol_codepoint_, fi.size,
+                                                   cr, cg, cb);
             // Stay in this mode so consecutive clicks place more of the same glyph.
             event->accept();
             return;
@@ -1890,21 +1892,24 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annot_page);
 
     // annotation.y_ is the BASELINE in PDF coords (y from bottom)
-    // Music symbols use Bravura's per-glyph ink bounds (font_ascent/etc. only
-    // know the Base-14 fonts and would fall back to Helvetica metrics).
-    float ascent, descent, width;
+    // Music symbols use the saved /Rect directly with a small visual pad so
+    // the dotted outline doesn't sit on the glyph's ink.
+    float annot_x_left, annot_x_right, annot_top_pdf, annot_bottom_pdf;
     if (annotation.is_music_symbol_) {
-        // Same as find_annotation_at_point: drive the box from the saved /Rect.
-        ascent = annotation.rect_top_pdf_ - annotation.y_;
-        descent = annotation.height_ - ascent;
-        width = annotation.width_;
+        constexpr float kMusicSelectionPadPt = 2.0f;
+        annot_x_left = annotation.x_ - kMusicSelectionPadPt;
+        annot_x_right = annotation.x_ + annotation.width_ + kMusicSelectionPadPt;
+        annot_top_pdf = annotation.rect_top_pdf_ + kMusicSelectionPadPt;
+        annot_bottom_pdf = annotation.rect_top_pdf_ - annotation.height_ - kMusicSelectionPadPt;
     } else {
-        ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-        descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-        width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+        float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+        float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+        float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+        annot_x_left = annotation.x_;
+        annot_x_right = annotation.x_ + width;
+        annot_top_pdf = annotation.y_ + ascent;
+        annot_bottom_pdf = annotation.y_ - descent;
     }
-    float annot_top_pdf = annotation.y_ + ascent;
-    float annot_bottom_pdf = annotation.y_ - descent;
 
     float display_x, display_y, display_w, display_h;
     int x_offset = 0;
@@ -1974,9 +1979,9 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     }
 
     // Convert annotation PDF coords to ratios within the full page
-    float annot_left_ratio = annotation.x_ / pdf_width_points;
+    float annot_left_ratio = annot_x_left / pdf_width_points;
     float annot_top_ratio = (pdf_height_points - annot_top_pdf) / pdf_height_points;
-    float annot_right_ratio = (annotation.x_ + width) / pdf_width_points;
+    float annot_right_ratio = annot_x_right / pdf_width_points;
     float annot_bottom_ratio = (pdf_height_points - annot_bottom_pdf) / pdf_height_points;
 
     // In performance mode, map from full page ratio to segment ratio
@@ -2055,25 +2060,25 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
 
         // Annotation bounds in PDF points
         // annotation.y_ stores the BASELINE (not top edge)
-        // Music symbols use Bravura metrics, which the Base-14 helpers don't
-        // know about; query the font directly for those.
-        float ascent, descent, width;
+        float annot_left, annot_right, annot_top, annot_bottom;
         if (annotation.is_music_symbol_) {
             // Use the saved /Rect directly — same hit-test Foxit/Acrobat do.
-            // Derive the fake "ascent"/"descent" from rect_top_pdf_ and
-            // height_ so the existing baseline-relative code below works.
-            ascent = annotation.rect_top_pdf_ - annotation.y_;
-            descent = annotation.height_ - ascent;
-            width = annotation.width_;
+            // Pad a couple points all around so the click target and outline
+            // don't sit on the glyph's ink.
+            constexpr float kMusicSelectionPadPt = 2.0f;
+            annot_left = annotation.x_ - kMusicSelectionPadPt;
+            annot_right = annotation.x_ + annotation.width_ + kMusicSelectionPadPt;
+            annot_top = annotation.rect_top_pdf_ + kMusicSelectionPadPt;
+            annot_bottom = annotation.rect_top_pdf_ - annotation.height_ - kMusicSelectionPadPt;
         } else {
-            ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-            descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-            width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+            float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
+            float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
+            float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
+            annot_left = annotation.x_;
+            annot_right = annotation.x_ + width;
+            annot_top = annotation.y_ + ascent;
+            annot_bottom = annotation.y_ - descent;
         }
-        float annot_left = annotation.x_;
-        float annot_top = annotation.y_ + ascent;
-        float annot_right = annotation.x_ + width;
-        float annot_bottom = annotation.y_ - descent;
 
         logger::info("  annotation '{}': x={:.1f} y={:.1f} bounds=[{:.1f},{:.1f}]-[{:.1f},{:.1f}]", annotation.text_,
                      annotation.x_, annotation.y_, annot_left, annot_bottom, annot_right, annot_top);

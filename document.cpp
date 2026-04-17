@@ -777,7 +777,7 @@ Annotation* Document::find_annotation(const AnnotationHandle& handle)
 }
 
 bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
-                                           int codepoint, float font_size)
+                                           int codepoint, float font_size, int r, int g, int b)
 {
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("page={} cp=U+{:04X} size={}", page_num, codepoint, font_size);
@@ -807,14 +807,14 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
 
     TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num,
                                                   rect_left, rect_top_screen, m.width, m.height,
-                                                  font_size, "Bravura", *bravura, 0, 0, 0);
+                                                  font_size, "Bravura", *bravura, r, g, b);
     if (tr != TextResult::Success) {
         logger::error("Failed to write music symbol U+{:04X} to PDF, code={}",
                       codepoint, static_cast<int>(tr));
         return false;
     }
 
-    FontInfo font_info {.family = "Bravura", .size = font_size, .color = {0, 0, 0}};
+    FontInfo font_info {.family = "Bravura", .size = font_size, .color = {r, g, b}};
     Annotation ann {codepoint_to_utf8(codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
     ann.is_music_symbol_ = true;
     ann.symbol_codepoint_ = codepoint;
@@ -945,6 +945,11 @@ void Document::move_annotation_in_memory(const AnnotationHandle& handle, float n
     if (!annotation)
         return;
 
+    // For music symbols, rect_top_pdf_ is the source of truth for the saved
+    // rect; shift it along with the baseline so they stay in sync.
+    if (annotation->is_music_symbol_)
+        annotation->rect_top_pdf_ += (new_y - annotation->y_);
+
     annotation->x_ = new_x;
     annotation->y_ = new_y;
 }
@@ -968,6 +973,9 @@ bool Document::save_moved_annotation(const AnnotationHandle& handle, float origi
         old_ann = *annotation;
         old_ann->x_ = original_x;
         old_ann->y_ = original_y;
+        // Reverse the in-memory shift so old_ann reflects the saved /Rect.
+        if (annotation->is_music_symbol_)
+            old_ann->rect_top_pdf_ -= (annotation->y_ - original_y);
     }
 
     return update_annotation_in_pdf(*old_ann, *new_ann);
@@ -1174,8 +1182,16 @@ QImage Document::render_page_with_moved_annotation(int page_num,
         coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
         float font_size = ann->font_info_.size;
 
-        // Compute the rect at the ORIGINAL position to find the annotation in the PDF
-        float old_rect_y0 = coords.baseline_to_rect_top_screen(original_y, font_size);
+        // Compute the rect at the ORIGINAL position to find the annotation in the PDF.
+        // For music symbols, the saved rect-top isn't baseline + font_size; use the
+        // tracked rect_top_pdf_ adjusted back to the original baseline.
+        float old_rect_y0;
+        if (ann->is_music_symbol_) {
+            float orig_rect_top_pdf = ann->rect_top_pdf_ - (ann->y_ - original_y);
+            old_rect_y0 = page_height - orig_rect_top_pdf;
+        } else {
+            old_rect_y0 = coords.baseline_to_rect_top_screen(original_y, font_size);
+        }
 
         // Find the matching PDF annotation using original position
         pdf_annot* target = nullptr;
@@ -1188,7 +1204,7 @@ QImage Document::render_page_with_moved_annotation(int page_num,
                 constexpr float tolerance = 1.0f;
                 bool x_match = std::abs(annot_rect.x0 - original_x) < tolerance;
                 bool y_match = std::abs(annot_rect.y0 - old_rect_y0) < tolerance;
-                bool text_match = (contents && ann->text_ == contents);
+                bool text_match = ann->is_music_symbol_ ? true : (contents && ann->text_ == contents);
 
                 if (x_match && y_match && text_match)
                     target = annot;
@@ -1199,12 +1215,19 @@ QImage Document::render_page_with_moved_annotation(int page_num,
 
         if (target) {
             // Move it to the new position for rendering
-            float new_rect_y0 = coords.baseline_to_rect_top_screen(new_y, font_size);
+            float new_rect_y0;
+            if (ann->is_music_symbol_)
+                new_rect_y0 = page_height - ann->rect_top_pdf_;
+            else
+                new_rect_y0 = coords.baseline_to_rect_top_screen(new_y, font_size);
             float new_rect_y1 = new_rect_y0 + ann->height_;
             fz_rect new_rect = fz_make_rect(new_x, new_rect_y0, new_x + ann->width_, new_rect_y1);
 
             pdf_set_annot_rect(ctx, target, new_rect);
-            pdf_update_annot(ctx, target);
+            // Music symbols carry their own /AP form; calling pdf_update_annot
+            // would regenerate it via the Base-14 writer and lose the glyph.
+            if (!ann->is_music_symbol_)
+                pdf_update_annot(ctx, target);
         }
 
         // Render the page
@@ -1633,7 +1656,11 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
         AnnotationCoordinates coords;
         coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
         float old_font_size = old_ann.font_info_.size;
-        float old_rect_y0 = coords.baseline_to_rect_top_screen(old_ann.y_, old_font_size);
+        // Music symbols know their saved rect-top exactly; text annotations
+        // derive it from baseline + font_size.
+        float old_rect_y0 = old_ann.is_music_symbol_
+                                ? page_height - old_ann.rect_top_pdf_
+                                : coords.baseline_to_rect_top_screen(old_ann.y_, old_font_size);
 
         // Find the matching annotation
         pdf_annot* annot = pdf_first_annot(ctx, page);
@@ -1646,7 +1673,9 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
                 constexpr float tolerance = 1.0f;
                 bool x_match = std::abs(annot_rect.x0 - old_ann.x_) < tolerance;
                 bool y_match = std::abs(annot_rect.y0 - old_rect_y0) < tolerance;
-                bool text_match = (contents && old_ann.text_ == contents);
+                // SMuFL contents don't reliably round-trip through pdf text
+                // strings, so position alone identifies a music symbol.
+                bool text_match = old_ann.is_music_symbol_ ? true : (contents && old_ann.text_ == contents);
 
                 if (x_match && y_match && text_match) {
                     target = annot;
@@ -1665,21 +1694,28 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
 
         // Update the annotation with new values
         float new_font_size = new_ann.font_info_.size;
-        float new_rect_y0 = coords.baseline_to_rect_top_screen(new_ann.y_, new_font_size);
+        float new_rect_y0 = new_ann.is_music_symbol_
+                                ? page_height - new_ann.rect_top_pdf_
+                                : coords.baseline_to_rect_top_screen(new_ann.y_, new_font_size);
         float new_rect_y1 = new_rect_y0 + new_ann.height_;
         fz_rect new_rect = fz_make_rect(new_ann.x_, new_rect_y0, new_ann.x_ + new_ann.width_, new_rect_y1);
 
         pdf_set_annot_rect(ctx, target, new_rect);
-        pdf_set_annot_contents(ctx, target, new_ann.text_.c_str());
 
-        std::string mupdf_font_name = pdf_font_to_mupdf_font(new_ann.font_info_.family);
-        auto [cr, cg, cb] = new_ann.font_info_.color;
-        float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
-        pdf_set_annot_default_appearance(ctx, target, mupdf_font_name.c_str(), new_ann.font_info_.size, 3, color);
-
-        pdf_set_annot_quadding(ctx, target, 0);
-        pdf_set_annot_border(ctx, target, 0);
-        pdf_update_annot(ctx, target);
+        if (!new_ann.is_music_symbol_) {
+            // Text-annotation path — let mupdf rebuild the appearance from /DA
+            // and /Contents using its Base-14 writer.
+            pdf_set_annot_contents(ctx, target, new_ann.text_.c_str());
+            std::string mupdf_font_name = pdf_font_to_mupdf_font(new_ann.font_info_.family);
+            auto [cr, cg, cb] = new_ann.font_info_.color;
+            float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
+            pdf_set_annot_default_appearance(ctx, target, mupdf_font_name.c_str(), new_ann.font_info_.size, 3, color);
+            pdf_set_annot_quadding(ctx, target, 0);
+            pdf_set_annot_border(ctx, target, 0);
+            pdf_update_annot(ctx, target);
+        }
+        // For music symbols we leave /AP, /Contents, /DA untouched — the form
+        // XObject's bbox maps to the new /Rect, so the glyph follows the move.
 
         pdf_drop_page(ctx, page);
 
