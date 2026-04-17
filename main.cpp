@@ -618,38 +618,6 @@ void create_test_pdf_method3_xobject()
     fz_drop_context(ctx);
 }
 
-void test_marked_content()
-{
-    std::filesystem::path test_pdf = "D:/dev/MusicReader/test_marked_content.pdf";
-
-    // Create blank PDF
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-    if (!ctx)
-        return;
-
-    pdf_document* pdf = pdf_create_document(ctx);
-    fz_rect mediabox = fz_make_rect(0, 0, 612, 792);
-    pdf_obj* page_obj = pdf_add_page(ctx, pdf, mediabox, 0, nullptr, nullptr);
-    pdf_insert_page(ctx, pdf, 0, page_obj);
-
-    pdf_write_options opts = pdf_default_write_options;
-    opts.do_incremental = 0;
-    pdf_save_document(ctx, pdf, test_pdf.string().c_str(), &opts);
-    pdf_drop_document(ctx, pdf);
-    fz_drop_context(ctx);
-
-    // Add marked text using Georgia font
-    std::filesystem::path georgia_font = "C:/Windows/Fonts/georgia.ttf";
-    TextResult result = add_marked_text_to_pdf(test_pdf, "Hello Georgia!", 1, 100.0f, 700.0f, 24.0f, "Georgia",
-                                               georgia_font, 0, 0, 255);
-
-    if (result == TextResult::Success) {
-        std::cout << "Created: " << test_pdf.string() << " with marked content" << std::endl;
-    } else {
-        std::cerr << "Failed to add marked text, error code: " << static_cast<int>(result) << std::endl;
-    }
-}
-
 void test_bravura_freetext()
 {
     std::filesystem::path test_pdf = "D:/dev/MusicReader/test_bravura_annot.pdf";
@@ -693,7 +661,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
-    // test_marked_content();
     // test_create_blank_pdf();
     //test_bravura_freetext();
 
