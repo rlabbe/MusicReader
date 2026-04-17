@@ -78,6 +78,11 @@ public:
     // PDF points, y as baseline in PDF Y-up coords.
     bool add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
                                      int codepoint, float font_size, int r, int g, int b);
+    // Change the font (family/size/color) of one existing annotation. Routes
+    // to update_annotation_in_pdf for text annotations and to a delete+re-add
+    // for music symbols (where size/color require regenerating the /AP form).
+    // The in-memory handle is preserved so callers don't lose the selection.
+    bool change_annotation_font(const AnnotationHandle& handle, const FontInfo& new_font);
     bool remove_annotation(const AnnotationHandle& handle);
     bool edit_text_annotation(const AnnotationHandle& handle, const std::string& new_text);
     bool move_annotation(const AnnotationHandle& handle, float new_x, float new_y);

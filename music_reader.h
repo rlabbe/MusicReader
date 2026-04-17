@@ -7,6 +7,7 @@
 
 #include "config_file.h"
 #include "document_load_manager.h"
+#include "font_info.h"
 
 class BookmarkPanel;
 class Document;
@@ -56,6 +57,11 @@ private slots:
     void on_toolbar_page_changed(int page);
     void on_viewer_page_changed(int page_num);
     void select_annotation_font();
+
+public:
+    // Reusable font picker — returns nullopt if the user cancelled. Does not
+    // touch global config; the caller decides what to do with the result.
+    static std::optional<FontInfo> show_font_picker(QWidget* parent, const FontInfo& current);
 
 private:
     std::shared_ptr<Document> document_at(int index) const;

@@ -831,6 +831,100 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
 }
 
 
+bool Document::change_annotation_font(const AnnotationHandle& handle, const FontInfo& new_font)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    std::optional<Annotation> old_ann;
+    bool is_music = false;
+    int codepoint = 0;
+    float baseline_x = 0.0f, baseline_y = 0.0f;
+    int page_num = 0;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        auto* annotation = find_annotation(handle);
+        if (!annotation)
+            return false;
+
+        old_ann = *annotation;
+        is_music = annotation->is_music_symbol_;
+        codepoint = annotation->symbol_codepoint_;
+        baseline_x = annotation->x_;
+        baseline_y = annotation->y_;
+        page_num = annotation->page_num_;
+    }
+
+    if (!is_music) {
+        // Text path — update_annotation_in_pdf already handles font changes
+        // via pdf_set_annot_default_appearance + pdf_update_annot.
+        Annotation new_ann = *old_ann;
+        new_ann.font_info_ = new_font;
+        {
+            std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+            auto* annotation = find_annotation(handle);
+            if (annotation)
+                annotation->font_info_ = new_font;
+        }
+        bool ok = update_annotation_in_pdf(*old_ann, new_ann);
+        reload_page(page_num);
+        return ok;
+    }
+
+    // Music symbol — the /AP form encodes font size/color, so we delete the
+    // old annotation and write a fresh one. Keep the in-memory handle.
+    if (codepoint == 0) {
+        logger::error("change_annotation_font: music symbol has no codepoint, can't recreate");
+        return false;
+    }
+
+    auto bravura = lookup_font_file("Bravura");
+    if (!bravura) {
+        logger::error("change_annotation_font: Bravura font not found");
+        return false;
+    }
+
+    if (!delete_annotation_from_pdf(*old_ann)) {
+        logger::error("change_annotation_font: failed to delete old music annotation");
+        return false;
+    }
+
+    GlyphMetrics m = measure_glyph(*bravura, "Bravura", codepoint, new_font.size);
+    if (m.width <= 0.0f || m.height <= 0.0f)
+        return false;
+
+    if (page_num < 1 || page_num > static_cast<int>(page_info_.size()))
+        return false;
+    float page_height = page_info_[page_num - 1].height_points;
+    float baseline_screen_y = page_height - baseline_y;
+    float rect_top_screen = baseline_screen_y - m.ascent;
+
+    auto [nr, ng, nb] = new_font.color;
+    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num,
+                                                  baseline_x, rect_top_screen, m.width, m.height,
+                                                  new_font.size, "Bravura", *bravura, nr, ng, nb);
+    if (tr != TextResult::Success) {
+        logger::error("change_annotation_font: failed to write replacement music annotation");
+        return false;
+    }
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        auto* annotation = find_annotation(handle);
+        if (annotation) {
+            annotation->font_info_ = new_font;
+            annotation->font_info_.family = "Bravura";  // music symbols are always Bravura
+            annotation->width_ = m.width;
+            annotation->height_ = m.height;
+            annotation->rect_top_pdf_ = baseline_y + m.ascent;
+        }
+    }
+
+    reload_page(page_num);
+    return true;
+}
+
+
 bool Document::add_annotation(const Annotation& annotation)
 {
     SAFE_METHOD;

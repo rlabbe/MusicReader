@@ -1460,6 +1460,23 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         event->accept();
         return;
+    } else if (event->button() == Qt::RightButton && selected_annotation_) {
+        // Right-click on the selected annotation opens a per-annotation font
+        // picker. Changes apply only to this annotation; global config is
+        // untouched.
+        AnnotationHandle clicked = find_annotation_at_point(event);
+        if (clicked && clicked == selected_annotation_) {
+            const Annotation* current = nullptr;
+            for (const auto& a : document_->annotations())
+                if (a.handle_ == selected_annotation_) { current = &a; break; }
+            if (current) {
+                auto picked = MusicReader::show_font_picker(this, current->font_info_);
+                if (picked)
+                    document_->change_annotation_font(selected_annotation_, *picked);
+            }
+            event->accept();
+            return;
+        }
     } else if (event->button() == Qt::LeftButton) {
         // Handle annotation selection and dragging
         AnnotationHandle clicked_annotation = find_annotation_at_point(event);

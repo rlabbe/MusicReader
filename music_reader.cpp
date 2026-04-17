@@ -1709,20 +1709,13 @@ void MusicReader::open_tour_dialog()
     }
 }
 
-void MusicReader::select_annotation_font()
+std::optional<FontInfo> MusicReader::show_font_picker(QWidget* parent, const FontInfo& current)
 {
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    FontInfo current_font = config_.annotation_font();
-
-    // Create custom dialog for Base-14 fonts only
-    QDialog dialog(this);
+    QDialog dialog(parent);
     dialog.setWindowTitle("Select Annotation Font");
 
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
 
-    // Font family selection
     QLabel* family_label = new QLabel("Font Family:", &dialog);
     layout->addWidget(family_label);
 
@@ -1731,30 +1724,29 @@ void MusicReader::select_annotation_font()
     font_combo->addItem("Helvetica");
     font_combo->addItem("Times");
     font_combo->addItem("Symbol");
+    // Bravura isn't user-pickable for new text but appears here when an
+    // existing music-symbol annotation is being edited.
+    if (current.family == "Bravura")
+        font_combo->addItem("Bravura");
 
-    // Set current selection
-    int current_index = font_combo->findText(QString::fromStdString(current_font.family));
-    if (current_index >= 0) {
+    int current_index = font_combo->findText(QString::fromStdString(current.family));
+    if (current_index >= 0)
         font_combo->setCurrentIndex(current_index);
-    }
-
     layout->addWidget(font_combo);
 
-    // Font size selection
     QLabel* size_label = new QLabel("Font Size:", &dialog);
     layout->addWidget(size_label);
 
     QSpinBox* size_spin = new QSpinBox(&dialog);
     size_spin->setMinimum(8);
     size_spin->setMaximum(72);
-    size_spin->setValue(static_cast<int>(current_font.size));
+    size_spin->setValue(static_cast<int>(current.size));
     layout->addWidget(size_spin);
 
-    // Color selection
     QLabel* color_label = new QLabel("Font Color:", &dialog);
     layout->addWidget(color_label);
 
-    auto [r, g, b] = current_font.color;
+    auto [r, g, b] = current.color;
     QColor selected_color(r, g, b);
 
     QPushButton* color_button = new QPushButton(&dialog);
@@ -1774,22 +1766,35 @@ void MusicReader::select_annotation_font()
     });
     layout->addWidget(color_button);
 
-    // OK/Cancel buttons
     QDialogButtonBox* button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     QObject::connect(button_box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     QObject::connect(button_box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     layout->addWidget(button_box);
 
     if (dialog.exec() != QDialog::Accepted)
+        return std::nullopt;
+
+    FontInfo result;
+    result.family = font_combo->currentText().toStdString();
+    result.size = static_cast<float>(size_spin->value());
+    result.color = {selected_color.red(), selected_color.green(), selected_color.blue()};
+    return result;
+}
+
+
+void MusicReader::select_annotation_font()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto picked = show_font_picker(this, config_.annotation_font());
+    if (!picked)
         return;
 
-    current_font.family = font_combo->currentText().toStdString();
-    current_font.size = static_cast<float>(size_spin->value());
-    current_font.color = {selected_color.red(), selected_color.green(), selected_color.blue()};
-    config_.set_annotation_font(current_font);
-
-    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})", current_font.family,
-                 current_font.size, selected_color.red(), selected_color.green(), selected_color.blue());
+    config_.set_annotation_font(*picked);
+    auto [pr, pg, pb] = picked->color;
+    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})", picked->family,
+                 picked->size, pr, pg, pb);
 }
 
 void MusicReader::goto_page_dialog()
