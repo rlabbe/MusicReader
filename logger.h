@@ -31,6 +31,7 @@ struct logger {
 
     static void enable_debug_logging(bool enable);
     static void enable_trace_logging(bool enable);
+    static void enable_debug_and_trace_logging(bool enable);
 
     static bool trace_enabled() { return trace_enabled_; }
     static bool debug_enabled() { return debug_enabled_; }

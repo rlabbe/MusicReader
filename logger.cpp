@@ -188,7 +188,10 @@ void logger::error(const std::u8string& message)
 
 void logger::debug(const std::string& message)
 {
-    if (logger_ && config_file_->log_level() == LogLevel::Diagnostic)
+    if (!logger_)
+        return;
+    auto level = config_file_->log_level();
+    if (level == LogLevel::Diagnostic || level == LogLevel::DebugAndTrace)
         logger_->debug(message);
 }
 
@@ -209,9 +212,9 @@ void logger::trace(const std::string& message)
     bool log = false;
 
     if (ConfigFile::instance().trace_while_debug_logging())
-        log = (level == LogLevel::Trace || level == LogLevel::Diagnostic);
+        log = (level == LogLevel::Trace || level == LogLevel::Diagnostic || level == LogLevel::DebugAndTrace);
     else
-        log = (level == LogLevel::Trace);
+        log = (level == LogLevel::Trace || level == LogLevel::DebugAndTrace);
 
     if (log)
         logger_->trace(message);
@@ -249,6 +252,22 @@ void logger::enable_debug_logging(bool enable)
     trace_enabled_ = allow_trace;
     debug_enabled_ = enable;
     set_high_precision(logger_, false, false);
+}
+
+
+void logger::enable_debug_and_trace_logging(bool enable)
+{
+    if (!logger_)
+        return;
+
+    auto level = enable ? spdlog::level::trace : spdlog::level::info;
+    logger_->set_level(level);
+    for (auto& sink : logger_->sinks())
+        sink->set_level(level);
+
+    trace_enabled_ = enable;
+    debug_enabled_ = enable;
+    set_high_precision(logger_, true, false);
 }
 
 

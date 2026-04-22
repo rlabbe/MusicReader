@@ -1119,6 +1119,7 @@ void MusicReader::update_logging_level()
     switch (config_.log_level()) {
         case LogLevel::Diagnostic: logger::enable_debug_logging(true); break;
         case LogLevel::Trace: logger::enable_trace_logging(true); break;
+        case LogLevel::DebugAndTrace: logger::enable_debug_and_trace_logging(true); break;
         default: logger::enable_debug_logging(false); break;
     }
 }

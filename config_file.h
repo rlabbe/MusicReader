@@ -19,7 +19,8 @@ enum class Theme {
 enum class LogLevel {
     Normal,
     Diagnostic,
-    Trace
+    Trace,
+    DebugAndTrace
 };
 
 // Enum for ToolbarLocation

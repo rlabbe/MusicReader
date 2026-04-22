@@ -96,6 +96,7 @@ static std::string log_level_to_string(LogLevel level)
         case LogLevel::Normal: return "normal";
         case LogLevel::Diagnostic: return "diagnostic";
         case LogLevel::Trace: return "trace";
+        case LogLevel::DebugAndTrace: return "debug_and_trace";
         default: return "normal";
     }
 }
@@ -112,6 +113,9 @@ static bool string_to_log_level(const std::string& str, LogLevel& level)
 
     } else if (str == "trace") {
         level = LogLevel::Trace;
+        return true;
+    } else if (str == "debug_and_trace") {
+        level = LogLevel::DebugAndTrace;
         return true;
     }
     return false;
@@ -699,7 +703,8 @@ bool ConfigFile::validate() const
         return false;
     if (!(theme_ == Theme::Dark || theme_ == Theme::Light))
         return false;
-    if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic || log_level_ != LogLevel::Trace))
+    if (!(log_level_ == LogLevel::Normal || log_level_ == LogLevel::Diagnostic || log_level_ != LogLevel::Trace ||
+          log_level_ == LogLevel::DebugAndTrace))
         return false;
 
     if (!(toolbar_location_ == ToolbarLocation::Top || toolbar_location_ == ToolbarLocation::Bottom ||
