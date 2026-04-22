@@ -238,11 +238,20 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
         return;
     }
 
-    // 'x' inside page break edit mode toggles the paper-crop submode.
+    // 'x' inside page break edit mode toggles the paper-crop submode (top/bottom).
     if (page_break_edit_mode_ && key == Qt::Key_X) {
         set_page_break_sub_mode(page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop
                                     ? PageBreakSubMode::EditBreaks
                                     : PageBreakSubMode::EditPaperCrop);
+        event->accept();
+        return;
+    }
+
+    // 'z' inside page break edit mode toggles the paper-crop submode (left/right).
+    if (page_break_edit_mode_ && key == Qt::Key_Z) {
+        set_page_break_sub_mode(page_break_sub_mode_ == PageBreakSubMode::EditPaperCropLR
+                                    ? PageBreakSubMode::EditBreaks
+                                    : PageBreakSubMode::EditPaperCropLR);
         event->accept();
         return;
     }
@@ -533,10 +542,16 @@ static QRect compute_page_crop_rect(const PixmapPage& p,
 
     bool apply_top = false;
     bool apply_bottom = false;
+    bool apply_left = false;
+    bool apply_right = false;
     int crop_top_px = 0;
     int crop_bottom_px = h;
+    int crop_left_px = 0;
+    int crop_right_px = w;
 
     if (crop) {
+        // Top/bottom crops must be remapped through the segment range because
+        // performance-mode segments subdivide the page vertically.
         const double seg_span = seg.bottom - seg.top;
         if (seg_span > 0.0) {
             if (crop->top) {
@@ -554,12 +569,22 @@ static QRect compute_page_crop_rect(const PixmapPage& p,
                 }
             }
         }
+
+        // Left/right crops map directly — segments don't subdivide horizontally.
+        if (crop->left) {
+            apply_left = true;
+            crop_left_px = std::clamp(static_cast<int>(*crop->left * w), 0, w);
+        }
+        if (crop->right) {
+            apply_right = true;
+            crop_right_px = std::clamp(static_cast<int>(*crop->right * w), 0, w);
+        }
     }
 
     int left, right, top, bottom;
     if (use_border) {
-        left = std::max(0, p.border.left - margin);
-        right = std::min(w, p.border.right + margin);
+        left = apply_left ? crop_left_px : std::max(0, p.border.left - margin);
+        right = apply_right ? crop_right_px : std::min(w, p.border.right + margin);
         top = apply_top ? crop_top_px : std::max(0, p.border.top - margin);
         bottom = apply_bottom ? crop_bottom_px : std::min(h, p.border.bottom + margin);
 
@@ -572,9 +597,15 @@ static QRect compute_page_crop_rect(const PixmapPage& p,
             if (!apply_bottom)
                 bottom = h;
         }
+        if (left >= right) {
+            if (!apply_left)
+                left = 0;
+            if (!apply_right)
+                right = w;
+        }
     } else {
-        left = 0;
-        right = w;
+        left = apply_left ? crop_left_px : 0;
+        right = apply_right ? crop_right_px : w;
         top = apply_top ? crop_top_px : 0;
         bottom = apply_bottom ? crop_bottom_px : h;
     }
@@ -873,6 +904,54 @@ double PDFViewer::display_y_to_normalized(int display_y, int display_height) con
 }
 
 
+int PDFViewer::normalized_to_display_x(double normalized_pos, int display_width) const
+{
+    Page full_page = document_->get_page(current_page(), false);
+    int full_width = full_page.width();
+    int x_full = static_cast<int>(normalized_pos * full_width);
+
+    if (config_->zoom_to_content() && !force_full_page_) {
+        int border_left = full_page.border.left;
+        int border_width = full_page.border.right - full_page.border.left;
+        int x_cropped = x_full - border_left;
+        return static_cast<int>((static_cast<float>(x_cropped) / border_width) * display_width);
+    } else
+        return static_cast<int>((static_cast<float>(x_full) / full_width) * display_width);
+}
+
+
+double PDFViewer::display_x_to_normalized(int display_x, int display_width) const
+{
+    Page full_page = document_->get_page(current_page(), false);
+    int full_width = full_page.width();
+    float click_ratio = static_cast<float>(display_x) / display_width;
+
+    if (config_->zoom_to_content() && !force_full_page_) {
+        int border_left = full_page.border.left;
+        int border_width = full_page.border.right - full_page.border.left;
+        int cropped_x = static_cast<int>(click_ratio * border_width);
+        int full_x = border_left + cropped_x;
+        return static_cast<double>(full_x) / full_width;
+    } else {
+        int full_x = static_cast<int>(click_ratio * full_width);
+        return static_cast<double>(full_x) / full_width;
+    }
+}
+
+
+int PDFViewer::label_pixmap_x_offset() const
+{
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return 0;
+    if (page_alignment() == Qt::AlignHCenter)
+        return (label_->width() - displayed.width()) / 2;
+    if (page_alignment() == Qt::AlignRight)
+        return label_->width() - displayed.width();
+    return 0;
+}
+
+
 void PDFViewer::update_image(const QString& message)
 {
     SAFE_METHOD;
@@ -1098,6 +1177,35 @@ void PDFViewer::update_image(const QString& message)
             painter.drawLine(0, y, display_width, y);
         }
 
+        // Left/right crop lines (vertical).
+        std::optional<double> left_line;
+        std::optional<double> right_line;
+        if (stored) {
+            if (stored->left && !(drag_kind_ == DragKind::CropLeft && drag_is_existing_))
+                left_line = *stored->left;
+            if (stored->right && !(drag_kind_ == DragKind::CropRight && drag_is_existing_))
+                right_line = *stored->right;
+        }
+        if (drag_kind_ == DragKind::CropLeft)
+            left_line = drag_position_;
+        else if (drag_kind_ == DragKind::CropRight)
+            right_line = drag_position_;
+
+        if (left_line) {
+            int x = normalized_to_display_x(*left_line, display_width);
+            x = std::clamp(x, 0, display_width);
+            if (x > 0)
+                painter.fillRect(QRect(0, 0, x, display_height), hatch);
+            painter.drawLine(x, 0, x, display_height);
+        }
+        if (right_line) {
+            int x = normalized_to_display_x(*right_line, display_width);
+            x = std::clamp(x, 0, display_width);
+            if (x < display_width)
+                painter.fillRect(QRect(x, 0, display_width - x, display_height), hatch);
+            painter.drawLine(x, 0, x, display_height);
+        }
+
         painter.end();
     }
 
@@ -1224,6 +1332,7 @@ void PDFViewer::set_page_break_sub_mode(PageBreakSubMode mode)
     switch (mode) {
         case PageBreakSubMode::EditBreaks: setCursor(Qt::CrossCursor); break;
         case PageBreakSubMode::EditPaperCrop: setCursor(Qt::SplitVCursor); break;
+        case PageBreakSubMode::EditPaperCropLR: setCursor(Qt::SplitHCursor); break;
     }
 
     // Submode switches only change interaction and cursor; the rendered page
@@ -1476,6 +1585,86 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
         event->accept();
         return;
+    } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditPaperCropLR) {
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull())
+            return;
+
+        int click_x = event->pos().x() - label_pixmap_x_offset();
+        int display_width = displayed.width();
+        double normalized_pos = display_x_to_normalized(click_x, display_width);
+        normalized_pos = std::clamp(normalized_pos, 0.0, 1.0);
+
+        const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
+        DragKind hit = DragKind::None;
+        double hit_pos = 0.0;
+        if (crop) {
+            if (crop->left) {
+                int left_x = normalized_to_display_x(*crop->left, display_width);
+                if (std::abs(click_x - left_x) <= 5) {
+                    hit = DragKind::CropLeft;
+                    hit_pos = *crop->left;
+                }
+            }
+            if (hit == DragKind::None && crop->right) {
+                int right_x = normalized_to_display_x(*crop->right, display_width);
+                if (std::abs(click_x - right_x) <= 5) {
+                    hit = DragKind::CropRight;
+                    hit_pos = *crop->right;
+                }
+            }
+        }
+
+        if (hit != DragKind::None) {
+            drag_kind_ = hit;
+            drag_is_existing_ = true;
+            drag_position_ = hit_pos;
+            drag_original_position_ = hit_pos;
+        } else {
+            drag_kind_ = (normalized_pos < 0.5) ? DragKind::CropLeft : DragKind::CropRight;
+            drag_is_existing_ = false;
+            drag_position_ = normalized_pos;
+        }
+
+        update_image();
+        event->accept();
+        return;
+    } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
+               page_break_sub_mode_ == PageBreakSubMode::EditPaperCropLR) {
+        QPixmap displayed = label_->pixmap();
+        if (displayed.isNull())
+            return;
+
+        int click_x = event->pos().x() - label_pixmap_x_offset();
+        int display_width = displayed.width();
+
+        const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
+        if (crop) {
+            bool deleted = false;
+            if (crop->left) {
+                int left_x = normalized_to_display_x(*crop->left, display_width);
+                if (std::abs(click_x - left_x) <= 5) {
+                    document_->performance_data().clear_paper_crop_left(current_page());
+                    deleted = true;
+                }
+            }
+            if (!deleted && crop->right) {
+                int right_x = normalized_to_display_x(*crop->right, display_width);
+                if (std::abs(click_x - right_x) <= 5) {
+                    document_->performance_data().clear_paper_crop_right(current_page());
+                    deleted = true;
+                }
+            }
+            if (deleted) {
+                document_->performance_data().save(document_->path());
+                clear_prefetch();
+                update_image();
+            }
+        }
+
+        event->accept();
+        return;
     } else if (event->button() == Qt::RightButton && selected_annotation_) {
         // Right-click on the selected annotation opens a per-annotation font
         // picker. Changes apply only to this annotation; global config is
@@ -1520,18 +1709,17 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
     TRACE_FUNCTION;
 
     if (drag_kind_ != DragKind::None) {
-        int click_y = event->pos().y();
         QPixmap displayed = label_->pixmap();
         if (displayed.isNull())
             return;
 
-        int display_height = displayed.height();
-        double normalized_pos = display_y_to_normalized(click_y, display_height);
+        double normalized_pos;
+        if (drag_kind_ == DragKind::CropLeft || drag_kind_ == DragKind::CropRight)
+            normalized_pos = display_x_to_normalized(event->pos().x() - label_pixmap_x_offset(), displayed.width());
+        else
+            normalized_pos = display_y_to_normalized(event->pos().y(), displayed.height());
 
-        // Clamp to valid range
-        normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
-
-        drag_position_ = normalized_pos;
+        drag_position_ = std::clamp(normalized_pos, 0.0, 1.0);
         update_image();
         event->accept();
         return;
@@ -1587,6 +1775,26 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
                         pos = std::min(1.0, limit);
                 }
                 perf.set_paper_crop_bottom(page, pos);
+                break;
+            }
+            case DragKind::CropLeft: {
+                double pos = drag_position_;
+                if (const PaperCrop* existing = perf.get_paper_crop(page); existing && existing->right) {
+                    double limit = *existing->right - 1e-4;
+                    if (pos >= limit)
+                        pos = std::max(0.0, limit);
+                }
+                perf.set_paper_crop_left(page, pos);
+                break;
+            }
+            case DragKind::CropRight: {
+                double pos = drag_position_;
+                if (const PaperCrop* existing = perf.get_paper_crop(page); existing && existing->left) {
+                    double limit = *existing->left + 1e-4;
+                    if (pos <= limit)
+                        pos = std::min(1.0, limit);
+                }
+                perf.set_paper_crop_right(page, pos);
                 break;
             }
             case DragKind::None: break;

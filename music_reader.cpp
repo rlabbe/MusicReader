@@ -2466,6 +2466,13 @@ void MusicReader::create_global_shortcuts()
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
+        auto viewer = current_viewer();
+        if (viewer && viewer->in_page_break_edit_mode()) {
+            viewer->set_page_break_sub_mode(viewer->page_break_sub_mode() == PageBreakSubMode::EditPaperCropLR
+                                                ? PageBreakSubMode::EditBreaks
+                                                : PageBreakSubMode::EditPaperCropLR);
+            return;
+        }
         toggle_page_zoom();
     });
 

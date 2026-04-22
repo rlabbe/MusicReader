@@ -18,23 +18,26 @@ class BookmarkPanel;
 
 
 // Submodes of the page break edit mode. EditBreaks is the existing behavior
-// (drag horizontal break lines). EditPaperCrop adds top/bottom paper crop
-// lines used to hide titles and footers in zoom-to-content rendering.
-// New edit types should be added here.
+// (drag horizontal break lines). EditPaperCrop edits top/bottom crop lines,
+// EditPaperCropLR edits left/right crop lines.
 enum class PageBreakSubMode {
     EditBreaks,
     EditPaperCrop,
+    EditPaperCropLR,
 };
 
 
 // What the user is currently dragging during a page break edit operation.
-// All current drag kinds are a single horizontal normalized y, so they share
-// the same drag-state members.
+// All drag kinds use a single normalized coordinate in drag_position_:
+// vertical kinds use y (0.0-1.0 of page height), horizontal kinds use x
+// (0.0-1.0 of page width).
 enum class DragKind {
     None,
     Break,
     CropTop,
     CropBottom,
+    CropLeft,
+    CropRight,
 };
 
 
@@ -196,6 +199,10 @@ private:
     // Convert display Y coordinate to normalized position (0.0-1.0 relative to full page)
     // Accounts for zoom-to-content cropping
     double display_y_to_normalized(int display_y, int display_height) const;
+
+    int normalized_to_display_x(double normalized_pos, int display_width) const;
+    double display_x_to_normalized(int display_x, int display_width) const;
+    int label_pixmap_x_offset() const;
     void update_image(const QString& message = QString());
     Qt::AlignmentFlag page_alignment() const;
     Qt::AlignmentFlag page_vertical_alignment() const;

@@ -65,6 +65,8 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
         double position = 0.0;
         std::optional<double> crop_top;
         std::optional<double> crop_bottom;
+        std::optional<double> crop_left;
+        std::optional<double> crop_right;
 
         while (std::getline(iss, token, ',')) {
             size_t colon = token.find(':');
@@ -87,6 +89,10 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
                 crop_top = std::stod(value);
             else if (key == "bottom")
                 crop_bottom = std::stod(value);
+            else if (key == "left")
+                crop_left = std::stod(value);
+            else if (key == "right")
+                crop_right = std::stod(value);
         }
 
         if (section == Section::PageBreaks) {
@@ -95,19 +101,34 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
         } else if (section == Section::PaperCrops) {
             if (page_num < 0)
                 continue;
-            // Validate individual bounds, and reject a crop where top >= bottom.
+            // Validate individual bounds, and reject pairs where top >= bottom
+            // or left >= right.
             if (crop_top && (*crop_top < 0.0 || *crop_top > 1.0))
                 crop_top.reset();
             if (crop_bottom && (*crop_bottom < 0.0 || *crop_bottom > 1.0))
                 crop_bottom.reset();
             if (crop_top && crop_bottom && *crop_top >= *crop_bottom) {
                 logger::warning("Paper crop for page {} has top >= bottom; dropping both", page_num);
-                continue;
+                crop_top.reset();
+                crop_bottom.reset();
+            }
+            if (crop_left && (*crop_left < 0.0 || *crop_left > 1.0))
+                crop_left.reset();
+            if (crop_right && (*crop_right < 0.0 || *crop_right > 1.0))
+                crop_right.reset();
+            if (crop_left && crop_right && *crop_left >= *crop_right) {
+                logger::warning("Paper crop for page {} has left >= right; dropping both", page_num);
+                crop_left.reset();
+                crop_right.reset();
             }
             if (crop_top)
                 set_paper_crop_top(page_num, *crop_top);
             if (crop_bottom)
                 set_paper_crop_bottom(page_num, *crop_bottom);
+            if (crop_left)
+                set_paper_crop_left(page_num, *crop_left);
+            if (crop_right)
+                set_paper_crop_right(page_num, *crop_right);
         }
     }
 
@@ -140,13 +161,17 @@ bool PerformanceData::save(const std::filesystem::path& pdf_path) const
     if (!paper_crops_.empty()) {
         file << "[paper_crops]\n";
         for (const auto& [page_num, crop] : paper_crops_) {
-            if (!crop.top && !crop.bottom)
+            if (crop.empty())
                 continue;
             file << "page: " << page_num;
             if (crop.top)
                 file << ", top: " << *crop.top;
             if (crop.bottom)
                 file << ", bottom: " << *crop.bottom;
+            if (crop.left)
+                file << ", left: " << *crop.left;
+            if (crop.right)
+                file << ", right: " << *crop.right;
             file << "\n";
         }
     }
@@ -232,7 +257,7 @@ void PerformanceData::clear_paper_crop_top(int page_num)
         return;
 
     it->second.top.reset();
-    if (!it->second.top && !it->second.bottom)
+    if (it->second.empty())
         paper_crops_.erase(it);
 }
 
@@ -244,7 +269,43 @@ void PerformanceData::clear_paper_crop_bottom(int page_num)
         return;
 
     it->second.bottom.reset();
-    if (!it->second.top && !it->second.bottom)
+    if (it->second.empty())
+        paper_crops_.erase(it);
+}
+
+
+void PerformanceData::set_paper_crop_left(int page_num, double normalized_position)
+{
+    paper_crops_[page_num].left = normalized_position;
+}
+
+
+void PerformanceData::set_paper_crop_right(int page_num, double normalized_position)
+{
+    paper_crops_[page_num].right = normalized_position;
+}
+
+
+void PerformanceData::clear_paper_crop_left(int page_num)
+{
+    auto it = paper_crops_.find(page_num);
+    if (it == paper_crops_.end())
+        return;
+
+    it->second.left.reset();
+    if (it->second.empty())
+        paper_crops_.erase(it);
+}
+
+
+void PerformanceData::clear_paper_crop_right(int page_num)
+{
+    auto it = paper_crops_.find(page_num);
+    if (it == paper_crops_.end())
+        return;
+
+    it->second.right.reset();
+    if (it->second.empty())
         paper_crops_.erase(it);
 }
 

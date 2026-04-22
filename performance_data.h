@@ -5,13 +5,18 @@
 #include <map>
 #include <optional>
 
-// Per-page paper boundary crop. top/bottom are independent normalized
-// positions (0.0-1.0 of full page height). When set, they override the
-// auto-detected top/bottom border in zoom-to-content rendering; left/right
-// always come from auto detection. Either field may be unset.
+// Per-page paper boundary crop. top/bottom are normalized positions
+// (0.0-1.0 of full page height); left/right are normalized positions
+// (0.0-1.0 of full page width). When set, they override the auto-detected
+// border in zoom-to-content rendering. Each field is independent and may
+// be unset.
 struct PaperCrop {
     std::optional<double> top;
     std::optional<double> bottom;
+    std::optional<double> left;
+    std::optional<double> right;
+
+    bool empty() const { return !top && !bottom && !left && !right; }
 };
 
 // Manages performance-related data for sheet music performance mode.
@@ -38,7 +43,7 @@ struct PaperCrop {
 //   [paper_crops]
 //   page: 3, top: 0.08
 //   page: 5, top: 0.05, bottom: 0.93
-//   page: 7, bottom: 0.94
+//   page: 7, bottom: 0.94, left: 0.03, right: 0.97
 class PerformanceData {
 public:
     PerformanceData() = default;
@@ -87,6 +92,18 @@ public:
 
     // Clear the bottom paper crop for a page (if any).
     void clear_paper_crop_bottom(int page_num);
+
+    // Set the left paper crop line for a page. Normalized 0.0-1.0 of full page width.
+    void set_paper_crop_left(int page_num, double normalized_position);
+
+    // Set the right paper crop line for a page. Normalized 0.0-1.0 of full page width.
+    void set_paper_crop_right(int page_num, double normalized_position);
+
+    // Clear the left paper crop for a page (if any).
+    void clear_paper_crop_left(int page_num);
+
+    // Clear the right paper crop for a page (if any).
+    void clear_paper_crop_right(int page_num);
 
     // Get the paper crop for a page, or nullptr if none exists.
     const PaperCrop* get_paper_crop(int page_num) const;
