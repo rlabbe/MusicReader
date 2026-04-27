@@ -2087,6 +2087,20 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
             }
         }
 
+        // Paper crops override the auto-detected border in the rendered pixmap
+        // (see compute_page_crop_rect). Mirror that here so click coordinates
+        // map back to the same full-page region the user actually sees.
+        if (const PaperCrop* crop = document_->performance_data().get_paper_crop(target_page)) {
+            if (crop->top && *crop->top > segment_top_normalized && *crop->top < segment_bottom_normalized)
+                effective_border.top = static_cast<int>(*crop->top * full_height);
+            if (crop->bottom && *crop->bottom > segment_top_normalized && *crop->bottom < segment_bottom_normalized)
+                effective_border.bottom = static_cast<int>(*crop->bottom * full_height);
+            if (crop->left)
+                effective_border.left = static_cast<int>(*crop->left * full_width);
+            if (crop->right)
+                effective_border.right = static_cast<int>(*crop->right * full_width);
+        }
+
         float border_left = effective_border.left;
         float border_top = effective_border.top;
         float border_width = effective_border.right - effective_border.left;
@@ -2242,6 +2256,22 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
                 QImage segment_img = full_page.img.copy(0, seg_top_pixel, full_page.width(), seg_height);
                 effective_border = find_content_edges(segment_img);
             }
+        }
+
+        // Paper crops override the auto-detected border in the rendered pixmap
+        // (see compute_page_crop_rect); mirror those overrides here. Note: this
+        // branch keeps the segment-local origin (no +seg_top_pixel below), so
+        // top/bottom are stored in segment-local pixels, not full-page pixels.
+        if (const PaperCrop* crop = document_->performance_data().get_paper_crop(annot_page)) {
+            const float seg_top_pixel = static_cast<float>(segment_top_normalized * full_height);
+            if (crop->top && *crop->top > segment_top_normalized && *crop->top < segment_bottom_normalized)
+                effective_border.top = static_cast<int>(*crop->top * full_height - seg_top_pixel);
+            if (crop->bottom && *crop->bottom > segment_top_normalized && *crop->bottom < segment_bottom_normalized)
+                effective_border.bottom = static_cast<int>(*crop->bottom * full_height - seg_top_pixel);
+            if (crop->left)
+                effective_border.left = static_cast<int>(*crop->left * full_width);
+            if (crop->right)
+                effective_border.right = static_cast<int>(*crop->right * full_width);
         }
 
         float border_left = effective_border.left;
