@@ -32,6 +32,11 @@ void ConfigDialog::setup_ui()
     spin_dpi_->setWhatsThis("PDF rendering resolution in dots per inch. Higher values provide sharper images but use "
                             "more memory. 360 for 4K display is good");
 
+    check_adaptive_dpi_ = new QCheckBox("Adaptive DPI (compute from monitor and page size)", this);
+    check_adaptive_dpi_->setWhatsThis(
+        "Compute DPI per document so the rendered page matches monitor pixel height. "
+        "Ignores the DPI setting above when checked.");
+
     spin_border_margin_ = new QSpinBox(this);
     spin_border_margin_->setRange(0, 100);
     spin_border_margin_->setWhatsThis(
@@ -145,6 +150,7 @@ void ConfigDialog::setup_ui()
     layout_dpi->addStretch();
     form_layout->addRow("DPI:", layout_dpi);
     layout_dpi->addWidget(spin_dpi_);
+    form_layout->addRow(check_adaptive_dpi_);
 
     QHBoxLayout* layout_border = new QHBoxLayout;
     layout_border->addStretch();
@@ -195,6 +201,7 @@ void ConfigDialog::load_settings()
 {
     // Load values from config_
     spin_dpi_->setValue(config_.dpi());
+    check_adaptive_dpi_->setChecked(config_.adaptive_dpi());
     spin_border_margin_->setValue(config_.border_margin());
     spin_max_recent_documents_->setValue(config_.max_recent_documents());
     spin_save_cadence_->setValue(config_.save_cadence_secs());
@@ -239,6 +246,7 @@ void ConfigDialog::save_settings()
     ConfigFileGroupSave group_saver(config_);
 
     config_.set_dpi(spin_dpi_->value());
+    config_.set_adaptive_dpi(check_adaptive_dpi_->isChecked());
     config_.set_border_margin(spin_border_margin_->value());
     config_.set_max_recent_documents(spin_max_recent_documents_->value());
     config_.set_save_cadence_secs(spin_save_cadence_->value());

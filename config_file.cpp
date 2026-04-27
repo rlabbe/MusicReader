@@ -514,6 +514,9 @@ void ConfigFile::read(bool reset_on_error)
     } else
         logger::error("Missing 'dpi', setting to 96");
 
+    if (j.contains("adaptive_dpi") && j["adaptive_dpi"].is_boolean())
+        adaptive_dpi_ = j["adaptive_dpi"].get<bool>();
+
     if (j.contains("allow_oversize") && j["allow_oversize"].is_boolean())
         allow_oversize_ = j["allow_oversize"].get<bool>();
     else
@@ -634,6 +637,7 @@ json ConfigFile::to_json() const
     j["max_recent_documents"] = max_recent_documents_;
     j["save_cadence_secs"] = save_cadence_secs_;
     j["dpi"] = dpi_;
+    j["adaptive_dpi"] = adaptive_dpi_;
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;
@@ -874,6 +878,7 @@ void ConfigFile::set_defaults()
     max_recent_documents_ = 50;
     save_cadence_secs_ = 15;
     dpi_ = 360;
+    adaptive_dpi_ = true;
     allow_oversize_ = false;
     theme_ = Theme::Dark;
     fast_search_dialog_size_ = {-1, -1, 640, 800};
@@ -933,6 +938,7 @@ std::string ConfigFile::repr() const
     j["max_recent_documents"] = max_recent_documents_;
     j["save_cadence_secs"] = save_cadence_secs_;
     j["dpi"] = dpi_;
+    j["adaptive_dpi"] = adaptive_dpi_;
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;

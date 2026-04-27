@@ -83,6 +83,7 @@ private:
     int max_recent_documents_;
     int save_cadence_secs_;
     int dpi_;
+    bool adaptive_dpi_;
     bool allow_oversize_;
     Theme theme_;
     std::array<int, 4> fast_search_dialog_size_;
@@ -284,6 +285,13 @@ public:
     void set_dpi(int value)
     {
         dpi_ = value;
+        save();
+    }
+
+    bool adaptive_dpi() const { return adaptive_dpi_; }
+    void set_adaptive_dpi(bool value)
+    {
+        adaptive_dpi_ = value;
         save();
     }
 

@@ -182,6 +182,18 @@ void Document::initialize_document()
 
     close_fitz(ctx, doc);
 
+    if (ConfigFile::instance().adaptive_dpi()) {
+        float max_height_pts = 0.0f;
+        for (const auto& info : page_info_)
+            max_height_pts = std::max(max_height_pts, info.height_points);
+        if (max_height_pts > 0.0f) {
+            int monitor_h = QGuiApplication::primaryScreen()->geometry().height();
+            dpi_ = std::max(72, static_cast<int>((monitor_h * 72.0f) / max_height_pts));
+            logger::info("Document({}) adaptive dpi: {} (monitor_h={}, max_page_h_pts={})", id, dpi_, monitor_h,
+                         max_height_pts);
+        }
+    }
+
     // Load performance data from .perf file if it exists
     performance_data_.load(filename_);
 
