@@ -187,7 +187,9 @@ void Document::initialize_document()
         for (const auto& info : page_info_)
             max_height_pts = std::max(max_height_pts, info.height_points);
         if (max_height_pts > 0.0f) {
-            int monitor_h = QGuiApplication::primaryScreen()->geometry().height();
+            int monitor_h = 0;
+            for (const QScreen* s : QGuiApplication::screens())
+                monitor_h = std::max(monitor_h, s->geometry().height());
             dpi_ = std::max(72, static_cast<int>((monitor_h * 72.0f) / max_height_pts));
             logger::info("Document({}) adaptive dpi: {} (monitor_h={}, max_page_h_pts={})", id, dpi_, monitor_h,
                          max_height_pts);
