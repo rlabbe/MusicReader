@@ -302,12 +302,16 @@ void DocumentLoadManager::prioritize_page(const Document& doc)
     if (group_changes_)
         return;
 
+    TRACE_FUNCTION;
+
     prioritize_page(doc.filename());
 }
 
 
 void DocumentLoadManager::prioritize_page(const std::filesystem::path& filename)
 {
+    TRACE_FUNCTION;
+
     if (group_changes_)
         return;
 
@@ -330,7 +334,6 @@ void DocumentLoadManager::prioritize_page(const std::filesystem::path& filename)
 
 void DocumentLoadManager::prioritize_page_internal(const std::filesystem::path& filename)
 {
-
     final_processing_ = true;
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -409,7 +412,7 @@ void DocumentLoadManager::cancel_all_active_jobs_async()
     if (cancellation_in_progress_)
         return;
 
-    TRACE_CALL;
+    TRACE_FUNCTION;
 
     cancellation_in_progress_ = true;
 

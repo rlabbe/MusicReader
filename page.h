@@ -36,6 +36,14 @@ struct Page {
         border = find_content_edges(img);
     }
 
+    Page(const QImage& image, const Border& precomputed_border, int page_number, bool doubled)
+        : img(image)
+        , page_num(page_number)
+        , border(precomputed_border)
+        , double_page(doubled)
+    {
+    }
+
     bool is_empty() const { return img.isNull(); }
     QSize shape() const { return img.isNull() ? QSize() : img.size(); }
     QSize size() const { return shape(); }

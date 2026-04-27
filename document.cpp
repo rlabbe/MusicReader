@@ -113,7 +113,7 @@ Page Document::get_page(int page_num, bool is_current) const
 void Document::prioritize() const
 {
     SAFE_METHOD;
-    TRACE_CALL;
+    TRACE_FUNCTION;
 
     if (auto* manager = DocumentLoadManager::instance())
         manager->prioritize_page(filename_);
@@ -311,9 +311,11 @@ void Document::load_page(int page_num)
     }
 
 
+    Border border = find_content_edges(img);
+
     {
         std::lock_guard lock(read_mutex_);
-        pages_[page_num - 1] = Page(img, page_num, false);
+        pages_[page_num - 1] = Page(img, border, page_num, false);
     }
 
     logger::debug("emitting page_loaded {} {}", filename_.string(), page_num);
@@ -1102,9 +1104,11 @@ void Document::reload_page(int page_num)
 
     close_fitz(ctx, doc);
 
+    Border border = find_content_edges(img);
+
     {
         std::lock_guard lock(read_mutex_);
-        pages_[page_num - 1] = Page(img, page_num, false);
+        pages_[page_num - 1] = Page(img, border, page_num, false);
     }
     logger::debug("emiting page_loader {} {}", filename_.string(), page_num);
     emit page_loaded(filename_.string(), page_num);
