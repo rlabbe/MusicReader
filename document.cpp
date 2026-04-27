@@ -183,16 +183,17 @@ void Document::initialize_document()
     close_fitz(ctx, doc);
 
     if (ConfigFile::instance().adaptive_dpi()) {
-        float max_height_pts = 0.0f;
+        float max_area_pts = 0.0f;
         for (const auto& info : page_info_)
-            max_height_pts = std::max(max_height_pts, info.height_points);
-        if (max_height_pts > 0.0f) {
-            int monitor_h = 0;
-            for (const QScreen* s : QGuiApplication::screens())
-                monitor_h = std::max(monitor_h, s->geometry().height());
-            dpi_ = std::max(72, static_cast<int>((monitor_h * 72.0f) / max_height_pts));
-            logger::info("Document({}) adaptive dpi: {} (monitor_h={}, max_page_h_pts={})", id, dpi_, monitor_h,
-                         max_height_pts);
+            max_area_pts = std::max(max_area_pts, info.width_points * info.height_points);
+        if (max_area_pts > 0.0f) {
+            constexpr float target_megapixels = 50.0f;
+            constexpr float pts_per_inch = 72.0f;
+            float dpi_from_budget =
+                std::sqrt(target_megapixels * 1.0e6f * pts_per_inch * pts_per_inch / max_area_pts);
+            dpi_ = std::max(72, static_cast<int>(dpi_from_budget));
+            logger::info("Document({}) adaptive dpi: {} (max_page_area_pts={}, target_MP={})", id, dpi_, max_area_pts,
+                         target_megapixels);
         }
     }
 

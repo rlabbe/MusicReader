@@ -32,6 +32,27 @@
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
+namespace {
+// QMenu subclass that keeps itself open when the user toggles a checkable
+// action. Used by the "Open Recent" menu so the user can check multiple items
+// before committing via the "Open Selected" action.
+class StayOpenMenu : public QMenu {
+public:
+    using QMenu::QMenu;
+
+protected:
+    void mouseReleaseEvent(QMouseEvent* event) override
+    {
+        QAction* action = activeAction();
+        if (action && action->isCheckable() && action->isEnabled()) {
+            action->trigger();
+            return;
+        }
+        QMenu::mouseReleaseEvent(event);
+    }
+};
+} // namespace
+
 MusicReader::MusicReader(QWidget* parent)
     : QMainWindow(parent)
     , config_(ConfigFile::instance())
@@ -753,19 +774,28 @@ void MusicReader::update_recent_files_list()
 
     open_recent_menu_->clear();
 
+    QAction* open_selected = new QAction("&Open Selected", this);
+    open_recent_menu_->addAction(open_selected);
+    open_recent_menu_->addSeparator();
+
     for (const auto& path : std::views::reverse(config_.recent_documents())) {
         QString display_text = QString::fromStdWString(path.wstring());
-        QString tooltip_text = QString::fromStdWString(path.wstring());
-
         QAction* action = new QAction(display_text, this);
-        action->setToolTip(tooltip_text);
-
-        connect(action, &QAction::triggered, this, [this, path]() {
-            open_pdf_in_tab(path.string());
-        });
-
+        action->setToolTip(display_text);
+        action->setCheckable(true);
+        action->setData(QVariant::fromValue(QString::fromStdWString(path.wstring())));
         open_recent_menu_->addAction(action);
     }
+
+    connect(open_selected, &QAction::triggered, this, [this]() {
+        std::vector<std::filesystem::path> to_open;
+        for (QAction* a : open_recent_menu_->actions()) {
+            if (a->isCheckable() && a->isChecked())
+                to_open.emplace_back(a->data().toString().toStdWString());
+        }
+        for (const auto& p : to_open)
+            open_pdf_in_tab(p);
+    });
 }
 
 void MusicReader::on_browse_folder()
@@ -2161,7 +2191,7 @@ void MusicReader::create_file_menu(auto* menu_bar)
     connect(action, &QAction::triggered, this, &MusicReader::open_file_dialog_default_path);
 
 
-    open_recent_menu_ = new QMenu("Open &Recent", this);
+    open_recent_menu_ = new StayOpenMenu("Open &Recent", this);
     file_menu->addMenu(open_recent_menu_);
     connect(open_recent_menu_, &QMenu::aboutToShow, this, &MusicReader::update_recent_files_list);
 
