@@ -1051,7 +1051,14 @@ void PDFViewer::update_image(const QString& message)
                     else
                         moved_pixmap = compose_double_page(moved_pp, other_pp, full_seg, full_seg);
                 } else {
-                    // Single-page mode: handle performance mode and/or zoom mode cropping
+                    // Mirror the regular display pipeline (compute_display_rect):
+                    // slice to the performance-mode segment, then apply the same
+                    // auto-border + paper-crop cropping. Without this, the preview
+                    // would show the full auto-border crop while
+                    // calculate_annotation_bounding_box assumes the paper-crop
+                    // crop, so the dotted outline drifts off the annotation and
+                    // the page appears to "zoom out" on every arrow keystroke.
+                    QImage page_image = moved_image;
                     if (PerformanceMode::is_performance()) {
                         PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
                         const auto& breaks = document_->performance_data().get_page_breaks(pos.physical_page);
@@ -1066,16 +1073,14 @@ void PDFViewer::update_image(const QString& message)
                             } else {
                                 segment_top = breaks.back();
                             }
-                            int y_start = static_cast<int>(segment_top * moved_image.height());
-                            int y_end = static_cast<int>(segment_bottom * moved_image.height());
-                            moved_image = moved_image.copy(0, y_start, moved_image.width(), y_end - y_start);
+                            int y_start = static_cast<int>(segment_top * page_image.height());
+                            int y_end = static_cast<int>(segment_bottom * page_image.height());
+                            page_image = page_image.copy(0, y_start, page_image.width(), y_end - y_start);
                         }
                     }
-                    if (config_->zoom_to_content()) {
-                        Page full_page = document_->get_page(ann->page_num_, false);
-                        moved_image = resize_by_border(moved_image, full_page.border, config_->border_margin());
-                    }
-                    moved_pixmap = QPixmap::fromImage(moved_image);
+                    PixmapPage moved_pp(page_image, ann->page_num_, false);
+                    PageRenderer::SegmentRange seg = renderer_.get_segment_range(renderer_.current_index());
+                    moved_pixmap = moved_pp.pixmap.copy(compute_display_rect(moved_pp, seg));
                 }
 
                 scaled_pixmap = moved_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
