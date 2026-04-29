@@ -16,6 +16,7 @@ class StatusBar;
 class FileViewer;
 class FastFileSearchDialog;
 class FullscreenExitButton;
+class PolyMetronomeDialog;
 
 class MusicReader : public QMainWindow {
     Q_OBJECT
@@ -120,6 +121,7 @@ private:
     void open_file_dialog(const std::filesystem::path& pathname);
     void open_imslp_search_dialog();
     void open_dev_status_dialog();
+    void show_metronome_dialog();
     void save_current_page_as_bmp();
 
     void open_fast_search_dialog();
@@ -252,6 +254,7 @@ private:
     ConfigFile& config_;
 
     FastFileSearchDialog* fast_search_dialog_ = nullptr;
+    PolyMetronomeDialog* metronome_dialog_ = nullptr;
 
     // Mouse hiding related members
     QTimer* mouse_hide_timer_ = nullptr;

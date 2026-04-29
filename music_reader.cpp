@@ -29,6 +29,7 @@
 #include "tour_dialog.h"
 #include "wait_cursor.h"
 #include "font_info.h"
+#include "poly_metronome_dialog.h"
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -1886,6 +1887,21 @@ void MusicReader::open_dev_status_dialog()
     DevStatusDialog::show(config_, this);
 }
 
+void MusicReader::show_metronome_dialog()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    if (!metronome_dialog_) {
+        metronome_dialog_ = new PolyMetronomeDialog(this);
+        metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
+        connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
+    }
+    metronome_dialog_->show();
+    metronome_dialog_->raise();
+    metronome_dialog_->activateWindow();
+}
+
 void MusicReader::save_current_page_as_bmp()
 {
     SAFE_METHOD;
@@ -2361,6 +2377,11 @@ void MusicReader::create_view_menu(auto* menu_bar)
         goto_action_->setEnabled(doc);
     });
 
+    view_menu->addSeparator();
+    QAction* metronome_action = new QAction("&Metronome...", this);
+    connect(metronome_action, &QAction::triggered, this, &MusicReader::show_metronome_dialog);
+    view_menu->addAction(metronome_action);
+
     QAction* tour_action = new QAction("Tour...", this);
     connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
     view_menu->addAction(tour_action);
@@ -2648,6 +2669,13 @@ void MusicReader::create_toolbar()
         auto* action = new QAction(QIcon(QPixmap(":/MusicReader/images/gear.png")), "", this);
         action->setToolTip("Settings");
         connect(action, &QAction::triggered, this, &MusicReader::open_config_dialog);
+        toolbar_->addAction(action);
+    }
+
+    {
+        auto* action = new QAction("met", this);
+        action->setToolTip("Metronome");
+        connect(action, &QAction::triggered, this, &MusicReader::show_metronome_dialog);
         toolbar_->addAction(action);
     }
 

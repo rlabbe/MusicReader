@@ -50,17 +50,17 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
     <QtInstall>$(QtInstall)</QtInstall>
-    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets</QtModules>
+    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets;multimedia</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>$(QtInstall)</QtInstall>
-    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets</QtModules>
+    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets;multimedia</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'" Label="QtSettings">
     <QtInstall>$(QtInstall)</QtInstall>
-    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets</QtModules>
+    <QtModules>core;gui;widgets;network;concurrent;webenginewidgets;multimedia</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
@@ -102,7 +102,7 @@
       <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);..\mupdf-1.25.4-source\include;$(ProjectDir)extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -121,7 +121,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;$(ProjectDir)extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -153,7 +153,7 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;$(ProjectDir)extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -303,6 +303,11 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MusicReader.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="extern\PolyMetronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj">
+      <Project>{7a8c5e10-4f2b-4a3d-9c1b-3e5f8d7c2a1b}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Image Include="gclef.ico" />

@@ -5,6 +5,8 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MusicReader", "MusicReader.vcxproj", "{159B60F5-8B41-42AB-97DC-B081762FA6C1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PolyMetronomeLib", "extern\PolyMetronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj", "{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -18,6 +20,12 @@ Global
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.Release|x64.Build.0 = Release|x64
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.ReleaseDbgInfo|x64.ActiveCfg = ReleaseDbgInfo|x64
 		{159B60F5-8B41-42AB-97DC-B081762FA6C1}.ReleaseDbgInfo|x64.Build.0 = ReleaseDbgInfo|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.Debug|x64.ActiveCfg = Debug|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.Debug|x64.Build.0 = Debug|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.Release|x64.ActiveCfg = Release|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.Release|x64.Build.0 = Release|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.ReleaseDbgInfo|x64.ActiveCfg = ReleaseDbgInfo|x64
+		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.ReleaseDbgInfo|x64.Build.0 = ReleaseDbgInfo|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

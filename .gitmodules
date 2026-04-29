@@ -1,0 +1,3 @@
+[submodule "extern/PolyMetronome"]
+	path = extern/PolyMetronome
+	url = https://github.com/rlabbe/PolyMetronome.git
