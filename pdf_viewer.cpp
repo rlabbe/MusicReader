@@ -2151,25 +2151,17 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     int annot_page = annotation.page_num_;
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(annot_page);
 
-    // annotation.y_ is the BASELINE in PDF coords (y from bottom)
-    // Music symbols use the saved /Rect directly with a small visual pad so
-    // the dotted outline doesn't sit on the glyph's ink.
-    float annot_x_left, annot_x_right, annot_top_pdf, annot_bottom_pdf;
-    if (annotation.is_music_symbol_) {
-        constexpr float kMusicSelectionPadPt = 2.0f;
-        annot_x_left = annotation.x_ - kMusicSelectionPadPt;
-        annot_x_right = annotation.x_ + annotation.width_ + kMusicSelectionPadPt;
-        annot_top_pdf = annotation.rect_top_pdf_ + kMusicSelectionPadPt;
-        annot_bottom_pdf = annotation.rect_top_pdf_ - annotation.height_ - kMusicSelectionPadPt;
-    } else {
-        float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-        float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-        float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
-        annot_x_left = annotation.x_;
-        annot_x_right = annotation.x_ + width;
-        annot_top_pdf = annotation.y_ + ascent;
-        annot_bottom_pdf = annotation.y_ - descent;
-    }
+    // Use the on-disk /Rect (x_, width_, rect_top_pdf_, height_) for both text
+    // and music-symbol annotations. Synthesising bounds from font metrics
+    // (font_ascent/descent/text_width) only matches when the /DA font name is
+    // one we recognise; Foxit and other editors write names like "Helv" that
+    // fall through to defaults and place the box well off the glyph.
+    constexpr float kMusicSelectionPadPt = 2.0f;
+    float pad = annotation.is_music_symbol_ ? kMusicSelectionPadPt : 0.0f;
+    float annot_x_left = annotation.x_ - pad;
+    float annot_x_right = annotation.x_ + annotation.width_ + pad;
+    float annot_top_pdf = annotation.rect_top_pdf_ + pad;
+    float annot_bottom_pdf = annotation.rect_top_pdf_ - annotation.height_ - pad;
 
     float display_x, display_y, display_w, display_h;
     int x_offset = 0;
@@ -2334,27 +2326,15 @@ AnnotationHandle PDFViewer::find_annotation_at_point(QMouseEvent* event) const
         if (annotation.page_num_ != click.page_num)
             continue;
 
-        // Annotation bounds in PDF points
-        // annotation.y_ stores the BASELINE (not top edge)
-        float annot_left, annot_right, annot_top, annot_bottom;
-        if (annotation.is_music_symbol_) {
-            // Use the saved /Rect directly — same hit-test Foxit/Acrobat do.
-            // Pad a couple points all around so the click target and outline
-            // don't sit on the glyph's ink.
-            constexpr float kMusicSelectionPadPt = 2.0f;
-            annot_left = annotation.x_ - kMusicSelectionPadPt;
-            annot_right = annotation.x_ + annotation.width_ + kMusicSelectionPadPt;
-            annot_top = annotation.rect_top_pdf_ + kMusicSelectionPadPt;
-            annot_bottom = annotation.rect_top_pdf_ - annotation.height_ - kMusicSelectionPadPt;
-        } else {
-            float ascent = font_ascent(annotation.font_info_.family, annotation.font_info_.size);
-            float descent = font_descent(annotation.font_info_.family, annotation.font_info_.size);
-            float width = text_width(annotation.font_info_.family, annotation.font_info_.size, annotation.text_);
-            annot_left = annotation.x_;
-            annot_right = annotation.x_ + width;
-            annot_top = annotation.y_ + ascent;
-            annot_bottom = annotation.y_ - descent;
-        }
+        // Use the on-disk /Rect (same hit-test Foxit/Acrobat do). Pad music
+        // glyphs so the click target doesn't fall on the ink itself; text
+        // annotations already store a /Rect that surrounds the glyphs.
+        constexpr float kMusicSelectionPadPt = 2.0f;
+        float pad = annotation.is_music_symbol_ ? kMusicSelectionPadPt : 0.0f;
+        float annot_left = annotation.x_ - pad;
+        float annot_right = annotation.x_ + annotation.width_ + pad;
+        float annot_top = annotation.rect_top_pdf_ + pad;
+        float annot_bottom = annotation.rect_top_pdf_ - annotation.height_ - pad;
 
         logger::info("  annotation '{}': x={:.1f} y={:.1f} bounds=[{:.1f},{:.1f}]-[{:.1f},{:.1f}]", annotation.text_,
                      annotation.x_, annotation.y_, annot_left, annot_bottom, annot_right, annot_top);

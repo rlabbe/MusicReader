@@ -1039,7 +1039,7 @@ bool Document::move_annotation(const AnnotationHandle& handle, float new_x, floa
         page_num = annotation->page_num_;
     }
 
-    bool save_success = update_annotation_in_pdf(*old_ann, *new_ann);
+    bool save_success = update_annotation_in_pdf(*old_ann, *new_ann, /*preserve_appearance=*/true);
     reload_page(page_num);
     return save_success;
 }
@@ -1056,10 +1056,10 @@ void Document::move_annotation_in_memory(const AnnotationHandle& handle, float n
     if (!annotation)
         return;
 
-    // For music symbols, rect_top_pdf_ is the source of truth for the saved
-    // rect; shift it along with the baseline so they stay in sync.
-    if (annotation->is_music_symbol_)
-        annotation->rect_top_pdf_ += (new_y - annotation->y_);
+    // rect_top_pdf_ is the source of truth for the saved rect (used by both the
+    // selection-box drawer and the bounding/hit-test geometry); shift it with
+    // the baseline so they stay in sync for music symbols and text alike.
+    annotation->rect_top_pdf_ += (new_y - annotation->y_);
 
     annotation->x_ = new_x;
     annotation->y_ = new_y;
@@ -1084,12 +1084,12 @@ bool Document::save_moved_annotation(const AnnotationHandle& handle, float origi
         old_ann = *annotation;
         old_ann->x_ = original_x;
         old_ann->y_ = original_y;
-        // Reverse the in-memory shift so old_ann reflects the saved /Rect.
-        if (annotation->is_music_symbol_)
-            old_ann->rect_top_pdf_ -= (annotation->y_ - original_y);
+        // Reverse the in-memory shift so old_ann reflects the saved /Rect (used
+        // by update_annotation_in_pdf to find the matching annotation on disk).
+        old_ann->rect_top_pdf_ -= (annotation->y_ - original_y);
     }
 
-    return update_annotation_in_pdf(*old_ann, *new_ann);
+    return update_annotation_in_pdf(*old_ann, *new_ann, /*preserve_appearance=*/true);
 }
 
 
@@ -1337,10 +1337,11 @@ QImage Document::render_page_with_moved_annotation(int page_num,
             fz_rect new_rect = fz_make_rect(new_x, new_rect_y0, new_x + ann->width_, new_rect_y1);
 
             pdf_set_annot_rect(ctx, target, new_rect);
-            // Music symbols carry their own /AP form; calling pdf_update_annot
-            // would regenerate it via the Base-14 writer and lose the glyph.
-            if (!ann->is_music_symbol_)
-                pdf_update_annot(ctx, target);
+            // Don't regenerate /AP. Music symbols and third-party text (e.g.
+            // Foxit) carry their own appearance stream; calling pdf_update_annot
+            // would rebuild it via mupdf's Base-14 writer with our /DA, changing
+            // the visible font/size/color. The existing /AP form's bbox is
+            // remapped to the new /Rect, so the rendering follows the move.
         }
 
         // Render the page
@@ -1735,7 +1736,8 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
 }
 
 
-bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann)
+bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann,
+                                        bool preserve_appearance)
 {
     SAFE_METHOD;
     TRACE_CALL;
@@ -1815,7 +1817,7 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
 
         pdf_set_annot_rect(ctx, target, new_rect);
 
-        if (!new_ann.is_music_symbol_) {
+        if (!new_ann.is_music_symbol_ && !preserve_appearance) {
             // Text-annotation path — let mupdf rebuild the appearance from /DA
             // and /Contents using its Base-14 writer.
             pdf_set_annot_contents(ctx, target, new_ann.text_.c_str());
@@ -1827,8 +1829,9 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
             pdf_set_annot_border(ctx, target, 0);
             pdf_update_annot(ctx, target);
         }
-        // For music symbols we leave /AP, /Contents, /DA untouched — the form
-        // XObject's bbox maps to the new /Rect, so the glyph follows the move.
+        // For music symbols and preserve_appearance moves we leave /AP, /Contents,
+        // /DA untouched — the existing form XObject's bbox maps to the new /Rect,
+        // so the glyph (or third-party-rendered text) follows the move intact.
 
         pdf_drop_page(ctx, page);
 

@@ -143,7 +143,11 @@ private:
     // Individual PDF annotation operations - each opens PDF, modifies one annotation, saves
     bool add_annotation_to_pdf(Annotation& ann); // Updates ann with final rect from PDF
     bool delete_annotation_from_pdf(const Annotation& ann);
-    bool update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann);
+    // preserve_appearance=true skips /AP regeneration so an existing appearance
+    // stream (e.g. from Foxit) survives a move. Use false when text/font/color
+    // actually changed.
+    bool update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann,
+                                  bool preserve_appearance = false);
     void clear_completed_features();
 
     std::vector<Bookmark> bookmarks_;
