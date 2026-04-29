@@ -1487,7 +1487,7 @@ void MusicReader::create_music_palette()
     const int icon_px = toolbar_->iconSize().height();
     for (const auto& g : k_music_palette_glyphs) {
         QAction* action = new QAction(make_glyph_icon(g.codepoint, icon_px), "", this);
-        action->setToolTip(g.tooltip);
+        action->setToolTip(QString("%1\nRight-click for font settings").arg(g.tooltip));
         action->setCheckable(true);
         action->setData(g.codepoint);
         music_palette_group_->addAction(action);
@@ -1495,6 +1495,13 @@ void MusicReader::create_music_palette()
         action->setVisible(false);
         connect(action, &QAction::toggled, this, &MusicReader::on_music_symbol_action_toggled);
         music_palette_actions_.push_back(action);
+
+        if (QWidget* button = toolbar_->widgetForAction(action)) {
+            button->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(button, &QWidget::customContextMenuRequested, this, [this](const QPoint&) {
+                select_annotation_font();
+            });
+        }
     }
 }
 

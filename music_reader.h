@@ -81,6 +81,7 @@ private:
 
     void closeEvent(QCloseEvent* event) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+    QMenu* createPopupMenu() override { return nullptr; }
 
     // called after config file changed, update all the UI to reflect
     // the current settings vis-a-vis status bar, etc.
