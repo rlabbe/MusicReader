@@ -23,6 +23,7 @@ class MusicReader : public QMainWindow {
 
 public:
     MusicReader(QWidget* parent = nullptr);
+    ~MusicReader() override;
 
     std::shared_ptr<Document> current_document(const std::string& log_msg = "") const;
     std::pair<int, bool> current_page(const std::string& log_msg = "") const;
@@ -122,6 +123,9 @@ private:
     void open_imslp_search_dialog();
     void open_dev_status_dialog();
     void show_metronome_dialog();
+    void apply_metronome_state_to_dialog();
+    void on_metronome_state_changed();
+    void flush_metronome_save();
     void save_current_page_as_bmp();
 
     void open_fast_search_dialog();
@@ -255,6 +259,8 @@ private:
 
     FastFileSearchDialog* fast_search_dialog_ = nullptr;
     PolyMetronomeDialog* metronome_dialog_ = nullptr;
+    QTimer* metronome_save_timer_ = nullptr;
+    std::shared_ptr<Document> metronome_save_pending_doc_;
 
     // Mouse hiding related members
     QTimer* mouse_hide_timer_ = nullptr;

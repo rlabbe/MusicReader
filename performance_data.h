@@ -108,8 +108,13 @@ public:
     // Get the paper crop for a page, or nullptr if none exists.
     const PaperCrop* get_paper_crop(int page_num) const;
 
+    // Opaque metronome state JSON (compact single-line). Empty string means
+    // "use defaults". Storage only — interpretation lives in the metronome lib.
+    const std::string& metronome_state() const { return metronome_state_; }
+    void set_metronome_state(const std::string& json) { metronome_state_ = json; }
+
     // Check if there is any playback data at all.
-    bool empty() const { return page_breaks_.empty() && paper_crops_.empty(); }
+    bool empty() const { return page_breaks_.empty() && paper_crops_.empty() && metronome_state_.empty(); }
 
 private:
     // Constructs the .perf filename from the PDF path (same name, .perf extension).
@@ -121,6 +126,8 @@ private:
 
     // Map from page number to its paper crop. Absent pages have no crop.
     std::map<int, PaperCrop> paper_crops_;
+
+    std::string metronome_state_;
 
     // File format version for future compatibility.
     int version_ = 1;

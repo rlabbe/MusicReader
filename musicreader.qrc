@@ -15,5 +15,6 @@
         <file>help/fast_search_help.html</file>
         <file>images/perform.ico</file>
         <file>images/page_break.ico</file>
+        <file>images/metronome.svg</file>
     </qresource>
 </RCC>

@@ -6,6 +6,8 @@
 #include <iostream>
 #include <QtWidgets>
 #include <QtConcurrent/QtConcurrent>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
@@ -30,6 +32,7 @@
 #include "wait_cursor.h"
 #include "font_info.h"
 #include "poly_metronome_dialog.h"
+#include "poly_metronome.h"
 
 constexpr int HIDE_MOUSE_TIMEOUT_MS = 5000;
 
@@ -69,6 +72,8 @@ MusicReader::MusicReader(QWidget* parent)
     update_logging_level();
     setup_UI();
 }
+
+MusicReader::~MusicReader() = default;
 
 // DOCUMENT AND TABS
 void MusicReader::on_document_loaded(std::string name, int page)
@@ -448,6 +453,7 @@ void MusicReader::closeEvent(QCloseEvent* event)
 
     load_manager_.stop_loading();
     DevStatusDialog::close_if_open();
+    flush_metronome_save();
     save_config();
 
     int num_open_docs = tab_widget_ ? tab_widget_->count() : 0;
@@ -960,6 +966,12 @@ void MusicReader::on_tab_current_changed()
     // Clear annotation selection when switching tabs
     if (viewer)
         viewer->clear_selection();
+
+    // Persist any pending metronome change to the previous document, then
+    // load the new document's state into the dialog (no-op if dialog absent).
+    if (metronome_save_pending_doc_)
+        flush_metronome_save();
+    apply_metronome_state_to_dialog();
 
     update_title();
     update_bookmark_panel();
@@ -1896,10 +1908,74 @@ void MusicReader::show_metronome_dialog()
         metronome_dialog_ = new PolyMetronomeDialog(this);
         metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
         connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
+        connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this,
+                &MusicReader::on_metronome_state_changed);
+
+        metronome_save_timer_ = new QTimer(this);
+        metronome_save_timer_->setSingleShot(true);
+        metronome_save_timer_->setInterval(500);
+        connect(metronome_save_timer_, &QTimer::timeout, this, &MusicReader::flush_metronome_save);
     }
+    apply_metronome_state_to_dialog();
     metronome_dialog_->show();
     metronome_dialog_->raise();
     metronome_dialog_->activateWindow();
+}
+
+void MusicReader::apply_metronome_state_to_dialog()
+{
+    SAFE_METHOD;
+    if (!metronome_dialog_)
+        return;
+
+    PolyMetronomeState s;
+    auto doc = current_document();
+    if (doc) {
+        const std::string& json_str = doc->performance_data().metronome_state();
+        if (!json_str.empty()) {
+            QJsonParseError err{};
+            QJsonDocument jd = QJsonDocument::fromJson(QByteArray::fromStdString(json_str), &err);
+            if (err.error == QJsonParseError::NoError && jd.isObject())
+                s = PolyMetronomeState::from_json(jd.object());
+            else
+                logger::warning("Metronome state JSON parse failed for {}: {}", doc->filename(),
+                                err.errorString().toStdString());
+        }
+    }
+    metronome_dialog_->apply_state(s);
+}
+
+void MusicReader::on_metronome_state_changed()
+{
+    SAFE_METHOD;
+    if (!metronome_dialog_)
+        return;
+    auto doc = current_document();
+    if (!doc)
+        return;
+
+    // If a save was pending for a different document, flush it now so we
+    // don't lose those edits when we overwrite metronome_save_pending_doc_.
+    if (metronome_save_pending_doc_ && metronome_save_pending_doc_ != doc)
+        flush_metronome_save();
+
+    QJsonDocument jd(metronome_dialog_->state().to_json());
+    QByteArray ba = jd.toJson(QJsonDocument::Compact);
+    doc->performance_data().set_metronome_state(ba.toStdString());
+
+    metronome_save_pending_doc_ = doc;
+    metronome_save_timer_->start();
+}
+
+void MusicReader::flush_metronome_save()
+{
+    SAFE_METHOD;
+    if (metronome_save_timer_)
+        metronome_save_timer_->stop();
+    if (!metronome_save_pending_doc_)
+        return;
+    metronome_save_pending_doc_->performance_data().save(metronome_save_pending_doc_->path());
+    metronome_save_pending_doc_.reset();
 }
 
 void MusicReader::save_current_page_as_bmp()
@@ -2673,7 +2749,7 @@ void MusicReader::create_toolbar()
     }
 
     {
-        auto* action = new QAction("met", this);
+        auto* action = new QAction(QIcon(":/MusicReader/images/metronome.svg"), "", this);
         action->setToolTip("Metronome");
         connect(action, &QAction::triggered, this, &MusicReader::show_metronome_dialog);
         toolbar_->addAction(action);

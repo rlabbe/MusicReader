@@ -26,8 +26,9 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
 
     page_breaks_.clear();
     paper_crops_.clear();
+    metronome_state_.clear();
 
-    enum class Section { None, PageBreaks, PaperCrops };
+    enum class Section { None, PageBreaks, PaperCrops, Metronome };
     Section section = Section::None;
 
     std::string line;
@@ -53,8 +54,27 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
             section = Section::PaperCrops;
             continue;
         }
+        if (line == "[metronome]") {
+            section = Section::Metronome;
+            continue;
+        }
         if (line[0] == '[') {
             section = Section::None;
+            continue;
+        }
+
+        if (section == Section::Metronome) {
+            size_t colon = line.find(':');
+            if (colon == std::string::npos)
+                continue;
+            std::string key = line.substr(0, colon);
+            std::string value = line.substr(colon + 1);
+            key.erase(0, key.find_first_not_of(" \t"));
+            key.erase(key.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            if (key == "state")
+                metronome_state_ = std::move(value);
             continue;
         }
 
@@ -174,6 +194,12 @@ bool PerformanceData::save(const std::filesystem::path& pdf_path) const
                 file << ", right: " << *crop.right;
             file << "\n";
         }
+        file << "\n";
+    }
+
+    if (!metronome_state_.empty()) {
+        file << "[metronome]\n";
+        file << "state: " << metronome_state_ << "\n";
     }
 
     return true;
