@@ -1589,6 +1589,7 @@ void MusicReader::show_titlebar_menu()
     create_edit_menu(&menu);
     create_imslp_menu(&menu);
     create_view_menu(&menu);
+    create_help_menu(&menu);
 
 
     // Separator before Exit
@@ -1739,6 +1740,119 @@ void MusicReader::show_about_dialog()
 
     QHBoxLayout button_layout;
     QPushButton* ok_button = new QPushButton("OK", &dialog);
+    connect(ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
+    button_layout.addStretch();
+    button_layout.addWidget(ok_button);
+    layout.addLayout(&button_layout);
+
+    dialog.exec();
+}
+
+void MusicReader::show_keyboard_shortcuts()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    struct Entry { QString key; QString action; };
+    struct Section { QString name; std::vector<Entry> entries; };
+
+    const std::vector<Section> sections = {
+        { "Navigation", {
+            { "Page Down / Down / Space / Right", "Next page" },
+            { "Page Up / Up / Left",              "Previous page" },
+            { "G",                                "Go to page..." },
+            { "F11",                              "Toggle fullscreen" },
+            { "Escape",                           "Exit fullscreen" },
+        }},
+        { "View", {
+            { "1",       "Single page view" },
+            { "2",       "Double page view" },
+            { "Z",       "Toggle zoom to content" },
+            { "S",       "Toggle page step size" },
+            { "T",       "Show / hide document tabs" },
+            { "Ctrl+B",  "Show / hide bookmark panel" },
+        }},
+        { "File", {
+            { "O",   "Open file" },
+            { "F",   "Fast file search" },
+            { "I",   "IMSLP search" },
+            { "F5",  "Reload document" },
+            { "F2",  "Edit document (external)" },
+        }},
+        { "Bookmarks & Annotations", {
+            { "B / Ctrl+D",          "Add bookmark" },
+            { "Ctrl+Z",              "Undo" },
+            { "Ctrl+Y",              "Redo" },
+            { "A",                   "Toggle annotation mode" },
+            { "Delete / Backspace",  "Delete selected annotation" },
+            { "Arrow keys",          "Move selected annotation" },
+            { "+  /  -",             "Resize annotation font" },
+        }},
+        { "Modes", {
+            { "P", "Toggle performance mode" },
+            { "M", "Toggle metronome start / stop" },
+        }},
+        { "Page Break Edit Mode", {
+            { "X", "Toggle paper-crop submode (top / bottom)" },
+            { "Z", "Toggle paper-crop submode (left / right)" },
+        }},
+    };
+
+    // Count total rows: one header row per section + entries
+    int total_rows = 0;
+    for (auto& s : sections)
+        total_rows += 1 + static_cast<int>(s.entries.size());
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Keyboard Shortcuts");
+    dialog.setModal(true);
+    dialog.resize(520, 560);
+
+    QVBoxLayout layout(&dialog);
+
+    auto* table = new QTableWidget(total_rows, 2, &dialog);
+    table->setHorizontalHeaderLabels({ "Key", "Action" });
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->verticalHeader()->setVisible(false);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionMode(QAbstractItemView::NoSelection);
+    table->setShowGrid(false);
+    table->setFocusPolicy(Qt::NoFocus);
+
+    // Section header colour — a slightly lighter shade of the window background
+    const QColor header_bg = palette().color(QPalette::Mid);
+    const QColor header_fg = palette().color(QPalette::BrightText);
+    QFont header_font;
+    header_font.setBold(true);
+
+    int row = 0;
+    for (auto& section : sections) {
+        // Section header spans both columns
+        auto* header_item = new QTableWidgetItem(section.name);
+        header_item->setBackground(header_bg);
+        header_item->setForeground(header_fg);
+        header_item->setFont(header_font);
+        header_item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        table->setItem(row, 0, header_item);
+        table->setItem(row, 1, new QTableWidgetItem());
+        table->item(row, 1)->setBackground(header_bg);
+        table->setSpan(row, 0, 1, 2);
+        table->setRowHeight(row, 24);
+        ++row;
+
+        for (auto& e : section.entries) {
+            table->setItem(row, 0, new QTableWidgetItem(e.key));
+            table->setItem(row, 1, new QTableWidgetItem(e.action));
+            table->setRowHeight(row, 22);
+            ++row;
+        }
+    }
+
+    layout.addWidget(table);
+
+    QHBoxLayout button_layout;
+    auto* ok_button = new QPushButton("OK", &dialog);
     connect(ok_button, &QPushButton::clicked, &dialog, &QDialog::accept);
     button_layout.addStretch();
     button_layout.addWidget(ok_button);
@@ -2457,10 +2571,6 @@ void MusicReader::create_view_menu(auto* menu_bar)
     QAction* metronome_action = new QAction("&Metronome...", this);
     connect(metronome_action, &QAction::triggered, this, &MusicReader::show_metronome_dialog);
     view_menu->addAction(metronome_action);
-
-    QAction* tour_action = new QAction("Tour...", this);
-    connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
-    view_menu->addAction(tour_action);
 }
 
 void MusicReader::create_imslp_menu(auto* menu_bar)
@@ -2491,9 +2601,19 @@ void MusicReader::create_help_menu(auto* menu_bar)
 
     QMenu* help_menu = menu_bar->addMenu("&Help");
 
-    QAction* action = new QAction("&About MusicReader...", this);
-    connect(action, &QAction::triggered, this, &MusicReader::show_about_dialog);
-    help_menu->addAction(action);
+    QAction* shortcuts_action = new QAction("&Keyboard Shortcuts...", this);
+    connect(shortcuts_action, &QAction::triggered, this, &MusicReader::show_keyboard_shortcuts);
+    help_menu->addAction(shortcuts_action);
+
+    QAction* tour_action = new QAction("&Tour...", this);
+    connect(tour_action, &QAction::triggered, this, &MusicReader::open_tour_dialog);
+    help_menu->addAction(tour_action);
+
+    help_menu->addSeparator();
+
+    QAction* about_action = new QAction("&About MusicReader...", this);
+    connect(about_action, &QAction::triggered, this, &MusicReader::show_about_dialog);
+    help_menu->addAction(about_action);
 }
 
 void MusicReader::show_context_menu(const QPoint& pos)
@@ -2646,6 +2766,15 @@ void MusicReader::create_global_shortcuts()
         if (is_text_input_focused())
             return;
         on_page_down();
+    });
+
+    shortcut = new QShortcut(Qt::Key_M, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        if (metronome_dialog_)
+            metronome_dialog_->send_key_command(Qt::Key_M);
     });
 
     shortcut = new QShortcut(QKeySequence("F5"), this);

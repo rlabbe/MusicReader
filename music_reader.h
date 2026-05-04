@@ -108,6 +108,7 @@ private:
     void create_global_shortcuts();
 
     void open_tour_dialog();
+    void show_keyboard_shortcuts();
     void check_first_run_tour();
 
     void create_toolbar();
