@@ -550,6 +550,24 @@ void ConfigFile::read(bool reset_on_error)
     } else
         logger::info("Invalid or missing 'fast_search_dialog_size'");
 
+    metronome_dialog_pos_ = {-1, -1, -1, -1};
+    if (j.contains("metronome_dialog_pos") && j["metronome_dialog_pos"].is_array() &&
+        j["metronome_dialog_pos"].size() == 4) {
+        bool valid = true;
+        std::array<int, 4> pos = {};
+        for (int i = 0; valid && i < 4; ++i) {
+            auto x = j["metronome_dialog_pos"][i];
+            if (x.is_number_integer())
+                pos[i] = x.get<int>();
+            else
+                valid = false;
+        }
+        if (valid)
+            metronome_dialog_pos_ = pos;
+        else
+            logger::error("Invalid entries in 'metronome_dialog_pos'");
+    }
+
     if (j.contains("border_margin") && j["border_margin"].is_number_integer())
         border_margin_ = j["border_margin"].get<int>();
     else
@@ -641,6 +659,7 @@ json ConfigFile::to_json() const
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;
+    j["metronome_dialog_pos"] = metronome_dialog_pos_;
     j["border_margin"] = border_margin_;
     j["music_directory"] = std::string(reinterpret_cast<const char*>(music_directory_.u8string().c_str()));
     j["log_level"] = log_level_to_string(log_level_);
@@ -882,6 +901,7 @@ void ConfigFile::set_defaults()
     allow_oversize_ = false;
     theme_ = Theme::Dark;
     fast_search_dialog_size_ = {-1, -1, 640, 800};
+    metronome_dialog_pos_ = {-1, -1, -1, -1};
     border_margin_ = 10;
     music_directory_ = "";
     log_level_ = LogLevel::Normal;
@@ -942,6 +962,7 @@ std::string ConfigFile::repr() const
     j["allow_oversize"] = allow_oversize_;
     j["theme"] = theme_to_string(theme_);
     j["fast_search_dialog_size"] = fast_search_dialog_size_;
+    j["metronome_dialog_pos"] = metronome_dialog_pos_;
     j["border_margin"] = border_margin_;
     j["music_directory"] = music_directory_.string();
     j["log_level"] = log_level_to_string(log_level_);

@@ -87,6 +87,7 @@ private:
     bool allow_oversize_;
     Theme theme_;
     std::array<int, 4> fast_search_dialog_size_;
+    std::array<int, 4> metronome_dialog_pos_;
     int border_margin_;
     std::filesystem::path music_directory_;
     LogLevel log_level_;
@@ -314,6 +315,14 @@ public:
     void set_fast_search_dialog_size(const std::array<int, 4>& value)
     {
         fast_search_dialog_size_ = value;
+        save();
+    }
+
+    // [x, y, w, h]; {-1,-1,-1,-1} means never saved
+    const std::array<int, 4>& metronome_dialog_pos() const { return metronome_dialog_pos_; }
+    void set_metronome_dialog_pos(const std::array<int, 4>& value)
+    {
+        metronome_dialog_pos_ = value;
         save();
     }
 

@@ -512,6 +512,12 @@ bool MusicReader::eventFilter(QObject* watched, QEvent* event)
 {
     SAFE_METHOD;
 
+    // Save metronome dialog position whenever it is hidden or closed
+    if (watched == metronome_dialog_ && event->type() == QEvent::Hide) {
+        QRect geom = metronome_dialog_->geometry();
+        config_.set_metronome_dialog_pos({geom.x(), geom.y(), geom.width(), geom.height()});
+    }
+
     // Handle mouse movement for cursor hiding
     if (event->type() == QEvent::MouseMove) {
         if (handle_mouse_movement(watched, event))
@@ -2029,8 +2035,24 @@ void MusicReader::show_metronome_dialog()
         metronome_save_timer_->setSingleShot(true);
         metronome_save_timer_->setInterval(500);
         connect(metronome_save_timer_, &QTimer::timeout, this, &MusicReader::flush_metronome_save);
+
+        metronome_dialog_->installEventFilter(this);
     }
     apply_metronome_state_to_dialog();
+
+    // Restore saved position/size before showing
+    const auto& pos = config_.metronome_dialog_pos();
+    if (pos[2] > 0 && pos[3] > 0)
+        metronome_dialog_->resize(pos[2], pos[3]);
+    if (pos[0] >= 0 && pos[1] >= 0 && QGuiApplication::screenAt(QPoint(pos[0], pos[1]))) {
+        metronome_dialog_->move(pos[0], pos[1]);
+    } else {
+        // Saved position is off-screen (e.g. monitor unplugged); centre on main window's screen
+        QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+        QRect avail = screen->availableGeometry();
+        metronome_dialog_->move(avail.center() - metronome_dialog_->rect().center());
+    }
+
     metronome_dialog_->show();
     metronome_dialog_->raise();
     metronome_dialog_->activateWindow();
