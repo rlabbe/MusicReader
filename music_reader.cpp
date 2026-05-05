@@ -1795,8 +1795,10 @@ void MusicReader::show_keyboard_shortcuts()
             { "+  /  -",             "Resize annotation font" },
         }},
         { "Modes", {
-            { "P", "Toggle performance mode" },
-            { "M", "Toggle metronome start / stop" },
+            { "P",   "Toggle performance mode" },
+            { "M",   "Toggle metronome start / stop" },
+            { ",",   "Metronome BPM − 1" },
+            { ".",   "Metronome BPM + 1" },
         }},
         { "Page Break Edit Mode", {
             { "X", "Toggle paper-crop submode (top / bottom)" },
@@ -2026,6 +2028,9 @@ void MusicReader::show_metronome_dialog()
 
     if (!metronome_dialog_) {
         metronome_dialog_ = new PolyMetronomeDialog(this);
+        // Keep keyboard focus in MusicReader at all times
+        metronome_dialog_->setWindowFlags(metronome_dialog_->windowFlags() | Qt::WindowDoesNotAcceptFocus);
+        metronome_dialog_->setAttribute(Qt::WA_ShowWithoutActivating);
         metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
         connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
         connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this,
@@ -2061,6 +2066,7 @@ void MusicReader::show_metronome_dialog()
 void MusicReader::apply_metronome_state_to_dialog()
 {
     SAFE_METHOD;
+    return; // TODO: per-PDF metronome state temporarily disabled
     if (!metronome_dialog_)
         return;
 
@@ -2084,6 +2090,7 @@ void MusicReader::apply_metronome_state_to_dialog()
 void MusicReader::on_metronome_state_changed()
 {
     SAFE_METHOD;
+    return; // TODO: per-PDF metronome state temporarily disabled
     if (!metronome_dialog_)
         return;
     auto doc = current_document();
@@ -2106,6 +2113,7 @@ void MusicReader::on_metronome_state_changed()
 void MusicReader::flush_metronome_save()
 {
     SAFE_METHOD;
+    return; // TODO: per-PDF metronome state temporarily disabled
     if (metronome_save_timer_)
         metronome_save_timer_->stop();
     if (!metronome_save_pending_doc_)
@@ -2795,8 +2803,34 @@ void MusicReader::create_global_shortcuts()
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
-        if (metronome_dialog_)
+        if (!metronome_dialog_)
+            show_metronome_dialog();
+        else
             metronome_dialog_->send_key_command(Qt::Key_M);
+    });
+
+    shortcut = new QShortcut(Qt::Key_Comma, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        if (!metronome_dialog_)
+            return;
+        auto s = metronome_dialog_->state();
+        s.bpm -= 1;
+        metronome_dialog_->apply_state(s);
+    });
+
+    shortcut = new QShortcut(Qt::Key_Period, this);
+    shortcut->setContext(Qt::WindowShortcut);
+    connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
+        if (is_text_input_focused())
+            return;
+        if (!metronome_dialog_)
+            return;
+        auto s = metronome_dialog_->state();
+        s.bpm += 1;
+        metronome_dialog_->apply_state(s);
     });
 
     shortcut = new QShortcut(QKeySequence("F5"), this);
