@@ -2027,10 +2027,7 @@ void MusicReader::show_metronome_dialog()
     TRACE_FUNCTION;
 
     if (!metronome_dialog_) {
-        metronome_dialog_ = new PolyMetronomeDialog(this);
-        // Keep keyboard focus in MusicReader at all times
-        metronome_dialog_->setWindowFlags(metronome_dialog_->windowFlags() | Qt::WindowDoesNotAcceptFocus);
-        metronome_dialog_->setAttribute(Qt::WA_ShowWithoutActivating);
+        metronome_dialog_ = new PolyMetronomeDialog(this, /*no_focus=*/true);
         metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
         connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
         connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this,
@@ -2060,7 +2057,6 @@ void MusicReader::show_metronome_dialog()
 
     metronome_dialog_->show();
     metronome_dialog_->raise();
-    metronome_dialog_->activateWindow();
 }
 
 void MusicReader::apply_metronome_state_to_dialog()
@@ -2806,7 +2802,7 @@ void MusicReader::create_global_shortcuts()
         if (!metronome_dialog_)
             show_metronome_dialog();
         else
-            metronome_dialog_->send_key_command(Qt::Key_M);
+            metronome_dialog_->toggle_start_stop();
     });
 
     shortcut = new QShortcut(Qt::Key_Comma, this);
@@ -2814,11 +2810,8 @@ void MusicReader::create_global_shortcuts()
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
-        if (!metronome_dialog_)
-            return;
-        auto s = metronome_dialog_->state();
-        s.bpm -= 1;
-        metronome_dialog_->apply_state(s);
+        if (metronome_dialog_)
+            metronome_dialog_->set_bpm(metronome_dialog_->state().bpm - 1);
     });
 
     shortcut = new QShortcut(Qt::Key_Period, this);
@@ -2826,11 +2819,8 @@ void MusicReader::create_global_shortcuts()
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
-        if (!metronome_dialog_)
-            return;
-        auto s = metronome_dialog_->state();
-        s.bpm += 1;
-        metronome_dialog_->apply_state(s);
+        if (metronome_dialog_)
+            metronome_dialog_->set_bpm(metronome_dialog_->state().bpm + 1);
     });
 
     shortcut = new QShortcut(QKeySequence("F5"), this);
