@@ -512,7 +512,17 @@ bool MusicReader::eventFilter(QObject* watched, QEvent* event)
 {
     SAFE_METHOD;
 
-    // Save metronome dialog position whenever it is hidden or closed
+    // Persist the metronome dialog's geometry whenever it goes away.
+    //
+    // QEvent::Hide fires for both an explicit hide() and a close(); since
+    // the dialog has WA_DeleteOnClose=false, close() just hides it, so
+    // catching Hide covers both paths. The next show_metronome_dialog()
+    // call will restore from these saved coordinates.
+    //
+    // This filter is independent of the dialog's own internal event
+    // filter (which lives in PolyMetronomeLib and only swallows
+    // FocusIn/WindowActivate to enforce no_focus mode). The two filters
+    // never see the same events.
     if (watched == metronome_dialog_ && event->type() == QEvent::Hide) {
         QRect geom = metronome_dialog_->geometry();
         config_.set_metronome_dialog_pos({geom.x(), geom.y(), geom.width(), geom.height()});
@@ -2021,44 +2031,93 @@ void MusicReader::open_dev_status_dialog()
     DevStatusDialog::show(config_, this);
 }
 
+// Lazy-create the metronome dialog on first call, then restore its last
+// known geometry and per-PDF state and bring it on screen.
+//
+// The dialog is constructed with no_focus=true: PolyMetronomeLib then sets
+// it up as a frameless, never-activating tool palette so MusicReader keeps
+// keyboard focus while the user clicks sliders/dials/buttons inside it.
+// See PolyMetronomeDialog's constructor for the focus-prevention details.
+//
+// The dialog is reused across opens — WA_DeleteOnClose is disabled so
+// hide() leaves it intact; subsequent calls just re-show the existing
+// instance. The QObject::destroyed connection clears the pointer in the
+// event Qt does eventually tear it down (e.g. on app shutdown).
 void MusicReader::show_metronome_dialog()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
     if (!metronome_dialog_) {
+        // First-time construction: build the dialog and wire up everything
+        // that must persist for the dialog's lifetime.
         metronome_dialog_ = new PolyMetronomeDialog(this, /*no_focus=*/true);
         metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
         connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
+
+        // state_changed fires whenever the user moves a slider, spins the
+        // dial, edits a meter, etc. We use it to write per-PDF state.
         connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this,
                 &MusicReader::on_metronome_state_changed);
 
+        // 500ms debounce: collapses bursts of state_changed signals (slider
+        // drags) into a single .perf file write.
         metronome_save_timer_ = new QTimer(this);
         metronome_save_timer_->setSingleShot(true);
         metronome_save_timer_->setInterval(500);
         connect(metronome_save_timer_, &QTimer::timeout, this, &MusicReader::flush_metronome_save);
 
+        // Watch for QEvent::Hide so we can persist the dialog's last
+        // on-screen geometry to the global config (see eventFilter()).
+        // This is independent of the focus-blocking event filter the
+        // dialog installs on itself in no_focus mode — that one only
+        // watches FocusIn/WindowActivate and lives in the library.
         metronome_dialog_->installEventFilter(this);
     }
+
+    // Pull the active document's saved metronome settings into the dialog.
     apply_metronome_state_to_dialog();
 
-    // Restore saved position/size before showing
+    // Restore the last on-screen size and position from the global config.
+    // Width/height are applied first so the dialog is the right size when
+    // we test whether the saved top-left corner is on a connected screen.
     const auto& pos = config_.metronome_dialog_pos();
     if (pos[2] > 0 && pos[3] > 0)
         metronome_dialog_->resize(pos[2], pos[3]);
     if (pos[0] >= 0 && pos[1] >= 0 && QGuiApplication::screenAt(QPoint(pos[0], pos[1]))) {
         metronome_dialog_->move(pos[0], pos[1]);
     } else {
-        // Saved position is off-screen (e.g. monitor unplugged); centre on main window's screen
+        // No saved position, or the monitor it was on is gone. Centre on
+        // whichever screen the main window lives on so the dialog can't
+        // end up stranded off-screen.
         QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
         QRect avail = screen->availableGeometry();
         metronome_dialog_->move(avail.center() - metronome_dialog_->rect().center());
     }
 
+    // show() + raise() — deliberately no activateWindow() because that would
+    // contradict the dialog's WA_ShowWithoutActivating attribute and pull
+    // focus away from MusicReader. The dialog must never become the active
+    // window; its WS_EX_NOACTIVATE style enforces that on Windows.
     metronome_dialog_->show();
     metronome_dialog_->raise();
 }
 
+// Per-PDF metronome state: load
+//
+// Reads the active document's metronome state (a compact JSON blob stored
+// in the .perf file) and pushes it into the dialog. apply_state() does
+// not re-emit state_changed, so this round-trip won't kick the save
+// timer back on.
+//
+// Falls through to a default-constructed PolyMetronomeState (nice
+// defaults built into the struct) if there is no document, no saved
+// state, or the JSON fails to parse.
+//
+// Currently early-returned — the per-PDF feature is paused while the
+// approach is reworked. The body is kept so the wiring is preserved
+// for when it's re-enabled. See also on_metronome_state_changed and
+// flush_metronome_save.
 void MusicReader::apply_metronome_state_to_dialog()
 {
     SAFE_METHOD;
@@ -2083,6 +2142,18 @@ void MusicReader::apply_metronome_state_to_dialog()
     metronome_dialog_->apply_state(s);
 }
 
+// Per-PDF metronome state: capture pending save
+//
+// Connected to PolyMetronomeDialog::state_changed. Serialises the
+// dialog's current state to compact JSON, stashes it in the active
+// document's PerformanceData, and (re)starts the debounce timer so the
+// .perf file is only written once after a burst of changes settles.
+//
+// If a save is already pending for a *different* document (the user
+// switched tabs mid-edit), flush that one first so its edits are not
+// clobbered when we overwrite metronome_save_pending_doc_ below.
+//
+// Currently early-returned — see apply_metronome_state_to_dialog.
 void MusicReader::on_metronome_state_changed()
 {
     SAFE_METHOD;
@@ -2093,8 +2164,6 @@ void MusicReader::on_metronome_state_changed()
     if (!doc)
         return;
 
-    // If a save was pending for a different document, flush it now so we
-    // don't lose those edits when we overwrite metronome_save_pending_doc_.
     if (metronome_save_pending_doc_ && metronome_save_pending_doc_ != doc)
         flush_metronome_save();
 
@@ -2106,6 +2175,14 @@ void MusicReader::on_metronome_state_changed()
     metronome_save_timer_->start();
 }
 
+// Per-PDF metronome state: write to disk
+//
+// Flushes any pending state change to the corresponding document's
+// .perf file. Called from the debounce timer's timeout, on tab change,
+// and at app exit. Cancels the timer first so a flush forced from
+// outside the timer doesn't re-fire it for the same data.
+//
+// Currently early-returned — see apply_metronome_state_to_dialog.
 void MusicReader::flush_metronome_save()
 {
     SAFE_METHOD;
@@ -2794,6 +2871,11 @@ void MusicReader::create_global_shortcuts()
         on_page_down();
     });
 
+    // Metronome shortcuts. M opens the dialog if it isn't up yet, otherwise
+    // toggles play/stop. Comma/period nudge BPM down/up by 1, calling the
+    // dialog's set_bpm() (the same path the +/- buttons use) so the current
+    // beat position in the measure is preserved — apply_state() can't be
+    // used here because it resets the sequence playback.
     shortcut = new QShortcut(Qt::Key_M, this);
     shortcut->setContext(Qt::WindowShortcut);
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
@@ -2810,6 +2892,7 @@ void MusicReader::create_global_shortcuts()
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
+        // No-op when dialog hasn't been opened — there's nothing to slow down.
         if (metronome_dialog_)
             metronome_dialog_->set_bpm(metronome_dialog_->state().bpm - 1);
     });

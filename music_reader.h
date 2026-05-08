@@ -123,6 +123,32 @@ private:
     void open_file_dialog(const std::filesystem::path& pathname);
     void open_imslp_search_dialog();
     void open_dev_status_dialog();
+    // Metronome dialog plumbing.
+    //
+    // The dialog is a third-party PolyMetronomeLib widget constructed with
+    // no_focus=true so it never steals keyboard focus from MusicReader.
+    // It is created lazily on first show, kept alive for the lifetime of
+    // the main window (WA_DeleteOnClose=false), and hide/show is used
+    // instead of close/open so its state survives between sessions.
+    //
+    // show_metronome_dialog               creates (first time only) and shows
+    //                                     the dialog, restoring its on-screen
+    //                                     position from ConfigFile and the
+    //                                     per-PDF state from the active doc.
+    // apply_metronome_state_to_dialog     pushes the active document's saved
+    //                                     metronome state (JSON in .perf)
+    //                                     into the dialog. Called on tab
+    //                                     switch and on dialog open.
+    //                                     [currently early-returned — see .cpp]
+    // on_metronome_state_changed          connected to the dialog's
+    //                                     state_changed signal; serialises
+    //                                     the new state and starts the
+    //                                     debounce timer.
+    //                                     [currently early-returned — see .cpp]
+    // flush_metronome_save                writes the pending doc's .perf
+    //                                     file. Called from the debounce
+    //                                     timer, on tab switch, and at exit.
+    //                                     [currently early-returned — see .cpp]
     void show_metronome_dialog();
     void apply_metronome_state_to_dialog();
     void on_metronome_state_changed();
@@ -259,8 +285,21 @@ private:
     ConfigFile& config_;
 
     FastFileSearchDialog* fast_search_dialog_ = nullptr;
+
+    // Lazily-constructed metronome dialog from PolyMetronomeLib. Created on
+    // first show, kept alive across hide/show. Set back to nullptr by the
+    // QObject::destroyed connection if Qt ever tears it down.
     PolyMetronomeDialog* metronome_dialog_ = nullptr;
+
+    // Debounces per-PDF metronome state writes. The dialog can emit
+    // state_changed many times per second (slider drags, dial spins); we
+    // restart this 500ms one-shot on every change and only flush when it
+    // fires, so we don't churn the .perf file on disk.
     QTimer* metronome_save_timer_ = nullptr;
+
+    // The Document whose .perf file owes a write. Captured when the dialog
+    // emits state_changed, flushed by flush_metronome_save(). Held by
+    // shared_ptr so the doc can't disappear out from under a pending save.
     std::shared_ptr<Document> metronome_save_pending_doc_;
 
     // Mouse hiding related members
