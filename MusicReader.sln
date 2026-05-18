@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MusicReader", "MusicReader.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PolyMetronomeLib", "extern\PolyMetronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj", "{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QtWakeDpiFixer", "extern\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj", "{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -26,6 +28,12 @@ Global
 		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.Release|x64.Build.0 = Release|x64
 		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.ReleaseDbgInfo|x64.ActiveCfg = ReleaseDbgInfo|x64
 		{7A8C5E10-4F2B-4A3D-9C1B-3E5F8D7C2A1B}.ReleaseDbgInfo|x64.Build.0 = ReleaseDbgInfo|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.ReleaseDbgInfo|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.ReleaseDbgInfo|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

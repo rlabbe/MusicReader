@@ -1,3 +1,6 @@
 [submodule "extern/PolyMetronome"]
 	path = extern/PolyMetronome
 	url = https://github.com/rlabbe/PolyMetronome.git
+[submodule "extern/QtWakeDpiFixer"]
+	path = extern/QtWakeDpiFixer
+	url = https://github.com/rlabbe/QtWakeDpiFixer.git

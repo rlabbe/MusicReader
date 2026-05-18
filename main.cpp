@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <QImage>
 #include <QPainter>
+#include "wake_dpi_fixer.h"
 
 #pragma warning(push, 0)
 #include <mupdf/fitz.h>
@@ -667,6 +668,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     int result = 0;
     {
         QApplication app(argc, argv);
+        WakeDpiFixer dpi_fixer;
+
         app.setStyle("fusion");
         QStyleHints* hints = QGuiApplication::styleHints();
         hints->setColorScheme(Qt::ColorScheme::Dark);

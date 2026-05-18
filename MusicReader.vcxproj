@@ -102,7 +102,7 @@
       <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -123,7 +123,7 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -157,7 +157,7 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);..\mupdf-1.25.4-source\include;..\metronome\PolyMetronomeLib</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -310,6 +310,9 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
   <ItemGroup>
     <ProjectReference Include="..\metronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj">
       <Project>{7a8c5e10-4f2b-4a3d-9c1b-3e5f8d7c2a1b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj">
+      <Project>{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
