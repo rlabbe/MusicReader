@@ -202,7 +202,16 @@ void MusicReader::on_reload_document()
     doc->kill_load();
     load_manager_.remove_document(doc->filename());
 
-    open_pdf_in_tab(doc->filename(), page_num, viewer);
+    PDFViewer* reloaded_viewer = open_pdf_in_tab(doc->filename(), page_num, viewer);
+
+    // If the PDF was generated externally (say, by musescore), the bookmarks
+    // created by this app will be lost. If the document has no bookmarks, but
+    // we have saved bookmarks for it in a .txt file, restore them.
+    if (reloaded_viewer) {
+        doc = reloaded_viewer->document();
+        if (doc->bookmarks().empty() && doc->bookmarks_file_exists())
+            doc->set_bookmarks_from_txt_file();
+    }
 
     // Tab probably didn't change, but this ensures everything gets redrawn - page numbers, bookmarks, etc
     on_tab_current_changed();
