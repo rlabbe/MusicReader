@@ -4,12 +4,17 @@
 #include <filesystem>
 #include "qt_utils.h"
 #include "config_file.h"
+#include "document_info.h"
+#include <QPainter>
 
 #include <windows.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 
 #pragma comment(lib, "shlwapi.lib")
+
+// Column index of the favorite-star column in file_table_.
+static constexpr int FAVORITE_COLUMN = 3;
 
 
 static std::u8string to_lower(const std::u8string& str)
@@ -56,9 +61,45 @@ static std::u8string human_size(long size)
     return result;
 }
 
-SortableTableWidgetItem::SortableTableWidgetItem(int sort_value, const QString& text)
+// A star icon in the app's accent yellow. Built once. An icon, unlike
+// coloured text, keeps its colour when the table row is selected.
+static const QIcon& favorite_star_icon()
+{
+    static const QIcon icon = [] {
+        QPixmap pixmap(20, 20);
+        pixmap.fill(Qt::transparent);
+
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        QFont font = painter.font();
+        font.setPixelSize(16);
+        painter.setFont(font);
+        painter.setPen(QColor(242, 169, 59));
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, QString(QChar(0x2605)));
+        painter.end();
+
+        QIcon result;
+        // Register the same pixmap for every mode so selection never tints it.
+        for (QIcon::Mode mode : {QIcon::Normal, QIcon::Selected, QIcon::Active, QIcon::Disabled})
+            result.addPixmap(pixmap, mode);
+        return result;
+    }();
+    return icon;
+}
+
+
+SortableTableWidgetItem::SortableTableWidgetItem(qint64 sort_value, const QString& text, bool favorite)
     : QTableWidgetItem(text)
+    , favorite_(favorite)
+    , has_sort_value_(true)
     , sort_value_(sort_value)
+{
+}
+
+
+SortableTableWidgetItem::SortableTableWidgetItem(const QString& text, bool favorite)
+    : QTableWidgetItem(text)
+    , favorite_(favorite)
 {
 }
 
@@ -66,7 +107,22 @@ SortableTableWidgetItem::SortableTableWidgetItem(int sort_value, const QString& 
 bool SortableTableWidgetItem::operator<(const QTableWidgetItem& other) const
 {
     auto* other_item = dynamic_cast<const SortableTableWidgetItem*>(&other);
-    return other_item ? sort_value_ < other_item->sort_value_ : QTableWidgetItem::operator<(other);
+    if (!other_item)
+        return QTableWidgetItem::operator<(other);
+
+    // Favorites stay at the top regardless of the column or sort direction,
+    // so flip the comparison when the view is sorted descending.
+    if (favorite_ != other_item->favorite_) {
+        bool ascending = true;
+        if (const QTableWidget* table = tableWidget())
+            ascending = table->horizontalHeader()->sortIndicatorOrder() == Qt::AscendingOrder;
+        return ascending == favorite_;
+    }
+
+    if (has_sort_value_ && other_item->has_sort_value_)
+        return sort_value_ < other_item->sort_value_;
+
+    return QTableWidgetItem::operator<(other);
 }
 
 
@@ -148,13 +204,14 @@ void FastFileSearchDialog::init_ui(const QRect& size)
     layout_->addLayout(top_layout_);
 
     // widget for displaying files
-    file_table_ = new QTableWidget(0, 3, this);
-    file_table_->setHorizontalHeaderLabels({"Name", "Date Modified", "Size"});
+    file_table_ = new QTableWidget(0, 4, this);
+    file_table_->setHorizontalHeaderLabels({"Name", "Date Modified", "Size", ""});
     file_table_->setSelectionBehavior(QTableWidget::SelectRows);
     file_table_->setSortingEnabled(true);
     file_table_->setShowGrid(false);
     file_table_->sortByColumn(0, Qt::AscendingOrder);
     connect(file_table_, &QTableWidget::itemDoubleClicked, this, &FastFileSearchDialog::on_item_double_click);
+    connect(file_table_, &QTableWidget::cellClicked, this, &FastFileSearchDialog::on_favorite_clicked);
     layout_->addWidget(file_table_);
 
     // Add context menu to file table
@@ -167,6 +224,7 @@ void FastFileSearchDialog::init_ui(const QRect& size)
     h_header->setSectionResizeMode(0, QHeaderView::Stretch);
     h_header->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     h_header->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    h_header->setSectionResizeMode(FAVORITE_COLUMN, QHeaderView::ResizeToContents);
 
     v_header->setVisible(false);
     v_header->setSectionResizeMode(QHeaderView::ResizeToContents);
@@ -272,31 +330,39 @@ void FastFileSearchDialog::display_files(const QStringList& file_paths, bool res
     file_table_->setSortingEnabled(false);
     file_table_->setRowCount(0);
 
+    const QString base_dir = QString::fromStdU16String(path_.u16string());
+
     for (int i = 0; i < file_paths.size(); ++i) {
         QFileInfo file_info(file_paths[i]);
-        QString relative_path =
-            QDir(QString::fromStdU16String(path_.u16string())).relativeFilePath(file_paths[i]); // Strip directory
+        QString relative_path = QDir(base_dir).relativeFilePath(file_paths[i]); // Strip directory
         QString date_text = QLocale().toString(file_info.lastModified(), QLocale::ShortFormat);
         QString size_text = QString::fromUtf8(reinterpret_cast<const char*>(human_size(file_info.size()).c_str()));
 
-        // Use string for path sorting
-        auto* path_item = new QTableWidgetItem(relative_path);
+        bool favorite = document_info::is_favorite(std::filesystem::path(file_paths[i].toStdU16String()));
 
-        // Use timestamp for date sorting
-        auto* date_item = new SortableTableWidgetItem(file_info.lastModified().toSecsSinceEpoch(), date_text);
+        // Name sorts by text, date/size by their numeric value. Every item
+        // also carries the favorite flag so favorites sort to the top.
+        auto* path_item = new SortableTableWidgetItem(relative_path, favorite);
+        auto* date_item = new SortableTableWidgetItem(file_info.lastModified().toSecsSinceEpoch(), date_text, favorite);
+        auto* size_item = new SortableTableWidgetItem(file_info.size(), size_text, favorite);
 
-        // Use actual file size for size sorting
-        auto* size_item = new SortableTableWidgetItem(file_info.size(), size_text);
+        // Favorite star: a yellow star icon for favorites, an empty cell
+        // otherwise. An icon keeps its colour even when the row is selected.
+        auto* favorite_item = new SortableTableWidgetItem(QString(), favorite);
+        if (favorite)
+            favorite_item->setIcon(favorite_star_icon());
 
         path_item->setFlags(path_item->flags() ^ Qt::ItemIsEditable);
         date_item->setFlags(date_item->flags() ^ Qt::ItemIsEditable);
         size_item->setFlags(size_item->flags() ^ Qt::ItemIsEditable);
+        favorite_item->setFlags(favorite_item->flags() ^ Qt::ItemIsEditable);
 
         int row_position = file_table_->rowCount();
         file_table_->insertRow(row_position);
         file_table_->setItem(row_position, 0, path_item);
         file_table_->setItem(row_position, 1, date_item);
         file_table_->setItem(row_position, 2, size_item);
+        file_table_->setItem(row_position, FAVORITE_COLUMN, favorite_item);
     }
 
     file_table_->setSortingEnabled(true);
@@ -304,15 +370,28 @@ void FastFileSearchDialog::display_files(const QStringList& file_paths, bool res
     // Only resize columns 1 and 2 (date and size), never column 0 (name)
     // This preserves the stretch behavior for column 0
     if (resize) {
-        // Resize only the date and size columns
         file_table_->resizeColumnToContents(1);
         file_table_->resizeColumnToContents(2);
     }
 
-    // select if only one file so user can just press return
-    // to open the single file they found
-    if (file_paths.size() == 1)
+    // Select the only file so the user can just press return to open it.
+    if (file_paths.size() == 1) {
         file_table_->selectAll();
+        return;
+    }
+
+    // If exactly one favorite is shown, pre-select it so return opens it.
+    int favorite_row = -1;
+    int favorite_count = 0;
+    for (int row = 0; row < file_table_->rowCount(); ++row) {
+        auto* item = dynamic_cast<SortableTableWidgetItem*>(file_table_->item(row, 0));
+        if (item && item->is_favorite()) {
+            ++favorite_count;
+            favorite_row = row;
+        }
+    }
+    if (favorite_count == 1)
+        file_table_->selectRow(favorite_row);
 }
 
 
@@ -398,9 +477,31 @@ void FastFileSearchDialog::browse_to_directory()
 
 void FastFileSearchDialog::on_item_double_click(QTableWidgetItem* item)
 {
+    // The clicked cell may be in any column; always open the row's file name.
+    QTableWidgetItem* name_item = file_table_->item(item->row(), 0);
+    if (!name_item)
+        return;
     selected_items_.clear();
-    selected_items_.append(QString::fromStdU16String(path_.u16string()) + "/" + item->text());
+    selected_items_.append(QString::fromStdU16String(path_.u16string()) + "/" + name_item->text());
     accept();
+}
+
+
+void FastFileSearchDialog::on_favorite_clicked(int row, int column)
+{
+    if (column != FAVORITE_COLUMN)
+        return;
+
+    QTableWidgetItem* name_item = file_table_->item(row, 0);
+    if (!name_item)
+        return;
+
+    std::filesystem::path file = path_ / std::filesystem::path(name_item->text().toStdU16String());
+    document_info::set_favorite(file, !document_info::is_favorite(file));
+
+    // Rebuild so the toggled row moves into or out of the favorites group
+    // and the single-favorite auto-selection is reapplied.
+    on_search();
 }
 
 

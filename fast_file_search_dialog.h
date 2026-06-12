@@ -10,11 +10,18 @@ class DirectoryWatcher;
 
 class SortableTableWidgetItem : public QTableWidgetItem {
 public:
-    explicit SortableTableWidgetItem(int sort_value, const QString& text);
+    // Numeric-sorted column (date, size).
+    SortableTableWidgetItem(qint64 sort_value, const QString& text, bool favorite);
+    // Text-sorted column (name, favorite star).
+    SortableTableWidgetItem(const QString& text, bool favorite);
+
     bool operator<(const QTableWidgetItem& other) const override;
+    bool is_favorite() const { return favorite_; }
 
 private:
-    int sort_value_;
+    bool favorite_ = false;
+    bool has_sort_value_ = false;
+    qint64 sort_value_ = 0;
 };
 
 class UpdateSignal : public QObject {
@@ -67,6 +74,7 @@ private slots:
     void show_context_menu(const QPoint& pos);
     void browse_to_directory();
     void on_item_double_click(QTableWidgetItem* item);
+    void on_favorite_clicked(int row, int column);
     void accept();
     void show_help();
 

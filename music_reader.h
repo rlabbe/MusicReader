@@ -136,7 +136,7 @@ private:
     //                                     position from ConfigFile and the
     //                                     per-PDF state from the active doc.
     // apply_metronome_state_to_dialog     pushes the active document's saved
-    //                                     metronome state (JSON in .perf)
+    //                                     metronome state (JSON in .mrd)
     //                                     into the dialog. Called on tab
     //                                     switch and on dialog open.
     //                                     [currently early-returned — see .cpp]
@@ -145,7 +145,7 @@ private:
     //                                     the new state and starts the
     //                                     debounce timer.
     //                                     [currently early-returned — see .cpp]
-    // flush_metronome_save                writes the pending doc's .perf
+    // flush_metronome_save                writes the pending doc's info
     //                                     file. Called from the debounce
     //                                     timer, on tab switch, and at exit.
     //                                     [currently early-returned — see .cpp]
@@ -294,10 +294,10 @@ private:
     // Debounces per-PDF metronome state writes. The dialog can emit
     // state_changed many times per second (slider drags, dial spins); we
     // restart this 500ms one-shot on every change and only flush when it
-    // fires, so we don't churn the .perf file on disk.
+    // fires, so we don't churn the info file on disk.
     QTimer* metronome_save_timer_ = nullptr;
 
-    // The Document whose .perf file owes a write. Captured when the dialog
+    // The Document whose info file owes a write. Captured when the dialog
     // emits state_changed, flushed by flush_metronome_save(). Held by
     // shared_ptr so the doc can't disappear out from under a pending save.
     std::shared_ptr<Document> metronome_save_pending_doc_;

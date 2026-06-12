@@ -668,6 +668,21 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     int result = 0;
     {
         QApplication app(argc, argv);
+
+        // Route Qt's qInfo/qDebug/qWarning/qCritical (used by WakeDpiFixer and
+        // anything else in Qt or third-party libs) into our file logger so
+        // every message ends up in MusicReader.log.
+        qInstallMessageHandler([](QtMsgType type, const QMessageLogContext&, const QString& msg) {
+            std::string s = msg.toStdString();
+            switch (type) {
+                case QtDebugMsg:    logger::debug(s);   break;
+                case QtInfoMsg:     logger::info(s);    break;
+                case QtWarningMsg:  logger::warning(s); break;
+                case QtCriticalMsg: logger::error(s);   break;
+                case QtFatalMsg:    logger::error(s);   break;
+            }
+        });
+
         WakeDpiFixer dpi_fixer;
 
         app.setStyle("fusion");

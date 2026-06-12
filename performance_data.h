@@ -28,35 +28,16 @@ struct PaperCrop {
 // Also stores optional per-page paper crops (top/bottom cutoff lines) used
 // to exclude titles and footers when zoom-to-content is on.
 //
-// Data is persisted in a .perf (performance) file alongside the PDF, using a simple
-// text format that allows for future extensions (repeats, jumps, etc.).
-//
-// Example .perf file format:
-//   # Performance file for score.pdf
-//   version: 1
-//
-//   [page_breaks]
-//   page: 3, position: 0.65
-//   page: 3, position: 0.85
-//   page: 7, position: 0.42
-//
-//   [paper_crops]
-//   page: 3, top: 0.08
-//   page: 5, top: 0.05, bottom: 0.93
-//   page: 7, bottom: 0.94, left: 0.03, right: 0.97
+// This is the in-memory model only. Persistence is handled by the
+// document_info module, which stores this data as one section of the
+// document's .mrd file.
 class PerformanceData {
 public:
     PerformanceData() = default;
 
-    // Load playback data from the .perf file associated with the given PDF path.
-    // Returns true if file exists and was loaded successfully, false otherwise.
-    // If no .perf file exists, this is not an error - just means no playback data.
+    // Reads a legacy .perf file. Retained only for document_info's one-time
+    // migration; remove together with that migration code.
     bool load(const std::filesystem::path& pdf_path);
-
-    // Save playback data to the .perf file associated with the given PDF path.
-    // If data is empty, still returns true (but creates no file).
-    // Returns false only on write errors.
-    bool save(const std::filesystem::path& pdf_path) const;
 
     // Add a page break at the specified normalized position (0.0-1.0) on the page.
     // Breaks are automatically kept sorted. Duplicate positions are ignored.
@@ -107,6 +88,10 @@ public:
 
     // Get the paper crop for a page, or nullptr if none exists.
     const PaperCrop* get_paper_crop(int page_num) const;
+
+    // Full read access to the stored data, for serialization by document_info.
+    const std::map<int, std::vector<double>>& all_page_breaks() const { return page_breaks_; }
+    const std::map<int, PaperCrop>& all_paper_crops() const { return paper_crops_; }
 
     // Opaque metronome state JSON (compact single-line). Empty string means
     // "use defaults". Storage only — interpretation lives in the metronome lib.

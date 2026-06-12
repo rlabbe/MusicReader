@@ -15,6 +15,7 @@
 #include "fitz_utils.h"
 #include "annotation_coords.h"
 #include "bookmark.h"
+#include "document_info.h"
 #include "document_load_manager.h"
 #pragma warning(push, 1)
 #include <mupdf/pdf.h>
@@ -73,7 +74,7 @@ Document::~Document()
     }
 
     add_bookmarks_to_pdf(filename_.string(), bookmarks_copy);
-    performance_data_.save(filename_);
+    save_performance_data();
 }
 
 
@@ -197,8 +198,10 @@ void Document::initialize_document()
         }
     }
 
-    // Load performance data from .perf file if it exists
-    performance_data_.load(filename_);
+    // Fold any legacy .perf / bookmark .txt files into the .mrd info file.
+    document_info::migrate_legacy_files(filename_); // TEMPORARY: remove after migration
+
+    performance_data_ = document_info::read_performance(filename_);
 
     // If we got an exception loading bookmarks, we want to save the document without them.
     if (modified_)
@@ -689,7 +692,7 @@ bool Document::save()
     }
 
     // Save performance data (independent of PDF save success)
-    performance_data_.save(filename_);
+    save_performance_data();
 
     if (!success) {
         // Restore modified state if save failed
@@ -704,6 +707,12 @@ bool Document::save()
     save_cv_.notify_all();
 
     return success;
+}
+
+
+void Document::save_performance_data()
+{
+    document_info::write_performance(filename_, performance_data_);
 }
 
 
@@ -1851,219 +1860,60 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
 }
 
 // Generate txt filename from pdf filename
-static std::filesystem::path get_bookmarks_txt_path(const std::filesystem::path& pdf_path)
-{
-    auto txt_path = pdf_path;
-    txt_path.replace_extension(".txt");
-    return txt_path;
-}
-
-
 bool Document::bookmarks_file_exists() const
 {
-    auto txt_path = get_bookmarks_txt_path(filename_);
-    return std::filesystem::exists(txt_path);
+    return document_info::has_bookmarks(filename_);
 }
 
 
-bool Document::set_bookmarks_from_txt_file()
+bool Document::set_bookmarks_from_file()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    auto txt_path = get_bookmarks_txt_path(filename_);
-
-    if (!std::filesystem::exists(txt_path)) {
-        std::string error_msg = std::format("Bookmark file does not exist: {}", txt_path.string());
-        logger::error(error_msg);
-        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+    std::vector<Bookmark> loaded = document_info::read_bookmarks(filename_);
+    if (loaded.empty()) {
+        logger::warning("No bookmarks found in info file for {}", filename_.string());
         return false;
     }
 
-    std::ifstream file(txt_path);
-    if (!file.is_open()) {
-        std::string error_msg = std::format("Failed to open bookmark file: {}", txt_path.string());
-        logger::error(error_msg);
-        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
+    // Reject the import outright if any bookmark points outside the document.
+    int pages = page_count();
+    std::function<bool(const std::vector<Bookmark>&)> pages_in_range = [&](const std::vector<Bookmark>& list) {
+        for (const auto& bm : list) {
+            if (bm.page_num_.has_value() && (bm.page_num_.value() < 1 || bm.page_num_.value() > pages))
+                return false;
+            if (!pages_in_range(bm.children_))
+                return false;
+        }
+        return true;
+    };
+    if (!pages_in_range(loaded)) {
+        logger::error("Info file bookmarks for {} reference pages outside the document", filename_.string());
         return false;
     }
 
-    std::vector<std::tuple<int, int, std::string>> parsed_bookmarks; // level, page, title
-    std::vector<int> indent_stack;
-    std::string line;
-    int line_num = 0;
-    int prev_page = 0;
-
-    while (std::getline(file, line)) {
-        ++line_num;
-
-        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos)
-            continue;
-
-        // Calculate indent level
-        std::string stripped = line;
-        stripped.erase(0, stripped.find_first_not_of(" \t"));
-        int indent_level = static_cast<int>(line.length() - stripped.length());
-
-        // Parse page number and text
-        std::istringstream iss(stripped);
-        std::string page_str, title;
-        if (!(iss >> page_str)) {
-            std::string error_msg = std::format("Line {}: Invalid format - expected 'page_number text'", line_num);
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        int page_num;
-        try {
-            page_num = std::stoi(page_str);
-        } catch (const std::exception&) {
-            std::string error_msg = std::format("Line {}: Invalid page number '{}'", line_num, page_str);
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        if (page_num < 1) {
-            std::string error_msg = std::format("Line {}: Page number must be positive, got {}", line_num, page_num);
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        if (page_num < prev_page) {
-            std::string error_msg =
-                std::format("Line {}: Page numbers must be in order, got {} after {}", line_num, page_num, prev_page);
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        if (page_num > page_count()) {
-            std::string error_msg =
-                std::format("Line {}: Page {} does not exist (PDF has {} pages)", line_num, page_num, page_count());
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        prev_page = page_num;
-
-        // Get remaining text as title
-        std::string remaining;
-        std::getline(iss, remaining);
-        title = remaining;
-        if (!title.empty() && title[0] == ' ')
-            title = title.substr(1); // Remove leading space
-
-        if (title.empty()) {
-            std::string error_msg = std::format("Line {}: Missing bookmark title", line_num);
-            logger::error(error_msg);
-            QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-            return false;
-        }
-
-        // Determine hierarchy level based on indentation
-        int level;
-        if (indent_level == 0) {
-            level = 1;
-            indent_stack.clear();
-            indent_stack.push_back(indent_level);
-        } else {
-            // Find appropriate level in stack
-            while (!indent_stack.empty() && indent_level <= indent_stack.back())
-                indent_stack.pop_back();
-
-            indent_stack.push_back(indent_level);
-            level = static_cast<int>(indent_stack.size());
-        }
-
-        parsed_bookmarks.emplace_back(level, page_num, title);
-    }
-
-    file.close();
-
-    if (parsed_bookmarks.empty()) {
-        std::string error_msg = std::format("No valid bookmarks found in {}", txt_path.string());
-        logger::error(error_msg);
-        QMessageBox::warning(nullptr, "Bookmark Import Error", QString::fromStdString(error_msg));
-        return false;
-    }
-
-    // All parsing and validation passed, now update bookmarks
     std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-
     undo_stack_.push_back(bookmarks_);
-    bookmarks_.clear();
-
-    std::vector<Bookmark*> bookmark_level_stack; // Track parent at each level
-
-    for (const auto& [level, page_num, title] : parsed_bookmarks) {
-        Bookmark bookmark(title, page_num);
-
-        // Adjust stack size to current level
-        if (level <= static_cast<int>(bookmark_level_stack.size())) {
-            bookmark_level_stack.resize(level - 1);
-        }
-
-        if (level == 1) {
-            // Top level bookmark
-            bookmarks_.push_back(bookmark);
-            bookmark_level_stack.clear();
-            bookmark_level_stack.push_back(&bookmarks_.back());
-        } else {
-            // Child bookmark - add to parent at level-1
-            Bookmark* parent = bookmark_level_stack.back();
-            parent->add_child(bookmark);
-
-            // Update the newly added child's parent handle
-            auto& new_child = parent->children_.back();
-            new_child.parent_handle_ = parent->handle_;
-
-            bookmark_level_stack.push_back(&new_child);
-        }
-    }
-
+    bookmarks_ = std::move(loaded);
     modified_ = true;
     emit bookmarks_loaded();
-    logger::info("Successfully loaded {} bookmarks from {}", parsed_bookmarks.size(), txt_path.string());
+    logger::info("Loaded bookmarks from info file for {}", filename_.string());
     return true;
 }
 
-bool Document::save_bookmarks_to_txt_file()
+
+bool Document::save_bookmarks_to_file()
 {
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    if (bookmarks_.size() == 0)
-        return false;
-
-    auto txt_path = filename_;
-    txt_path.replace_extension(".txt");
-
-    std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
-
-    std::ofstream file(txt_path);
-    if (!file.is_open()) {
-        std::string error_msg = std::format("Failed to open bookmark file for writing: {}", txt_path.string());
-        logger::error(error_msg);
-        return false;
+    std::vector<Bookmark> bookmarks_copy;
+    {
+        std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
+        if (bookmarks_.empty())
+            return false;
+        bookmarks_copy = bookmarks_;
     }
-
-    std::function<void(const Bookmark&, int)> write_bookmark = [&](const Bookmark& bm, int depth) {
-        if (bm.page_num_.has_value()) {
-            std::string indent(depth * 4, ' ');
-            file << indent << bm.page_num_.value() << " " << bm.title_ << "\n";
-        }
-        for (const auto& child : bm.children_)
-            write_bookmark(child, depth + 1);
-    };
-
-    for (const auto& bm : bookmarks_)
-        write_bookmark(bm, 0);
-
-    file.close();
-    logger::info("Successfully saved bookmarks to {}", txt_path.string());
-    return true;
+    return document_info::write_bookmarks(filename_, bookmarks_copy);
 }

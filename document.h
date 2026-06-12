@@ -65,9 +65,9 @@ public:
     std::pair<BookmarkHandle, bool>
     add_bookmark(const std::string& title, int page_num, const BookmarkHandle& parent_handle);
 
-    // looks for a file named filename.txt in current directory, uses it to set bookmarks
-    bool set_bookmarks_from_txt_file();
-    bool save_bookmarks_to_txt_file();
+    // Import/export bookmarks via the document's .mrd info file.
+    bool set_bookmarks_from_file();
+    bool save_bookmarks_to_file();
 
     std::vector<Bookmark>& bookmarks() { return bookmarks_; }
     std::vector<Annotation>& annotations() { return annotations_; }
@@ -107,6 +107,10 @@ public:
 
     const PerformanceData& performance_data() const { return performance_data_; }
     PerformanceData& performance_data() { return performance_data_; }
+
+    // Writes performance data (page breaks, crops, metronome state) to the
+    // .mrd info file. The full save() also persists bookmarks to the PDF.
+    void save_performance_data();
 
     std::vector<int> get_pending_pages() const;
     void load_page(int page_num);

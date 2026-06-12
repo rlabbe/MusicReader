@@ -156,56 +156,6 @@ bool PerformanceData::load(const std::filesystem::path& pdf_path)
 }
 
 
-bool PerformanceData::save(const std::filesystem::path& pdf_path) const
-{
-    if (empty())
-        return true;
-
-    auto fname = get_filename(pdf_path);
-    std::ofstream file(fname);
-    if (!file.is_open())
-        return false;
-
-    file << "# Playback file for " << pdf_path.filename().string() << "\n";
-    file << "version: " << version_ << "\n\n";
-
-    if (!page_breaks_.empty()) {
-        file << "[page_breaks]\n";
-        for (const auto& [page_num, positions] : page_breaks_) {
-            for (double pos : positions)
-                file << "page: " << page_num << ", position: " << pos << "\n";
-        }
-        file << "\n";
-    }
-
-    if (!paper_crops_.empty()) {
-        file << "[paper_crops]\n";
-        for (const auto& [page_num, crop] : paper_crops_) {
-            if (crop.empty())
-                continue;
-            file << "page: " << page_num;
-            if (crop.top)
-                file << ", top: " << *crop.top;
-            if (crop.bottom)
-                file << ", bottom: " << *crop.bottom;
-            if (crop.left)
-                file << ", left: " << *crop.left;
-            if (crop.right)
-                file << ", right: " << *crop.right;
-            file << "\n";
-        }
-        file << "\n";
-    }
-
-    if (!metronome_state_.empty()) {
-        file << "[metronome]\n";
-        file << "state: " << metronome_state_ << "\n";
-    }
-
-    return true;
-}
-
-
 void PerformanceData::add_page_break(int page_num, double normalized_position)
 {
     auto& breaks = page_breaks_[page_num];

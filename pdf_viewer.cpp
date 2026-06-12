@@ -1497,7 +1497,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
 
             if (std::abs(click_y - break_y_display) <= 5) {
                 document_->performance_data().remove_page_break(current_page(), break_pos);
-                document_->performance_data().save(document_->path());
+                document_->save_performance_data();
                 clear_prefetch();
                 update_image();
                 break;
@@ -1582,7 +1582,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
                 }
             }
             if (deleted) {
-                document_->performance_data().save(document_->path());
+                document_->save_performance_data();
                 clear_prefetch();
                 update_image();
             }
@@ -1662,7 +1662,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
                 }
             }
             if (deleted) {
-                document_->performance_data().save(document_->path());
+                document_->save_performance_data();
                 clear_prefetch();
                 update_image();
             }
@@ -1805,7 +1805,7 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
             case DragKind::None: break;
         }
 
-        perf.save(document_->path());
+        document_->save_performance_data();
         clear_prefetch();
 
         drag_kind_ = DragKind::None;

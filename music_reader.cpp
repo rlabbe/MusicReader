@@ -12,6 +12,7 @@
 #include "bookmark_titlebar.h"
 #include "bookmark_treewidget.h"
 #include "document.h"
+#include "document_info.h"
 #include "bookmark_panel.h"
 #include "pdf_viewer.h"
 #include "performance_mode.h"
@@ -206,11 +207,11 @@ void MusicReader::on_reload_document()
 
     // If the PDF was generated externally (say, by musescore), the bookmarks
     // created by this app will be lost. If the document has no bookmarks, but
-    // we have saved bookmarks for it in a .txt file, restore them.
+    // we have saved bookmarks for it in its .mrd info file, restore them.
     if (reloaded_viewer) {
         doc = reloaded_viewer->document();
         if (doc->bookmarks().empty() && doc->bookmarks_file_exists())
-            doc->set_bookmarks_from_txt_file();
+            doc->set_bookmarks_from_file();
     }
 
     // Tab probably didn't change, but this ensures everything gets redrawn - page numbers, bookmarks, etc
@@ -788,7 +789,7 @@ void MusicReader::set_bookmarks_from_file()
     if (!doc)
         return;
 
-    doc->set_bookmarks_from_txt_file();
+    doc->set_bookmarks_from_file();
     update_bookmarks_for_doc();
 }
 
@@ -796,7 +797,7 @@ void MusicReader::save_bookmarks_to_file()
 {
     auto doc = current_document();
     if (doc)
-        doc->save_bookmarks_to_txt_file();
+        doc->save_bookmarks_to_file();
 }
 
 void MusicReader::update_recent_files_list()
@@ -2070,7 +2071,7 @@ void MusicReader::show_metronome_dialog()
                 &MusicReader::on_metronome_state_changed);
 
         // 500ms debounce: collapses bursts of state_changed signals (slider
-        // drags) into a single .perf file write.
+        // drags) into a single info file write.
         metronome_save_timer_ = new QTimer(this);
         metronome_save_timer_->setSingleShot(true);
         metronome_save_timer_->setInterval(500);
@@ -2091,17 +2092,40 @@ void MusicReader::show_metronome_dialog()
     // Width/height are applied first so the dialog is the right size when
     // we test whether the saved top-left corner is on a connected screen.
     const auto& pos = config_.metronome_dialog_pos();
-    if (pos[2] > 0 && pos[3] > 0)
+    QScreen* target_screen = nullptr;
+    if (pos[0] >= 0 && pos[1] >= 0)
+        target_screen = QGuiApplication::screenAt(QPoint(pos[0], pos[1]));
+    if (!target_screen)
+        target_screen = windowHandle() ? windowHandle()->screen() : nullptr;
+    if (!target_screen)
+        target_screen = QGuiApplication::primaryScreen();
+
+    if (target_screen) {
+        // Clamp restored width/height to the target screen so an over-sized
+        // saved rect from a previous (larger) resolution can't push the
+        // dialog off the new desktop.
+        QRect avail = target_screen->availableGeometry();
+        if (pos[2] > 0 && pos[3] > 0) {
+            int w = std::min(pos[2], avail.width());
+            int h = std::min(pos[3], avail.height());
+            metronome_dialog_->resize(w, h);
+        }
+        if (pos[0] >= 0 && pos[1] >= 0 && QGuiApplication::screenAt(QPoint(pos[0], pos[1]))) {
+            // Saved top-left still lands on a connected screen. Nudge inward
+            // if the (possibly clamped) size would now extend past the edge.
+            QSize sz = metronome_dialog_->size();
+            int x = std::min(pos[0], avail.right() - sz.width() + 1);
+            int y = std::min(pos[1], avail.bottom() - sz.height() + 1);
+            metronome_dialog_->move(x, y);
+        } else {
+            // No saved position, or the monitor it was on is gone. Centre on
+            // whichever screen the main window lives on so the dialog can't
+            // end up stranded off-screen.
+            metronome_dialog_->move(avail.center() - metronome_dialog_->rect().center());
+        }
+    } else if (pos[2] > 0 && pos[3] > 0) {
+        // No screen info at all — apply the saved size as-is and let Qt place it.
         metronome_dialog_->resize(pos[2], pos[3]);
-    if (pos[0] >= 0 && pos[1] >= 0 && QGuiApplication::screenAt(QPoint(pos[0], pos[1]))) {
-        metronome_dialog_->move(pos[0], pos[1]);
-    } else {
-        // No saved position, or the monitor it was on is gone. Centre on
-        // whichever screen the main window lives on so the dialog can't
-        // end up stranded off-screen.
-        QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
-        QRect avail = screen->availableGeometry();
-        metronome_dialog_->move(avail.center() - metronome_dialog_->rect().center());
     }
 
     // show() + raise() — deliberately no activateWindow() because that would
@@ -2115,7 +2139,7 @@ void MusicReader::show_metronome_dialog()
 // Per-PDF metronome state: load
 //
 // Reads the active document's metronome state (a compact JSON blob stored
-// in the .perf file) and pushes it into the dialog. apply_state() does
+// in the .mrd info file) and pushes it into the dialog. apply_state() does
 // not re-emit state_changed, so this round-trip won't kick the save
 // timer back on.
 //
@@ -2156,7 +2180,7 @@ void MusicReader::apply_metronome_state_to_dialog()
 // Connected to PolyMetronomeDialog::state_changed. Serialises the
 // dialog's current state to compact JSON, stashes it in the active
 // document's PerformanceData, and (re)starts the debounce timer so the
-// .perf file is only written once after a burst of changes settles.
+// info file is only written once after a burst of changes settles.
 //
 // If a save is already pending for a *different* document (the user
 // switched tabs mid-edit), flush that one first so its edits are not
@@ -2187,7 +2211,7 @@ void MusicReader::on_metronome_state_changed()
 // Per-PDF metronome state: write to disk
 //
 // Flushes any pending state change to the corresponding document's
-// .perf file. Called from the debounce timer's timeout, on tab change,
+// .mrd info file. Called from the debounce timer's timeout, on tab change,
 // and at app exit. Cancels the timer first so a flush forced from
 // outside the timer doesn't re-fire it for the same data.
 //
@@ -2200,7 +2224,7 @@ void MusicReader::flush_metronome_save()
         metronome_save_timer_->stop();
     if (!metronome_save_pending_doc_)
         return;
-    metronome_save_pending_doc_->performance_data().save(metronome_save_pending_doc_->path());
+    metronome_save_pending_doc_->save_performance_data();
     metronome_save_pending_doc_.reset();
 }
 
@@ -2558,10 +2582,10 @@ void MusicReader::create_edit_menu(auto* menu_bar)
 
     edit_menu_->addSeparator();
 
-    QAction* set_bookmarks_action = new QAction("Set bookmarks from txt file", this);
+    QAction* set_bookmarks_action = new QAction("Set bookmarks from file", this);
     connect(set_bookmarks_action, &QAction::triggered, this, &MusicReader::set_bookmarks_from_file);
     edit_menu_->addAction(set_bookmarks_action);
-    QAction* save_bookmarks_action = new QAction("Save bookmarks to txt file", this);
+    QAction* save_bookmarks_action = new QAction("Save bookmarks to file", this);
     connect(save_bookmarks_action, &QAction::triggered, this, &MusicReader::save_bookmarks_to_file);
     edit_menu_->addAction(save_bookmarks_action);
 
@@ -2760,6 +2784,17 @@ void MusicReader::show_context_menu(const QPoint& pos)
     context_menu.addAction(edit_action);
     context_menu.addAction(open_folder_action);
     context_menu.addAction(browse_folder_action);
+
+    // Offer to favorite the document only when it is not already a favorite.
+    auto doc = viewer->document();
+    if (!document_info::is_favorite(doc->path())) {
+        QAction* favorite_action = new QAction("Add to Favorites", this);
+        connect(favorite_action, &QAction::triggered, this, [doc]() {
+            document_info::set_favorite(doc->path(), true);
+        });
+        context_menu.addSeparator();
+        context_menu.addAction(favorite_action);
+    }
 
     context_menu.exec(tab_widget_->mapToGlobal(pos));
 }
