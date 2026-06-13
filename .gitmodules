@@ -4,3 +4,6 @@
 [submodule "extern/QtWakeDpiFixer"]
 	path = extern/QtWakeDpiFixer
 	url = https://github.com/rlabbe/QtWakeDpiFixer.git
+[submodule "extern/mupdf"]
+	path = extern/mupdf
+	url = git://git.ghostscript.com/mupdf.git
