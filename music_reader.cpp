@@ -2155,7 +2155,7 @@ void MusicReader::apply_metronome_state_to_dialog()
 {
     SAFE_METHOD;
     return; // TODO: per-PDF metronome state temporarily disabled
-    if (!metronome_dialog_)
+    /*if (!metronome_dialog_)
         return;
 
     PolyMetronomeState s;
@@ -2172,7 +2172,7 @@ void MusicReader::apply_metronome_state_to_dialog()
                                 err.errorString().toStdString());
         }
     }
-    metronome_dialog_->apply_state(s);
+    metronome_dialog_->apply_state(s);*/
 }
 
 // Per-PDF metronome state: capture pending save
@@ -2191,7 +2191,7 @@ void MusicReader::on_metronome_state_changed()
 {
     SAFE_METHOD;
     return; // TODO: per-PDF metronome state temporarily disabled
-    if (!metronome_dialog_)
+    /*if (!metronome_dialog_)
         return;
     auto doc = current_document();
     if (!doc)
@@ -2205,7 +2205,7 @@ void MusicReader::on_metronome_state_changed()
     doc->performance_data().set_metronome_state(ba.toStdString());
 
     metronome_save_pending_doc_ = doc;
-    metronome_save_timer_->start();
+    metronome_save_timer_->start();*/
 }
 
 // Per-PDF metronome state: write to disk
@@ -2220,12 +2220,12 @@ void MusicReader::flush_metronome_save()
 {
     SAFE_METHOD;
     return; // TODO: per-PDF metronome state temporarily disabled
-    if (metronome_save_timer_)
+    /*if (metronome_save_timer_)
         metronome_save_timer_->stop();
     if (!metronome_save_pending_doc_)
         return;
     metronome_save_pending_doc_->save_performance_data();
-    metronome_save_pending_doc_.reset();
+    metronome_save_pending_doc_.reset();*/
 }
 
 void MusicReader::save_current_page_as_bmp()
