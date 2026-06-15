@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Packages mupdf (built static as libmupdf.lib) into mupdf.dll.
+
+    Why this project exists: Qt is linked statically and bundles its own
+    harfbuzz; mupdf also bundles harfbuzz. Two copies of the same hb_* symbols
+    cannot coexist in one static image. Building mupdf as a DLL seals its
+    harfbuzz (and freetype/zlib/etc.) inside the DLL, where it is never
+    exported and therefore can never collide with Qt's copy.
+
+    Nothing in extern\mupdf is modified. libmupdf.lib is built exactly as
+    shipped, except FZ_DLL is supplied on the compiler command line (via the
+    CL env var, mupdf's own documented switch for "build the DLL") so that
+    fz_*/pdf_* get dllexport. /WHOLEARCHIVE then pulls every object from
+    libmupdf.lib into the DLL and exports the decorated symbols.
+  -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDbgInfo|x64">
+      <Configuration>ReleaseDbgInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}</ProjectGuid>
+    <RootNamespace>mupdf_dll</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Label="MupdfPaths">
+    <!-- ReleaseDbgInfo links the Release build of mupdf, matching how MusicReader builds it. -->
+    <MupdfLibConfig Condition="'$(Configuration)'=='Debug'">Debug</MupdfLibConfig>
+    <MupdfLibConfig Condition="'$(Configuration)'!='Debug'">Release</MupdfLibConfig>
+    <MupdfStaticLib>$(SolutionDir)extern\mupdf\platform\win32\x64\$(MupdfLibConfig)\libmupdf.lib</MupdfStaticLib>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)mupdf_dll_bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)mupdf_dll_bin\$(Platform)\$(Configuration)\obj\</IntDir>
+    <TargetName>mupdf</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <PreBuildEvent>
+      <Command>set CL=/MP /DFZ_DLL&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
+      <Message>Building mupdf static lib with FZ_DLL for DLL packaging...</Message>
+    </PreBuildEvent>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(MupdfStaticLib);kernel32.lib;user32.lib;gdi32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- Export only the API MusicReader uses (see mupdf_exports.def), instead of
+           /WHOLEARCHIVE, so mupdf's unused leptonica/harfbuzz-subset objects with
+           uncompiled internals are never pulled in. /IGNORE:4197 silences the
+           benign "export specified multiple times" from the FZ_DLL dllexports. -->
+      <ModuleDefinitionFile>mupdf_exports.def</ModuleDefinitionFile>
+      <AdditionalOptions>/IGNORE:4197 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <!-- Must match mupdf's CRT (dynamic). Mismatch yields LNK4098 + __imp_* unresolved. -->
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <Optimization>MaxSpeed</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="mupdf_dll_main.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <!--
+    FZ_DLL is supplied via the CL env var in the pre-build step, but MSBuild's
+    incremental check can't see env-var changes. A mupdf tree previously built
+    without FZ_DLL therefore won't recompile, the DLL exports nothing, and no
+    import lib is emitted (LNK1181: cannot open mupdf.lib). When our import lib
+    is absent, clear libmupdf's object dir so the pre-build recompiles its
+    fz_*/pdf_* sources with the dllexport decorations. Once mupdf.lib exists
+    this is skipped, so it costs one slower build, not every build.
+  -->
+  <Target Name="ForceMupdfFzDllRebuild" BeforeTargets="PreBuildEvent" Condition="!Exists('$(SolutionDir)extern\mupdf\platform\win32\x64\$(MupdfLibConfig)\libmupdf.lib')">
+    <Message Importance="high" Text="libmupdf.lib missing: clearing the entire mupdf output so the pre-build recompiles it cleanly with FZ_DLL (one-time, slow). Cleaning only part of the tree leaves stale objects that don't match the pinned sources." />
+    <RemoveDir Directories="$(SolutionDir)extern\mupdf\platform\win32\x64\$(MupdfLibConfig)\" />
+  </Target>
+</Project>

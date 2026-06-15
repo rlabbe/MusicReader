@@ -104,7 +104,6 @@ private:
     void create_file_menu(auto*);
     void create_edit_menu(auto*);
     void create_view_menu(auto*);
-    void create_imslp_menu(auto* menu_bar);
     void create_global_shortcuts();
 
     void open_tour_dialog();
@@ -121,7 +120,6 @@ private:
 
     void open_file_dialog_default_path();
     void open_file_dialog(const std::filesystem::path& pathname);
-    void open_imslp_search_dialog();
     void open_dev_status_dialog();
     // Metronome dialog plumbing.
     //
@@ -237,7 +235,6 @@ private:
     QAction* undo_action_ = nullptr;
     QAction* redo_action_ = nullptr;
     QAction* goto_action_ = nullptr;
-    QAction* imslp_action_ = nullptr;
     QAction* bookmark_menu_action_ = nullptr;
     QAction* light_theme_menu_item_ = nullptr;
     QAction* dark_theme_menu_item_ = nullptr;

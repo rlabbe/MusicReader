@@ -8,6 +8,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PolyMetronomeLib", "..\metr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QtWakeDpiFixer", "..\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj", "{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mupdf_dll", "mupdf_dll.vcxproj", "{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -33,6 +35,12 @@ Global
 		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.Release|x64.Build.0 = Release|x64
 		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.ReleaseDbgInfo|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}.ReleaseDbgInfo|x64.Build.0 = Release|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.Debug|x64.ActiveCfg = Debug|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.Debug|x64.Build.0 = Debug|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.Release|x64.ActiveCfg = Release|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.Release|x64.Build.0 = Release|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.ReleaseDbgInfo|x64.ActiveCfg = ReleaseDbgInfo|x64
+		{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}.ReleaseDbgInfo|x64.Build.0 = ReleaseDbgInfo|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

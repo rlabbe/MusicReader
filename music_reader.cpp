@@ -27,7 +27,6 @@
 #include "horizontal_tabs_widget.h"
 #include "file_viewer.h"
 #include "requires.h"
-#include "imslp_search_dialog.h"
 #include "dev_status_dialog.h"
 #include "tour_dialog.h"
 #include "wait_cursor.h"
@@ -1613,7 +1612,6 @@ void MusicReader::show_titlebar_menu()
 
     create_file_menu(&menu);
     create_edit_menu(&menu);
-    create_imslp_menu(&menu);
     create_view_menu(&menu);
     create_help_menu(&menu);
 
@@ -1749,16 +1747,13 @@ void MusicReader::show_about_dialog()
     QLabel* info = new QLabel(&dialog);
     info->setWordWrap(true);
     info->setTextFormat(Qt::RichText);
-    info->setText("PDF music reader application with IMSLP integration.<br><br>"
+    info->setText("PDF music reader application.<br><br>"
                   "This application is free and open source software.<br><br>"
                   "<b>License:</b> GNU Affero General Public License v3.0 (AGPL V3)<br><br>"
                   "<b>Third-party libraries and data:</b>"
                   "<ul>"
                   "<li>Qt Framework - &copy; The Qt Company Ltd. Licensed under LGPL v3<br>https://www.qt.io/<br></li>"
                   "<li>MuPDF - &copy; Artifex Software, Inc. Licensed under AGPL v3<br>https://mupdf.com/<br></li>"
-                  "<li>IMSLP (International Music Score Library Project).<br>Optional search integration for public "
-                  "domain scores. Users must respect IMSLP's terms of service, copyright laws in the user's country, "
-                  "and download limits.<br>https://imslp.org</li>"
                   "</ul>"
                   "Built with Qt " QT_VERSION_STR "<br><br>"
                   "Source code and license information available at github.com/rlabbe/MusicReader.");
@@ -1801,7 +1796,6 @@ void MusicReader::show_keyboard_shortcuts()
         { "File", {
             { "O",   "Open file" },
             { "F",   "Fast file search" },
-            { "I",   "IMSLP search" },
             { "F5",  "Reload document" },
             { "F2",  "Edit document (external)" },
         }},
@@ -2272,20 +2266,6 @@ void MusicReader::save_current_page_as_bmp()
     }
 }
 
-void MusicReader::open_imslp_search_dialog()
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    try {
-        auto* dialog = new IMSLPSearchDialog(this);
-        dialog->show();
-    } catch (const std::exception& e) {
-        logger::error("Failed to open IMSLP search dialog: " + std::string(e.what()));
-        display_error_message("Failed to open IMSLP search dialog: " + std::string(e.what()));
-    }
-}
-
 void MusicReader::open_file_dialog_default_path()
 {
     open_file_dialog("");
@@ -2506,7 +2486,6 @@ void MusicReader::create_menus()
 
     create_file_menu(menu_bar);
     create_edit_menu(menu_bar);
-    create_imslp_menu(menu_bar);
     create_view_menu(menu_bar);
     create_help_menu(menu_bar);
 
@@ -2709,26 +2688,6 @@ void MusicReader::create_view_menu(auto* menu_bar)
     view_menu->addAction(metronome_action);
 }
 
-void MusicReader::create_imslp_menu(auto* menu_bar)
-{
-    SAFE_METHOD;
-    TRACE_CALL;
-
-    if (!imslp_action_) {
-        imslp_action_ = new QAction("&Search...", this);
-        imslp_action_->setShortcut(QKeySequence("I"));
-        connect(imslp_action_, &QAction::triggered, this, &MusicReader::open_imslp_search_dialog);
-        addAction(imslp_action_);
-    }
-
-    if (config_.show_menu()) {
-        QMenu* imslp_menu = menu_bar->addMenu("&IMSLP");
-        imslp_menu->addAction(imslp_action_);
-    } else {
-        imslp_action_->setText("&IMSLP Search");
-        menu_bar->addAction(imslp_action_);
-    }
-}
 
 void MusicReader::create_help_menu(auto* menu_bar)
 {

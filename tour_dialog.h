@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtWidgets>
-#include <QWebEngineView>
 #include <vector>
 #include <filesystem>
 
@@ -20,7 +19,7 @@ private:
     void update_display();
     void update_buttons();
 
-    QWebEngineView* web_view_;
+    QLabel* image_label_;
     QPushButton* prev_button_;
     QPushButton* next_button_;
     QLabel* page_label_;

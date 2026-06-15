@@ -37,8 +37,6 @@
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fitz_utils.cpp" />
     <ClCompile Include="font_info.cpp" />
-    <ClCompile Include="imslp_client.cpp" />
-    <ClCompile Include="imslp_search_dialog.cpp" />
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="main.cpp" />
@@ -61,7 +59,6 @@
     <QtMoc Include="file_viewer.h" />
     <QtMoc Include="fullscreen_exit_button.h" />
     <QtMoc Include="horizontal_tabs_widget.h" />
-    <QtMoc Include="imslp_search_dialog.h" />
     <QtMoc Include="in_place_annotation_editor.h" />
     <QtMoc Include="music_reader.h" />
     <QtMoc Include="pdf_viewer.h" />
@@ -78,7 +75,6 @@
     <ClInclude Include="exception_logger.h" />
     <ClInclude Include="fitz_utils.h" />
     <ClInclude Include="font_info.h" />
-    <ClInclude Include="imslp_client.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="log_timer.h" />
     <ClInclude Include="logger.h" />

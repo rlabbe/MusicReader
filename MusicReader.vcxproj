@@ -49,18 +49,18 @@
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
-    <QtInstall>6.8.3_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets;multimedia</QtModules>
+    <QtInstall>6.8.3_msvc2022_64_static</QtInstall>
+    <QtModules>core;gui;widgets;svg;svgwidgets;concurrent;multimedia</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
-    <QtInstall>6.8.3_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets;multimedia</QtModules>
+    <QtInstall>6.8.3_msvc2022_64_static</QtInstall>
+    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;multimedia</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'" Label="QtSettings">
-    <QtInstall>6.8.3_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;webenginewidgets;multimedia</QtModules>
+    <QtInstall>6.8.3_msvc2022_64_static</QtInstall>
+    <QtModules>core;gui;widgets;svg;svgwidgets;network;concurrent;multimedia</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
@@ -96,18 +96,25 @@
     <IntDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(MSBuildProjectDirectory)_out\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
+  <PropertyGroup>
+    <PolyMetronomePath Condition="'$(SolutionName)' == 'MusicReaderDev'">..\metronome\PolyMetronomeLib</PolyMetronomePath>
+    <PolyMetronomePath Condition="'$(PolyMetronomePath)' == ''">extern\PolyMetronome\PolyMetronomeLib</PolyMetronomePath>
+    <QtWakeDpiFixerPath Condition="'$(SolutionName)' == 'MusicReaderDev'">..\QtWakeDpiFixer</QtWakeDpiFixerPath>
+    <QtWakeDpiFixerPath Condition="'$(QtWakeDpiFixerPath)' == ''">extern\QtWakeDpiFixer</QtWakeDpiFixerPath>
+    <PolyMetronomeProjPath Condition="'$(SolutionName)' == 'MusicReaderDev'">..\metronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj</PolyMetronomeProjPath>
+    <PolyMetronomeProjPath Condition="'$(PolyMetronomeProjPath)' == ''">extern\PolyMetronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj</PolyMetronomeProjPath>
+    <QtWakeDpiFixerProjPath Condition="'$(SolutionName)' == 'MusicReaderDev'">..\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj</QtWakeDpiFixerProjPath>
+    <QtWakeDpiFixerProjPath Condition="'$(QtWakeDpiFixerProjPath)' == ''">extern\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj</QtWakeDpiFixerProjPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <PreBuildEvent>
-      <Command>set CL=/MP&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(Configuration) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
-    </PreBuildEvent>
     <Link>
-      <AdditionalLibraryDirectories>extern\mupdf\platform\win32\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_);libmupdf.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(Qt_LIBS_)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>extern\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);extern\mupdf\include;extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);$(Qt_INCLUDEPATH_);
+extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FZ_DLL_CLIENT;ZSTD_DECOMPRESSION_ENABLED;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -115,24 +122,21 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(MSBuildProjectDirectory)\bin\MusicReaderd.exe
-copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(OutDir)"
-copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuildProjectDirectory)\bin\"</Command>
+copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Debug\mupdf.dll" "$(OutDir)mupdf.dll"
+copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Debug\mupdf.dll" "$(MSBuildProjectDirectory)\bin\mupdf.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <PreBuildEvent>
-      <Command>set CL=/MP&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(Configuration) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
-    </PreBuildEvent>
     <Link>
-      <AdditionalLibraryDirectories>extern\mupdf\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(Qt_LIBS_)</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>extern\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);extern\mupdf\include;extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);
+extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -145,31 +149,32 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <PostBuildEvent>
-      <Command>xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin
+      <Command>copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Release\mupdf.dll" "$(OutDir)mupdf.dll"
+copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Release\mupdf.dll" "$(MSBuildProjectDirectory)\bin\mupdf.dll"
+xcopy /f /c /y $(TargetPath) $(MSBuildProjectDirectory)\bin
 xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.png $(MSBuildProjectDirectory)\bin\documentation
 xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.dat $(MSBuildProjectDirectory)\bin\documentation
 xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuildProjectDirectory)\bin\documentation
-copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(OutDir)"
-copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuildProjectDirectory)\bin\"</Command>
+</Command>
     </PostBuildEvent>
     <QtMoc>
       <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </QtMoc>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">
-    <PreBuildEvent>
-      <Command>set CL=/MP&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=Release /p:Platform=x64 /t:libmupdf /v:minimal</Command>
-    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /Y "$(SolutionDir)mupdf_dll_bin\x64\ReleaseDbgInfo\mupdf.dll" "$(OutDir)mupdf.dll"</Command>
+    </PostBuildEvent>
     <Link>
-      <AdditionalLibraryDirectories>extern\mupdf\platform\win32\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libmupdf.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(Qt_LIBS_)</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>extern\QtWakeDpiFixer;$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);extern\mupdf\include;extern\PolyMetronome\PolyMetronomeLib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);
+extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -180,9 +185,6 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
-    <PostBuildEvent>
-      <Command>copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(OutDir)"</Command>
-    </PostBuildEvent>
     <QtMoc>
       <AdditionalIncludeDirectories>$(QTDIR)\src\qtbase\include\qtconcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </QtMoc>
@@ -239,8 +241,7 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
     <ClCompile Include="document_load_manager.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fitz_utils.cpp" />
-    <ClCompile Include="imslp_client.cpp" />
-    <ClCompile Include="imslp_search_dialog.cpp" />
+
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="music_reader.cpp" />
@@ -257,6 +258,7 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
     <ClCompile Include="document.cpp" />
     <ClCompile Include="document_info.cpp" />
     <ClCompile Include="font_info.cpp" />
+
     <ClCompile Include="logger.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -289,8 +291,6 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
     <QtMoc Include="in_place_annotation_editor.h" />
     <ClInclude Include="font_info.h" />
     <QtMoc Include="horizontal_tabs_widget.h" />
-    <ClInclude Include="imslp_client.h" />
-    <QtMoc Include="imslp_search_dialog.h" />
     <ClInclude Include="log_timer.h" />
     <QtMoc Include="music_reader.h" />
     <ClInclude Include="page.h" />
@@ -319,11 +319,14 @@ copy "$(SolutionDir)$(Platform)\$(Configuration)\PolyMetronomeLib.dll" "$(MSBuil
     <ResourceCompile Include="MusicReader.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="extern\PolyMetronome\PolyMetronomeLib\PolyMetronomeLib.vcxproj">
+    <ProjectReference Include="$(PolyMetronomeProjPath)">
       <Project>{7a8c5e10-4f2b-4a3d-9c1b-3e5f8d7c2a1b}</Project>
     </ProjectReference>
-    <ProjectReference Include="extern\QtWakeDpiFixer\QtWakeDpiFixer.vcxproj">
+    <ProjectReference Include="$(QtWakeDpiFixerProjPath)">
       <Project>{A1B2C3D4-E5F6-4A1B-8C2D-3E4F5A6B7C8D}</Project>
+    </ProjectReference>
+    <ProjectReference Include="mupdf_dll.vcxproj">
+      <Project>{C7E9A1B2-3D4F-4A5B-9C6D-7E8F90A1B2C3}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

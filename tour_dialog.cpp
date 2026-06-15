@@ -1,12 +1,10 @@
 #include "tour_dialog.h"
 #include "logger.h"
 #include <fstream>
-#include <QUrl>
-#include <QWebEngineSettings>
 
 TourDialog::TourDialog(QWidget* parent)
     : QDialog(parent)
-    , web_view_(nullptr)
+    , image_label_(nullptr)
     , prev_button_(nullptr)
     , next_button_(nullptr)
     , page_label_(nullptr)
@@ -18,8 +16,11 @@ TourDialog::TourDialog(QWidget* parent)
 
     QVBoxLayout* main_layout = new QVBoxLayout(this);
 
-    web_view_ = new QWebEngineView;
-    main_layout->addWidget(web_view_);
+    image_label_ = new QLabel;
+    image_label_->setAlignment(Qt::AlignCenter);
+    image_label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    image_label_->setScaledContents(true);
+    main_layout->addWidget(image_label_);
 
     QHBoxLayout* button_layout = new QHBoxLayout;
     prev_button_ = new QPushButton("Previous");
@@ -35,9 +36,6 @@ TourDialog::TourDialog(QWidget* parent)
 
     main_layout->addLayout(button_layout);
 
-    // In constructor, after creating web_view_:
-    web_view_->settings()->setAttribute(QWebEngineSettings::Accelerated2dCanvasEnabled, false);
-    web_view_->settings()->setAttribute(QWebEngineSettings::WebGLEnabled, false);
     connect(prev_button_, &QPushButton::clicked, this, &TourDialog::prev_slide);
     connect(next_button_, &QPushButton::clicked, this, &TourDialog::next_slide);
 
@@ -87,8 +85,9 @@ void TourDialog::update_display()
 {
     if (current_slide_ >= 0 && current_slide_ < static_cast<int>(slide_names_.size())) {
         std::filesystem::path image_path = std::filesystem::path("./documentation") / slide_names_[current_slide_];
-        QUrl url = QUrl::fromLocalFile(QString::fromStdString(std::filesystem::absolute(image_path).string()));
-        web_view_->load(url);
+        QPixmap pixmap(QString::fromStdString(image_path.string()));
+        if (!pixmap.isNull())
+            image_label_->setPixmap(pixmap.scaled(image_label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
         page_label_->setText(QString("%1 of %2").arg(current_slide_ + 1).arg(slide_names_.size()));
     }

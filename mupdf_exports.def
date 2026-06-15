@@ -1,0 +1,107 @@
+; Exports for mupdf.dll -- the exact subset of mupdf's C API that MusicReader
+; links against (taken from the linker's unresolved-externals list).
+;
+; Listing them explicitly, instead of /WHOLEARCHIVE, makes the linker pull in
+; only these functions and their real dependencies -- the same closure the old
+; static link used. mupdf's unused OCR (leptonica) and font-subset (harfbuzz
+; repacker) objects, which reference symbols that are not compiled in mupdf's
+; own build, are therefore never dragged in.
+;
+; If MusicReader starts calling a new fz_*/pdf_* function, the link will report
+; it as unresolved -- add that name here.
+EXPORTS
+    fz_advance_glyph
+    fz_append_printf
+    fz_append_string
+    fz_bound_glyph
+    fz_bound_page
+    fz_caught_message
+    fz_chartorune
+    fz_count_pages
+    fz_device_rgb
+    fz_do_always
+    fz_do_catch
+    fz_do_try
+    fz_drop_buffer
+    fz_drop_context
+    fz_drop_document
+    fz_drop_font
+    fz_drop_page
+    fz_drop_pixmap
+    fz_encode_character
+    fz_flush_warnings
+    fz_font_ascender
+    fz_font_descender
+    fz_load_outline
+    fz_load_page
+    fz_new_base14_font
+    fz_new_buffer
+    fz_new_context_imp
+    fz_new_font_from_file
+    fz_new_pixmap_from_page
+    fz_new_pixmap_from_page_number
+    fz_open_document
+    fz_pixmap_components
+    fz_pixmap_height
+    fz_pixmap_samples
+    fz_pixmap_stride
+    fz_pixmap_width
+    fz_push_try
+    fz_register_document_handlers
+    fz_scale
+    fz_set_aa_level
+    fz_throw
+    pdf_add_cid_font
+    pdf_add_object
+    pdf_add_page
+    pdf_add_stream
+    pdf_annot_contents
+    pdf_annot_obj
+    pdf_annot_rect
+    pdf_annot_type
+    pdf_array_get
+    pdf_array_get_real
+    pdf_array_len
+    pdf_array_push
+    pdf_array_push_real
+    pdf_count_pages
+    pdf_create_annot
+    pdf_create_document
+    pdf_delete_annot
+    pdf_dict_del
+    pdf_dict_get
+    pdf_dict_put
+    pdf_dict_put_dict
+    pdf_dict_put_int
+    pdf_dict_put_name
+    pdf_dict_put_string
+    pdf_dict_put_text_string
+    pdf_dict_puts
+    pdf_dict_puts_drop
+    pdf_drop_annot
+    pdf_drop_document
+    pdf_drop_obj
+    pdf_drop_page
+    pdf_first_annot
+    pdf_insert_page
+    pdf_load_page
+    pdf_lookup_page_obj
+    pdf_name_eq
+    pdf_new_array
+    pdf_new_dict
+    pdf_next_annot
+    pdf_save_document
+    pdf_set_annot_appearance
+    pdf_set_annot_border
+    pdf_set_annot_contents
+    pdf_set_annot_default_appearance
+    pdf_set_annot_quadding
+    pdf_set_annot_rect
+    pdf_specifics
+    pdf_to_text_string
+    pdf_trailer
+    pdf_update_annot
+    ; Data globals -- the DATA keyword is required so the import library emits an
+    ; __imp_ data reference (a function-style export would generate a bad thunk).
+    fz_identity DATA
+    pdf_default_write_options DATA
