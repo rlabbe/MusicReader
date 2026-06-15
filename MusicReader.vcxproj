@@ -116,7 +116,7 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>FZ_DLL_CLIENT;ZSTD_DECOMPRESSION_ENABLED;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;$(Qt_DEFINES_);%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DisableSpecificWarnings>4505;4611;4611</DisableSpecificWarnings>
     </ClCompile>
@@ -135,6 +135,7 @@ copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Debug\mupdf.dll" "$(MSBuildProjectDirec
       <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);
 extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -173,6 +174,7 @@ xcopy /e /d /i /f /c /y $(MSBuildProjectDirectory)\documentation\*.svg $(MSBuild
       <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);
 extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>

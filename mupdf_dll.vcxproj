@@ -67,10 +67,6 @@
     <TargetName>mupdf</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup>
-    <PreBuildEvent>
-      <Command>set CL=/MP /DFZ_DLL&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
-      <Message>Building mupdf static lib with FZ_DLL for DLL packaging...</Message>
-    </PreBuildEvent>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -89,21 +85,35 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <!-- _CL_ (not CL) so /MTd is APPENDED after mupdf's hardcoded /MDd and wins;
+           CL prepends and would lose to the project's command-line /MDd. -->
+      <Command>set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MTd&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
+      <Message>Building mupdf static lib with FZ_DLL /MTd for DLL packaging...</Message>
+    </PreBuildEvent>
     <ClCompile>
-      <!-- Must match mupdf's CRT (dynamic). Mismatch yields LNK4098 + __imp_* unresolved. -->
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <!-- Must match mupdf's CRT (static). Mismatch yields LNK4098 + __imp_* unresolved. -->
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
+      <Message>Building mupdf static lib with FZ_DLL /MT for DLL packaging...</Message>
+    </PreBuildEvent>
     <ClCompile>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>MaxSpeed</Optimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">
+    <PreBuildEvent>
+      <Command>set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT&amp;&amp; msbuild "$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln" /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal</Command>
+      <Message>Building mupdf static lib with FZ_DLL /MT for DLL packaging...</Message>
+    </PreBuildEvent>
     <ClCompile>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
     </ClCompile>
   </ItemDefinitionGroup>
