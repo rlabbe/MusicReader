@@ -77,7 +77,7 @@ public:
     // a hand-built appearance stream. baseline_x/y are click coordinates: x in
     // PDF points, y as baseline in PDF Y-up coords.
     bool add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
-                                     int codepoint, float font_size, int r, int g, int b);
+                                     char32_t symbol_codepoint, float font_size, int r, int g, int b);
     // Change the font (family/size/color) of one existing annotation. Routes
     // to update_annotation_in_pdf for text annotations and to a delete+re-add
     // for music symbols (where size/color require regenerating the /AP form).

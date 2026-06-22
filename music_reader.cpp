@@ -1570,8 +1570,8 @@ void MusicReader::on_music_symbol_action_toggled()
         return;
 
     QAction* checked = music_palette_group_->checkedAction();
-    int codepoint = checked ? checked->data().toInt() : 0;
-    viewer->set_pending_music_symbol(codepoint);
+    char32_t symbol_codepoint = checked ? static_cast<char32_t>(checked->data().toInt()) : NO_MUSIC_SYMBOL;
+    viewer->set_pending_music_symbol(symbol_codepoint);
 }
 
 void MusicReader::on_application_state_changed(Qt::ApplicationState state)

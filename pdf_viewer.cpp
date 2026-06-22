@@ -1284,23 +1284,28 @@ void PDFViewer::set_text_annotation_mode(bool enabled)
     TRACE_CALL;
     text_annotation_mode_ = enabled;
     if (!enabled)
-        pending_music_symbol_codepoint_ = 0;
+        pending_music_symbol_ = NO_MUSIC_SYMBOL;
     setCursor(enabled ? Qt::IBeamCursor : Qt::ArrowCursor);
 }
 
 
-void PDFViewer::set_pending_music_symbol(int codepoint)
+void PDFViewer::set_pending_music_symbol(char32_t symbol)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("U+{:04X}", codepoint);
+    TRACE_FUNCTION_MSG("U+{:04X}", static_cast<int>(symbol));
 
     // Editor commits text via its focusOutEvent path, so dropping focus is
     // the public way to flush an in-progress edit.
     if (annotation_editor_ && annotation_editor_->isVisible())
         annotation_editor_->clearFocus();
 
-    pending_music_symbol_codepoint_ = codepoint;
-    setCursor(codepoint != 0 ? Qt::CrossCursor : (text_annotation_mode_ ? Qt::IBeamCursor : Qt::ArrowCursor));
+    pending_music_symbol_ = symbol;
+    if (symbol != NO_MUSIC_SYMBOL)
+        setCursor(Qt::IBeamCursor);
+    else if (text_annotation_mode_)
+        setCursor(Qt::IBeamCursor);
+    else
+        setCursor(Qt::ArrowCursor);
 }
 
 void PDFViewer::set_page_break_edit_mode(bool enabled)
@@ -1377,29 +1382,35 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         else if (v_align == Qt::AlignBottom)
             offset_y = label_size.height() - displayed.height();
 
-        // IBeam cursor hotspot is at center, but user clicks with bottom of cursor on the line.
-        // Adjust click position by half the cursor height so baseline lands where bottom of IBeam was.
         int cursor_offset = 0;
 #ifdef Q_OS_WIN
+        int raw_bm_height = 0;
+        int raw_y_hotspot = 0;
+        bool is_color = false;
         HCURSOR hCursor = LoadCursor(nullptr, IDC_IBEAM);
         if (hCursor) {
             ICONINFO iconInfo;
             if (GetIconInfo(hCursor, &iconInfo)) {
-                // yHotspot is distance from top to hotspot (center for IBeam)
-                // We want distance from hotspot to bottom = height - yHotspot
+                is_color = iconInfo.hbmColor != nullptr;
                 BITMAP bm;
-                if (GetObject(iconInfo.hbmMask, sizeof(bm), &bm))
-                    cursor_offset = bm.bmHeight - static_cast<int>(iconInfo.yHotspot);
+                if (GetObject(iconInfo.hbmMask, sizeof(bm), &bm)) {
+                    raw_bm_height = bm.bmHeight;
+                    raw_y_hotspot = static_cast<int>(iconInfo.yHotspot);
+                    int cursor_height = is_color ? bm.bmHeight : bm.bmHeight / 2;
+                    cursor_offset = cursor_height - static_cast<int>(iconInfo.yHotspot);
+                }
                 if (iconInfo.hbmMask)
                     DeleteObject(iconInfo.hbmMask);
                 if (iconInfo.hbmColor)
                     DeleteObject(iconInfo.hbmColor);
             }
         }
+        logger::info("mousePressEvent: IBeam bmHeight={} yHotspot={} is_color={} computed_offset={}",
+                     raw_bm_height, raw_y_hotspot, is_color, cursor_offset);
 #endif
+        QPoint editor_pos(event->pos().x(), event->pos().y());
 
-        QPoint adjusted_pos(event->pos().x(), event->pos().y() + cursor_offset);
-        last_click_display_pos_ = QPoint(adjusted_pos.x() - offset_x, adjusted_pos.y() - offset_y);
+        last_click_display_pos_ = QPoint(event->pos().x() - offset_x, event->pos().y() - offset_y);
         last_click_target_ = get_click_target(event);
 
         // Calculate the effective PDF width that maps to displayed pixels
@@ -1413,16 +1424,25 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             effective_pdf_width = cropped_width_ratio * pdf_width_pts;
         }
 
-        // Adjust the stored target Y for cursor offset
-        if (cursor_offset > 0) {
-            float pixels_to_points_ratio = effective_pdf_width / static_cast<float>(displayed.width());
-            last_click_target_.points_y -= cursor_offset * pixels_to_points_ratio;
-        }
-
         float points_to_pixels = static_cast<float>(displayed.width()) / effective_pdf_width;
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
-        if (pending_music_symbol_codepoint_ != 0) {
+        logger::info("mousePressEvent annotation: event_pos=({},{}) label_size=({},{}) pixmap_size=({},{})",
+                     event->pos().x(), event->pos().y(), label_size.width(), label_size.height(),
+                     displayed.width(), displayed.height());
+        logger::info("mousePressEvent annotation: offset=({},{}) editor_pos=({},{})",
+                     offset_x, offset_y, editor_pos.x(), editor_pos.y());
+        logger::info("mousePressEvent annotation: zoom_to_content={} effective_pdf_width={:.1f} points_to_pixels={:.3f}",
+                     config_->zoom_to_content(), effective_pdf_width, points_to_pixels);
+        QPoint label_corner = label_->mapToParent(QPoint(0, 0));
+        logger::info("mousePressEvent annotation: label_corner(0,0)=({},{}) label_corner(offset)=({},{})",
+                     label_corner.x(), label_corner.y(),
+                     label_->mapToParent(QPoint(offset_x, offset_y)).x(),
+                     label_->mapToParent(QPoint(offset_x, offset_y)).y());
+        logger::info("mousePressEvent annotation: last_click_target page={} x={:.1f} y={:.1f}",
+                     last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y);
+
+        if (pending_music_symbol_ != NO_MUSIC_SYMBOL) {
             // The IBeam cursor compensation above shifts last_click_target_.points_y
             // downward in PDF coords to match where users perceive the IBeam
             // hotspot. With the crosshair cursor used for music symbols, the
@@ -1431,14 +1451,14 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             const FontInfo& fi = config_->annotation_font();
             auto [cr, cg, cb] = fi.color;
             document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y,
-                                                   pending_music_symbol_codepoint_, fi.size,
+                                                   pending_music_symbol_, fi.size,
                                                    cr, cg, cb);
             // Stay in this mode so consecutive clicks place more of the same glyph.
             event->accept();
             return;
         }
 
-        annotation_editor_->start_editing(adjusted_pos);
+        annotation_editor_->start_editing(editor_pos);
 
         event->accept();
         return;
@@ -2502,7 +2522,12 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
 
     document_->move_annotation_in_memory(selected_annotation_, new_x, new_y);
     selected_annotation_moved_ = true;
+    // Render the selection box at the new position without re-rendering the
+    // page image (which would open MuPDF, load the page, and re-render — slow).
+    // Temporarily clear moved_ so update_image() uses the cached page image.
+    selected_annotation_moved_ = false;
     update_image();
+    selected_annotation_moved_ = true;
 }
 
 

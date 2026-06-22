@@ -803,10 +803,10 @@ Annotation* Document::find_annotation(const AnnotationHandle& handle)
 }
 
 bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
-                                           int codepoint, float font_size, int r, int g, int b)
+                                           char32_t symbol_codepoint, float font_size, int r, int g, int b)
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("page={} cp=U+{:04X} size={}", page_num, codepoint, font_size);
+    TRACE_FUNCTION_MSG("page={} cp=U+{:04X} size={}", page_num, static_cast<int>(symbol_codepoint), font_size);
 
     auto bravura = lookup_font_file("Bravura");
     if (!bravura) {
@@ -814,9 +814,9 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
         return false;
     }
 
-    GlyphMetrics m = measure_glyph(*bravura, "Bravura", codepoint, font_size);
+    GlyphMetrics m = measure_glyph(*bravura, "Bravura", symbol_codepoint, font_size);
     if (m.width <= 0.0f || m.height <= 0.0f) {
-        logger::error("Glyph U+{:04X} has zero metrics in Bravura", codepoint);
+        logger::error("Glyph U+{:04X} has zero metrics in Bravura", static_cast<int>(symbol_codepoint));
         return false;
     }
 
@@ -831,19 +831,19 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
     float rect_top_screen = baseline_screen_y - m.ascent;
     float rect_left = baseline_x;
 
-    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num,
+    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(symbol_codepoint), page_num,
                                                   rect_left, rect_top_screen, m.width, m.height,
                                                   font_size, "Bravura", *bravura, r, g, b);
     if (tr != TextResult::Success) {
         logger::error("Failed to write music symbol U+{:04X} to PDF, code={}",
-                      codepoint, static_cast<int>(tr));
+                      static_cast<int>(symbol_codepoint), static_cast<int>(tr));
         return false;
     }
 
     FontInfo font_info {.family = "Bravura", .size = font_size, .color = {r, g, b}};
-    Annotation ann {codepoint_to_utf8(codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
+    Annotation ann {codepoint_to_utf8(symbol_codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
     ann.is_music_symbol_ = true;
-    ann.symbol_codepoint_ = codepoint;
+    ann.symbol_ = symbol_codepoint;
     // Mirror the saved /Rect: top in PDF Y-up = baseline + ascent.
     ann.rect_top_pdf_ = baseline_y + m.ascent;
 
@@ -864,7 +864,7 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
 
     std::optional<Annotation> old_ann;
     bool is_music = false;
-    int codepoint = 0;
+    char32_t codepoint = NO_MUSIC_SYMBOL;
     float baseline_x = 0.0f, baseline_y = 0.0f;
     int page_num = 0;
     {
@@ -875,7 +875,7 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
 
         old_ann = *annotation;
         is_music = annotation->is_music_symbol_;
-        codepoint = annotation->symbol_codepoint_;
+        codepoint = annotation->symbol_;
         baseline_x = annotation->x_;
         baseline_y = annotation->y_;
         page_num = annotation->page_num_;
@@ -1175,41 +1175,79 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
         return QImage();
     }
 
+    fz_font* prev_font = nullptr;
+    fz_buffer* prev_buf = nullptr;
+    pdf_obj* prev_res = nullptr;
     fz_try(ctx)
     {
-        // Get page bounds for coordinate conversion
         fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
         float page_height = page_bounds.y1 - page_bounds.y0;
-
-        // Create a temporary FreeText annotation in memory
         pdf_annot* annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
 
-        // Build annotation rect from baseline position
-        AnnotationCoordinates coords;
-        coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0}); // display dims unused here
+        // Tight rect + manual appearance so preview matches add_annotation_to_pdf.
         float font_size = preview_annotation.font_info_.size;
-        float rect_y0 = coords.baseline_to_rect_top_screen(preview_annotation.y_, font_size);
-        float rect_y1 = rect_y0 + preview_annotation.height_;
-        fz_rect rect =
-            fz_make_rect(preview_annotation.x_, rect_y0, preview_annotation.x_ + preview_annotation.width_, rect_y1);
-        pdf_set_annot_rect(ctx, annot, rect);
+        std::string base14_name = normalize_to_base14_font(preview_annotation.font_info_.family);
+        auto [cr, cg, cb] = preview_annotation.font_info_.color;
+        float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
 
-        // Set content
+        prev_font = fz_new_base14_font(ctx, base14_name.c_str());
+        float ink_ascent = 0.0f, ink_descent = 0.0f, ink_width = 0.0f;
+        if (prev_font) {
+            const char* p = preview_annotation.text_.c_str();
+            const char* end = p + preview_annotation.text_.size();
+            bool any = false;
+            while (p < end) {
+                int rune = 0;
+                int n = fz_chartorune(&rune, p);
+                int gid = fz_encode_character(ctx, prev_font, rune);
+                fz_rect gb = fz_bound_glyph(ctx, prev_font, gid, fz_identity);
+                float a = gb.y1 * font_size;
+                float d = -gb.y0 * font_size;
+                ink_width += fz_advance_glyph(ctx, prev_font, gid, false) * font_size;
+                if (!any) { ink_ascent = a; ink_descent = d; any = true; }
+                else { ink_ascent = std::max(ink_ascent, a); ink_descent = std::max(ink_descent, d); }
+                p += n;
+            }
+        }
+        float ink_height = ink_ascent + ink_descent;
+        if (ink_height <= 0.0f)
+            ink_height = font_size;
+        float used_width = ink_width > 0.0f ? ink_width : preview_annotation.width_;
+        float baseline_screen = page_height - preview_annotation.y_;
+        float rect_y0 = baseline_screen - ink_ascent;
+        float rect_y1 = rect_y0 + ink_height;
+        fz_rect rect = fz_make_rect(preview_annotation.x_, rect_y0,
+                                    preview_annotation.x_ + used_width, rect_y1);
+        pdf_set_annot_rect(ctx, annot, rect);
         pdf_set_annot_contents(ctx, annot, preview_annotation.text_.c_str());
 
-        // Set default appearance (font and color)
-        auto& font = preview_annotation.font_info_;
-        std::string mupdf_font_name = pdf_font_to_mupdf_font(font.family);
-        auto [cr, cg, cb] = font.color;
-        float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
-        pdf_set_annot_default_appearance(ctx, annot, mupdf_font_name.c_str(), font.size, 3, color);
+        prev_buf = fz_new_buffer(ctx, 256);
+        fz_append_string(ctx, prev_buf, "q\n");
+        fz_append_printf(ctx, prev_buf, "%.3f %.3f %.3f rg\n", color[0], color[1], color[2]);
+        fz_append_string(ctx, prev_buf, "BT\n");
+        fz_append_printf(ctx, prev_buf, "/F1 %.2f Tf\n", font_size);
+        fz_append_printf(ctx, prev_buf, "0 %.2f Td\n", ink_descent);
+        fz_append_string(ctx, prev_buf, "(");
+        for (char c : preview_annotation.text_) {
+            if (c == '(' || c == ')' || c == '\\')
+                fz_append_printf(ctx, prev_buf, "\\%c", c);
+            else
+                fz_append_printf(ctx, prev_buf, "%c", c);
+        }
+        fz_append_string(ctx, prev_buf, ") Tj\n");
+        fz_append_string(ctx, prev_buf, "ET\n");
+        fz_append_string(ctx, prev_buf, "Q\n");
 
-        // Set alignment and border
-        pdf_set_annot_quadding(ctx, annot, 0);
-        pdf_set_annot_border(ctx, annot, 0);
+        prev_res = pdf_new_dict(ctx, pdf, 1);
+        pdf_obj* p_font_dict = pdf_new_dict(ctx, pdf, 3);
+        pdf_dict_put(ctx, p_font_dict, PDF_NAME(Type), PDF_NAME(Font));
+        pdf_dict_put(ctx, p_font_dict, PDF_NAME(Subtype), PDF_NAME(Type1));
+        pdf_dict_put_text_string(ctx, p_font_dict, PDF_NAME(BaseFont), base14_name.c_str());
+        pdf_obj* p_res_font = pdf_dict_put_dict(ctx, prev_res, PDF_NAME(Font), 1);
+        pdf_dict_puts_drop(ctx, p_res_font, "F1", p_font_dict);
 
-        // Generate appearance stream so it renders properly
-        pdf_update_annot(ctx, annot);
+        fz_rect bbox = fz_make_rect(0, 0, used_width, ink_height);
+        pdf_set_annot_appearance(ctx, annot, "N", nullptr, fz_identity, bbox, prev_res, prev_buf);
 
         // Now render the page (including the in-memory annotation)
         fz_matrix transform = fz_scale(dpi_ / 72.0f, dpi_ / 72.0f);
@@ -1237,6 +1275,13 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
         if (page)
             pdf_drop_page(ctx, page);
     }
+
+    if (prev_font)
+        fz_drop_font(ctx, prev_font);
+    if (prev_buf)
+        fz_drop_buffer(ctx, prev_buf);
+    if (prev_res)
+        pdf_drop_obj(ctx, prev_res);
 
     close_fitz(ctx, doc);
     return result;
@@ -1528,7 +1573,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                             Annotation annotation(text ? std::string(text) : std::string(), page_idx + 1,
                                                   x, baseline_y, width, height, loaded_font);
                             annotation.is_music_symbol_ = is_music;
-                            annotation.symbol_codepoint_ = recovered_codepoint;
+                            annotation.symbol_ = static_cast<char32_t>(recovered_codepoint);
                             annotation.rect_top_pdf_ = y1;
                             annotations.push_back(annotation);
                         }
@@ -1590,6 +1635,9 @@ bool Document::add_annotation_to_pdf(Annotation& ann)
     }
 
     bool success = false;
+    fz_font* measure_font = nullptr;
+    fz_buffer* ap_buf = nullptr;
+    pdf_obj* ap_res = nullptr;
     fz_try(ctx)
     {
         int page_idx = ann.page_num_ - 1;
@@ -1602,36 +1650,93 @@ bool Document::add_annotation_to_pdf(Annotation& ann)
         fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
         pdf_annot* annot = pdf_create_annot(ctx, page, PDF_ANNOT_FREE_TEXT);
 
-        // Build annotation rect from baseline position
+        // Measure per-glyph ink bounds for a tight rect, matching the
+        // approach in add_freetext_with_custom_font. This avoids the
+        // oversized /Rect that pdf_update_annot produces from the font's
+        // declared bbox (which for synthesised Base-14 fonts can be 2-3x
+        // the visual glyph height).
         float page_height = page_bounds.y1 - page_bounds.y0;
-        AnnotationCoordinates coords;
-        coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
         float font_size = ann.font_info_.size;
-        float rect_y0 = coords.baseline_to_rect_top_screen(ann.y_, font_size);
-        float rect_y1 = rect_y0 + ann.height_;
-        fz_rect rect = fz_make_rect(ann.x_, rect_y0, ann.x_ + ann.width_, rect_y1);
+        std::string mupdf_font_name = pdf_font_to_mupdf_font(ann.font_info_.family);
+        std::string base14_name = normalize_to_base14_font(ann.font_info_.family);
+        auto [cr, cg, cb] = ann.font_info_.color;
+
+        measure_font = fz_new_base14_font(ctx, base14_name.c_str());
+
+        float ink_ascent = 0.0f, ink_descent = 0.0f, ink_width = 0.0f;
+        if (measure_font) {
+            const char* p = ann.text_.c_str();
+            const char* end = p + ann.text_.size();
+            bool any = false;
+            while (p < end) {
+                int rune = 0;
+                int n = fz_chartorune(&rune, p);
+                int gid = fz_encode_character(ctx, measure_font, rune);
+                fz_rect gb = fz_bound_glyph(ctx, measure_font, gid, fz_identity);
+                float a = gb.y1 * font_size;
+                float d = -gb.y0 * font_size;
+                ink_width += fz_advance_glyph(ctx, measure_font, gid, false) * font_size;
+                if (!any) { ink_ascent = a; ink_descent = d; any = true; }
+                else { ink_ascent = std::max(ink_ascent, a); ink_descent = std::max(ink_descent, d); }
+                p += n;
+            }
+        }
+
+        float ink_height = ink_ascent + ink_descent;
+        if (ink_height <= 0.0f)
+            ink_height = font_size; // Fallback for empty/missing text
+
+        float used_width = ink_width > 0.0f ? ink_width : ann.width_;
+        float baseline_screen = page_height - ann.y_;
+        float rect_y0 = baseline_screen - ink_ascent;
+        float rect_y1 = rect_y0 + ink_height;
+        fz_rect rect = fz_make_rect(ann.x_, rect_y0, ann.x_ + used_width, rect_y1);
 
         pdf_set_annot_rect(ctx, annot, rect);
         pdf_set_annot_contents(ctx, annot, ann.text_.c_str());
 
-        // Set default appearance (font and color)
-        std::string mupdf_font_name = pdf_font_to_mupdf_font(ann.font_info_.family);
-        auto [cr, cg, cb] = ann.font_info_.color;
+        // Write /DA for compatibility with other PDF editors
         float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
-        pdf_set_annot_default_appearance(ctx, annot, mupdf_font_name.c_str(), ann.font_info_.size, 3, color);
+        char da[128];
+        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg",
+                 mupdf_font_name.c_str(), font_size, color[0], color[1], color[2]);
+        pdf_dict_put_string(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(DA), da, strlen(da));
 
-        pdf_set_annot_quadding(ctx, annot, 0);
-        pdf_set_annot_border(ctx, annot, 0);
-        pdf_update_annot(ctx, annot);
+        // Form origin at baseline - ink_ascent; text baseline at form y=ink_descent
+        // so the baseline maps to rect_y0 + ink_descent = baseline_screen.
+        // Rect spans [baseline-ink_ascent, baseline+ink_descent] — tight to glyph.
+        ap_buf = fz_new_buffer(ctx, 256);
+        fz_append_string(ctx, ap_buf, "q\n");
+        fz_append_printf(ctx, ap_buf, "%.3f %.3f %.3f rg\n", color[0], color[1], color[2]);
+        fz_append_string(ctx, ap_buf, "BT\n");
+        fz_append_printf(ctx, ap_buf, "/F1 %.2f Tf\n", font_size);
+        fz_append_printf(ctx, ap_buf, "0 %.2f Td\n", ink_descent);
+        fz_append_string(ctx, ap_buf, "(");
+        for (char c : ann.text_) {
+            if (c == '(' || c == ')' || c == '\\')
+                fz_append_printf(ctx, ap_buf, "\\%c", c);
+            else
+                fz_append_printf(ctx, ap_buf, "%c", c);
+        }
+        fz_append_string(ctx, ap_buf, ") Tj\n");
+        fz_append_string(ctx, ap_buf, "ET\n");
+        fz_append_string(ctx, ap_buf, "Q\n");
 
-        // Read back the final rect from mupdf to update in-memory annotation
-        fz_rect final_rect = pdf_annot_rect(ctx, annot);
-        ann.x_ = final_rect.x0;
-        ann.width_ = final_rect.x1 - final_rect.x0;
-        ann.height_ = final_rect.y1 - final_rect.y0;
-        // Convert rect top back to baseline for storage
-        float rect_top_screen = final_rect.y0;
-        ann.y_ = coords.screen_y_to_pdf_y(rect_top_screen + font_size);
+        // Resource dict: a simple /Type1 font pointing at the Base-14 font
+        ap_res = pdf_new_dict(ctx, pdf, 1);
+        pdf_obj* ap_font_dict = pdf_new_dict(ctx, pdf, 3);
+        pdf_dict_put(ctx, ap_font_dict, PDF_NAME(Type), PDF_NAME(Font));
+        pdf_dict_put(ctx, ap_font_dict, PDF_NAME(Subtype), PDF_NAME(Type1));
+        pdf_dict_put_text_string(ctx, ap_font_dict, PDF_NAME(BaseFont), base14_name.c_str());
+        pdf_obj* ap_res_font = pdf_dict_put_dict(ctx, ap_res, PDF_NAME(Font), 1);
+        pdf_dict_puts_drop(ctx, ap_res_font, "F1", ap_font_dict);
+
+        fz_rect bbox = fz_make_rect(0, 0, used_width, ink_height);
+        pdf_set_annot_appearance(ctx, annot, "N", nullptr, fz_identity, bbox, ap_res, ap_buf);
+
+        ann.width_ = used_width;
+        ann.height_ = ink_height;
+        ann.rect_top_pdf_ = ann.y_ + ink_ascent;
 
         pdf_drop_annot(ctx, annot);
         pdf_drop_page(ctx, page);
@@ -1646,6 +1751,13 @@ bool Document::add_annotation_to_pdf(Annotation& ann)
     {
         logger::error("MuPDF exception adding annotation: {}", fz_caught_message(ctx));
     }
+
+    if (measure_font)
+        fz_drop_font(ctx, measure_font);
+    if (ap_buf)
+        fz_drop_buffer(ctx, ap_buf);
+    if (ap_res)
+        pdf_drop_obj(ctx, ap_res);
 
     close_fitz(ctx, doc);
     return success;
@@ -1680,20 +1792,10 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "Failed to load page");
         }
 
-        // Compute the rect we're looking for
+        // Compute the rect from rect_top_pdf_ (consistent with add and update).
         fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
         float page_height = page_bounds.y1 - page_bounds.y0;
-        AnnotationCoordinates coords;
-        coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
-        float font_size = ann.font_info_.size;
-        float rect_y0 = coords.baseline_to_rect_top_screen(ann.y_, font_size);
-
-        // For music symbols, derive the screen rect-top directly from the
-        // saved rect's top y (PDF Y-up) — this is exactly the value mupdf
-        // stored, so the round-trip is exact.
-        float music_rect_y0 = 0.0f;
-        if (ann.is_music_symbol_)
-            music_rect_y0 = page_height - ann.rect_top_pdf_;
+        float rect_y0 = page_height - ann.rect_top_pdf_;
 
         // Find and delete the matching annotation
         pdf_annot* annot = pdf_first_annot(ctx, page);
@@ -1710,9 +1812,7 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
                 // and a single glyph at an exact rect is unique enough.
                 constexpr float tolerance = 1.0f;
                 bool x_match = std::abs(annot_rect.x0 - ann.x_) < tolerance;
-                bool y_match = ann.is_music_symbol_
-                                   ? std::abs(annot_rect.y0 - music_rect_y0) < tolerance
-                                   : std::abs(annot_rect.y0 - rect_y0) < tolerance;
+                bool y_match = std::abs(annot_rect.y0 - rect_y0) < tolerance;
                 bool text_match = ann.is_music_symbol_ ? true : (contents && ann.text_ == contents);
 
                 if (x_match && y_match && text_match) {
@@ -1774,17 +1874,12 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "Failed to load page");
         }
 
-        // Compute the rect we're looking for (old annotation's position)
+        // Compute the rect we're looking for (old annotation's position).
+        // rect_top_pdf_ is the stored /Rect top in PDF Y-up, set by both
+        // add_annotation_to_pdf and load_annotations_from_pdf.
         fz_rect page_bounds = fz_bound_page(ctx, (fz_page*)page);
         float page_height = page_bounds.y1 - page_bounds.y0;
-        AnnotationCoordinates coords;
-        coords.set_context({page_height, page_bounds.x1 - page_bounds.x0, 0, 0});
-        float old_font_size = old_ann.font_info_.size;
-        // Music symbols know their saved rect-top exactly; text annotations
-        // derive it from baseline + font_size.
-        float old_rect_y0 = old_ann.is_music_symbol_
-                                ? page_height - old_ann.rect_top_pdf_
-                                : coords.baseline_to_rect_top_screen(old_ann.y_, old_font_size);
+        float old_rect_y0 = page_height - old_ann.rect_top_pdf_;
 
         // Find the matching annotation
         pdf_annot* annot = pdf_first_annot(ctx, page);
@@ -1817,10 +1912,7 @@ bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotat
         }
 
         // Update the annotation with new values
-        float new_font_size = new_ann.font_info_.size;
-        float new_rect_y0 = new_ann.is_music_symbol_
-                                ? page_height - new_ann.rect_top_pdf_
-                                : coords.baseline_to_rect_top_screen(new_ann.y_, new_font_size);
+        float new_rect_y0 = page_height - new_ann.rect_top_pdf_;
         float new_rect_y1 = new_rect_y0 + new_ann.height_;
         fz_rect new_rect = fz_make_rect(new_ann.x_, new_rect_y0, new_ann.x_ + new_ann.width_, new_rect_y1);
 

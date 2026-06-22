@@ -4,6 +4,8 @@
 #include <vector>
 #include "font_info.h"
 
+constexpr char32_t NO_MUSIC_SYMBOL = 0;
+
 
 class AnnotationHandle {
 public:
@@ -60,9 +62,9 @@ public:
     // Music-symbol annotations are placed/edited via the Bravura SMuFL path
     // (add_freetext_with_custom_font) rather than the standard Base-14 FreeText
     // writer. symbol_codepoint_ is the single SMuFL PUA codepoint (e.g. U+E262
-    // for sharp). Reset to false / 0 for normal text annotations.
+    // for sharp). NO_MUSIC_SYMBOL for normal text annotations.
     bool is_music_symbol_ = false;
-    int symbol_codepoint_ = 0;
+    char32_t symbol_ = NO_MUSIC_SYMBOL;
     // Top edge of the on-disk /Rect in PDF Y-up coordinates. For music symbols
     // we hit-test and draw the selection box using this rect directly (same as
     // Foxit/Acrobat) instead of synthesising bounds from baseline + per-glyph

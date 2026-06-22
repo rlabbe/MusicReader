@@ -81,12 +81,13 @@ void InPlaceAnnotationEditor::start_editing(const QPoint& position, const QStrin
     int widget_height = static_cast<int>(height) + 2 * doc_margin + 4;
     resize(widget_width, widget_height);
 
-    // Position editor so baseline aligns with click point, using MuPDF ascent
-    float ascent = font_ascent(font_info.family, scaled_font_size);
+    // QTextEdit draws the cursor at doc_margin + QFontMetrics::ascent() from
+    // widget top. To place the cursor baseline at position.y(), the widget top
+    // must be position.y() - doc_margin - qt_ascent.
+    QFontMetrics fm(scaled_font);
     QPoint editor_pos;
-    editor_pos.setX(position.x());
-    editor_pos.setY(
-        AnnotationCoordinates::baseline_display_to_editor_widget_y(position.y(), doc_margin, static_cast<int>(ascent)));
+    editor_pos.setX(position.x() - doc_margin);
+    editor_pos.setY(position.y() - doc_margin - fm.ascent());
 
     move(editor_pos);
 
