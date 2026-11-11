@@ -202,7 +202,7 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
 
     // Reloading the same file preserves the page layout (breaks and crops are
-    // persisted in the .perf file), so the current virtual index still
+    // persisted in the .mrd file), so the current virtual index still
     // identifies the same position, including the segment in performance
     // mode. Fall back to the physical page number only if that index no
     // longer exists.

@@ -35,10 +35,6 @@ class PerformanceData {
 public:
     PerformanceData() = default;
 
-    // Reads a legacy .perf file. Retained only for document_info's one-time
-    // migration; remove together with that migration code.
-    bool load(const std::filesystem::path& pdf_path);
-
     // Add a page break at the specified normalized position (0.0-1.0) on the page.
     // Breaks are automatically kept sorted. Duplicate positions are ignored.
     void add_page_break(int page_num, double normalized_position);
@@ -102,9 +98,6 @@ public:
     bool empty() const { return page_breaks_.empty() && paper_crops_.empty() && metronome_state_.empty(); }
 
 private:
-    // Constructs the .perf filename from the PDF path (same name, .perf extension).
-    std::filesystem::path get_filename(std::filesystem::path pdf_path) const;
-
     // Map from page number to list of break positions (normalized 0.0-1.0).
     // Each vector is kept sorted.
     std::map<int, std::vector<double>> page_breaks_;
@@ -113,7 +106,4 @@ private:
     std::map<int, PaperCrop> paper_crops_;
 
     std::string metronome_state_;
-
-    // File format version for future compatibility.
-    int version_ = 1;
 };

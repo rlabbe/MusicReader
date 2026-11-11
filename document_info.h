@@ -38,9 +38,4 @@ bool has_bookmarks(const std::filesystem::path& pdf_path);
 bool is_favorite(const std::filesystem::path& pdf_path);
 bool set_favorite(const std::filesystem::path& pdf_path, bool favorite);
 
-// TEMPORARY one-time migration. If a legacy .perf and/or bookmark .txt file
-// sits next to the PDF, fold its contents into the .mrd file and rename the
-// original to <name>.bak. Remove once every document has been migrated.
-void migrate_legacy_files(const std::filesystem::path& pdf_path);
-
 } // namespace document_info

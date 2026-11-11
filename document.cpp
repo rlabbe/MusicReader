@@ -198,9 +198,6 @@ void Document::initialize_document()
         }
     }
 
-    // Fold any legacy .perf / bookmark .txt files into the .mrd info file.
-    document_info::migrate_legacy_files(filename_); // TEMPORARY: remove after migration
-
     performance_data_ = document_info::read_performance(filename_);
 
     // If we got an exception loading bookmarks, we want to save the document without them.
