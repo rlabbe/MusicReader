@@ -136,7 +136,7 @@ copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Debug\mupdf.dll" "$(MSBuildProjectDirec
 extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Ob3 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -243,7 +243,6 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
     <ClCompile Include="document_load_manager.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
     <ClCompile Include="fitz_utils.cpp" />
-
     <ClCompile Include="in_place_annotation_editor.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="music_reader.cpp" />
@@ -260,7 +259,6 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
     <ClCompile Include="document.cpp" />
     <ClCompile Include="document_info.cpp" />
     <ClCompile Include="font_info.cpp" />
-
     <ClCompile Include="logger.cpp" />
   </ItemGroup>
   <ItemGroup>

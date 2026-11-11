@@ -131,14 +131,14 @@
           Outputs="$(MupdfStaticLib)"
           Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Message Importance="high" Text="Building mupdf static lib with FZ_DLL /MT for DLL packaging..." />
-    <Exec Command="set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT&amp;&amp; msbuild &quot;$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln&quot; /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal" />
+    <Exec Command="set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT /Ob3&amp;&amp; msbuild &quot;$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln&quot; /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal" />
   </Target>
   <Target Name="BuildMupdfLibReleaseDbgInfo" BeforeTargets="ClCompile"
           Inputs="@(MupdfSourceFiles)"
           Outputs="$(MupdfStaticLib)"
           Condition="'$(Configuration)|$(Platform)'=='ReleaseDbgInfo|x64'">
     <Message Importance="high" Text="Building mupdf static lib with FZ_DLL /MT for DLL packaging..." />
-    <Exec Command="set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT&amp;&amp; msbuild &quot;$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln&quot; /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal" />
+    <Exec Command="set CL=/MP /DFZ_DLL&amp;&amp; set _CL_=/MT /Ob3&amp;&amp; msbuild &quot;$(SolutionDir)extern\mupdf\platform\win32\mupdf.sln&quot; /p:PlatformToolset=v143 /p:Configuration=$(MupdfLibConfig) /p:Platform=x64 /t:libmupdf /v:minimal" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

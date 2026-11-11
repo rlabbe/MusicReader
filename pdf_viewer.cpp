@@ -200,7 +200,29 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
     document_ = document;
     renderer_.replace_document(document_.get());
     connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-    get_page(page);
+
+    // Reloading the same file preserves the page layout (breaks and crops are
+    // persisted in the .perf file), so the current virtual index still
+    // identifies the same position, including the segment in performance
+    // mode. Fall back to the physical page number only if that index no
+    // longer exists.
+    int count = renderer_.page_count();
+    int index = renderer_.current_index();
+    if (index < 1 || index > count) {
+        renderer_.goto_physical_page(page);
+        index = qBound(1, renderer_.current_index(), count);
+    }
+
+    // Prefetch entries were rendered from the old document.
+    clear_prefetch();
+
+    get_page(index);
+
+    // Paint the loading state immediately. The new document's page_loaded
+    // signal is queued while this handler runs, and queued signals are
+    // processed before paint events, so without this the "Loading..."
+    // placeholder is skipped over and never appears.
+    label_->repaint();
 }
 
 

@@ -2056,7 +2056,7 @@ void MusicReader::show_metronome_dialog()
         // First-time construction: build the dialog and wire up everything
         // that must persist for the dialog's lifetime.
         metronome_dialog_ = new PolyMetronomeDialog(this, /*no_focus=*/true);
-        metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, false);
+        metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, true);
         connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
 
         // state_changed fires whenever the user moves a slider, spins the
@@ -2880,7 +2880,7 @@ void MusicReader::create_global_shortcuts()
     // beat position in the measure is preserved — apply_state() can't be
     // used here because it resets the sequence playback.
     shortcut = new QShortcut(Qt::Key_M, this);
-    shortcut->setContext(Qt::WindowShortcut);
+    shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
@@ -2891,17 +2891,16 @@ void MusicReader::create_global_shortcuts()
     });
 
     shortcut = new QShortcut(Qt::Key_Comma, this);
-    shortcut->setContext(Qt::WindowShortcut);
+    shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
-        // No-op when dialog hasn't been opened — there's nothing to slow down.
         if (metronome_dialog_)
             metronome_dialog_->set_bpm(metronome_dialog_->state().bpm - 1);
     });
 
     shortcut = new QShortcut(Qt::Key_Period, this);
-    shortcut->setContext(Qt::WindowShortcut);
+    shortcut->setContext(Qt::ApplicationShortcut);
     connect(shortcut, &QShortcut::activated, this, [this, is_text_input_focused]() {
         if (is_text_input_focused())
             return;
