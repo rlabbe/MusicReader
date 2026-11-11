@@ -1,5 +1,4 @@
 #include "dev_status_dialog.h"
-#include "document_load_manager.h"
 #include "config_file.h"
 #include <QTimer>
 #include <QTextEdit>
@@ -188,39 +187,13 @@ QString DevStatusDialog::format_memory(size_t bytes)
 
 void DevStatusDialog::update_status()
 {
-    auto* manager = DocumentLoadManager::instance();
-    if (!manager) {
-        status_display_->clear();
-        return;
-    }
-
     // Save scroll position
     QScrollBar* scroll_bar = status_display_->verticalScrollBar();
     int scroll_position = scroll_bar->value();
 
-    auto loading_summary = manager->get_loading_summary();
     auto system_stats = get_system_stats();
 
     QString html = "<html><body>";
-
-    // Document loading status first
-    if (!loading_summary.documents.empty()) {
-        html += "<h4>Document Loading</h4>";
-        html += QString("<p>Active Jobs: %1 | Queued Jobs: %2</p>")
-                    .arg(loading_summary.total_active_jobs)
-                    .arg(loading_summary.total_queued_jobs);
-
-        html += "<table border='1' cellpadding='5' cellspacing='0'>";
-        html += "<tr><th>Document</th><th>Pending Pages</th></tr>";
-
-        for (const auto& doc_info : loading_summary.documents) {
-            html += "<tr>";
-            html += "<td>" + QString::fromStdString(doc_info.name) + "</td>";
-            html += "<td>" + format_page_ranges(doc_info.pending_pages) + "</td>";
-            html += "</tr>";
-        }
-        html += "</table>";
-    }
 
     // System stats
     html += "<h4>System Resources</h4>";
@@ -242,42 +215,4 @@ void DevStatusDialog::update_status()
 
     // Restore scroll position
     scroll_bar->setValue(scroll_position);
-}
-
-
-QString format_page_ranges(const std::vector<int>& pages)
-{
-    if (pages.empty())
-        return "";
-
-    // Remove duplicates and sort
-    std::vector<int> sorted_pages = pages;
-    // std::sort(sorted_pages.begin(), sorted_pages.end());
-    // sorted_pages.erase(std::unique(sorted_pages.begin(), sorted_pages.end()), sorted_pages.end());
-
-    QStringList ranges;
-    int start = sorted_pages[0];
-    int end = sorted_pages[0];
-
-    for (size_t i = 1; i < sorted_pages.size(); ++i) {
-        if (sorted_pages[i] == end + 1) {
-            end = sorted_pages[i];
-        } else {
-            if (start == end)
-                ranges << QString::number(start);
-            else
-                ranges << QString("%1-%2").arg(start).arg(end);
-
-            start = sorted_pages[i];
-            end = sorted_pages[i];
-        }
-    }
-
-    // Add the final range
-    if (start == end)
-        ranges << QString::number(start);
-    else
-        ranges << QString("%1-%2").arg(start).arg(end);
-
-    return ranges.join(", ");
 }

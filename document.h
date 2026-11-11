@@ -32,16 +32,12 @@ public:
     void set_is_temporary(bool is_temporary) { is_temporary_ = is_temporary; }
     bool is_temporary() const { return is_temporary_; }
 
-    void kill_load() { kill_loading_ = true; }
-    bool is_fully_loaded() const { return get_pending_pages().empty(); }
-
     std::string filename() const { return filename_.string(); }
     std::filesystem::path path() const { return filename_; }
 
-    int page_count() const { return static_cast<int>(pages_.size()); }
-    int dpi() const { return dpi_; }
+    int page_count() const { return static_cast<int>(page_info_.size()); }
 
-    Page get_page(int page_num, bool is_current) const;
+    Page get_page(int page_num, bool is_current, int width_px) const;
     bool save();
     void wait_for_save();
     bool is_modified() const { return modified_; }
@@ -102,8 +98,6 @@ public:
                                              float new_x,
                                              float new_y);
 
-    void reload_page(int page_num);
-
 
     const PerformanceData& performance_data() const { return performance_data_; }
     PerformanceData& performance_data() { return performance_data_; }
@@ -112,18 +106,7 @@ public:
     // .mrd info file. The full save() also persists bookmarks to the PDF.
     void save_performance_data();
 
-    std::vector<int> get_pending_pages() const;
-    void load_page(int page_num);
-
-    // call when tab has focus, so loading is prioritized, preferably BEFORE
-    // get_page is called.
-    void prioritize() const;
-
-    // Memory management - evict pages far from current position
-    void evict_distant_pages(int keep_window_size = 50);
-
 signals:
-    void page_loaded(std::string name, int page_index);
     void document_loaded(std::string name, int page);
     void bookmarks_loaded();
 
@@ -159,9 +142,7 @@ private:
     std::filesystem::path filename_;
 
     int dpi_;
-    int start_page_;
     mutable int current_page_;
-    std::vector<Page> pages_;
     bool modified_ = false;
     bool is_temporary_ = false;
 
@@ -176,8 +157,6 @@ private:
     std::vector<std::future<void>> save_futures_;
 
     std::recursive_mutex bookmark_mutex_;
-    mutable std::mutex read_mutex_;
-    std::atomic<bool> kill_loading_ {false};
 
     PerformanceData performance_data_;
 };

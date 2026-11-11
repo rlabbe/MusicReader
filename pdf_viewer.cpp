@@ -18,6 +18,20 @@
 #endif
 
 
+namespace {
+
+// Pages are handed to the label in device pixels, while mouse events and widget
+// geometry are in logical pixels. Anything that mixes the two has to convert.
+QSize logical_size(const QPixmap& pixmap)
+{
+    qreal dpr = pixmap.devicePixelRatio();
+    return QSize(qRound(static_cast<qreal>(pixmap.width()) / dpr),
+                 qRound(static_cast<qreal>(pixmap.height()) / dpr));
+}
+
+} // namespace
+
+
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
                      ConfigFile* config,
                      int page,
@@ -35,8 +49,6 @@ PDFViewer::PDFViewer(std::shared_ptr<Document> document,
 {
     setFocusPolicy(Qt::StrongFocus);
     init_ui(page);
-
-    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
 
     // Convert physical page number to index and navigate
     renderer_.goto_physical_page(page);
@@ -185,7 +197,6 @@ void PDFViewer::change_page(int step)
     scrollbar_->setValue(new_index);
     manual_scrollbar_change_ = false;
 
-    document_->prioritize();
     get_page(new_index);
 }
 
@@ -199,8 +210,6 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
         return;
     document_ = document;
     renderer_.replace_document(document_.get());
-    connect(document_.get(), &Document::page_loaded, this, &PDFViewer::on_page_loaded);
-
     // Reloading the same file preserves the page layout (breaks and crops are
     // persisted in the .mrd file), so the current virtual index still
     // identifies the same position, including the segment in performance
@@ -218,10 +227,7 @@ void PDFViewer::replace_document(std::shared_ptr<Document> document, int page)
 
     get_page(index);
 
-    // Paint the loading state immediately. The new document's page_loaded
-    // signal is queued while this handler runs, and queued signals are
-    // processed before paint events, so without this the "Loading..."
-    // placeholder is skipped over and never appears.
+    // Paint immediately so the new page is on screen before this returns.
     label_->repaint();
 }
 
@@ -237,8 +243,10 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
     if (key == Qt::Key_Delete || key == Qt::Key_Backspace) {
         if (selected_annotation_) {
             bool removed = document_->remove_annotation(selected_annotation_);
-            if (removed)
+            if (removed) {
                 clear_selection();
+                get_page(renderer_.current_index());
+            }
             event->accept();
             return;
         }
@@ -308,8 +316,10 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
                     bool larger = (key != Qt::Key_Minus);
                     FontInfo new_font = current->font_info_;
                     new_font.size = next_standard_font_size(new_font.size, larger);
-                    if (new_font.size != current->font_info_.size)
+                    if (new_font.size != current->font_info_.size) {
                         document_->change_annotation_font(selected_annotation_, new_font);
+                        get_page(renderer_.current_index());
+                    }
                 }
                 event->accept();
                 return;
@@ -379,8 +389,16 @@ void PDFViewer::resizeEvent(QResizeEvent* event)
     TRACE_FUNCTION;
 
     QWidget::resizeEvent(event);
-    if (!skip_resize_update_)
-        update_image();
+    if (width() > 0 && height() > 0)
+        laid_out_ = true;
+    if (skip_resize_update_ || !document_ || renderer_.page_count() == 0)
+        return;
+    if (display_width_px() <= 0)
+        return;
+
+    // The page image is rendered at the width it is displayed at, so a new
+    // window size needs a new render. Rescaling the old one would only blur it.
+    get_page(renderer_.current_index());
 }
 
 
@@ -452,8 +470,10 @@ void PDFViewer::delete_shortcut()
         flush_pending_annotation_move();
 
         logger::debug("Deleting annotation with handle {}", static_cast<int>(selected_annotation_));
-        if (document_->remove_annotation(selected_annotation_))
+        if (document_->remove_annotation(selected_annotation_)) {
             clear_selection();
+            get_page(renderer_.current_index());
+        }
         else
             logger::error("Failed to remove annotation with handle {}", static_cast<int>(selected_annotation_));
     } else {
@@ -494,9 +514,9 @@ void PDFViewer::update_scrollbar_visibility()
 }
 
 
-void PDFViewer::prefetch_async(int index)
+void PDFViewer::prefetch_async(int /*index*/)
 {
-    SAFE_METHOD;
+    /*SAFE_METHOD;
     TRACE_CALL;
     REQUIRES(document_);
 
@@ -528,7 +548,7 @@ void PDFViewer::prefetch_async(int index)
             dest = std::move(entry);
             logger::info("Prefetched page index {}", index);
         }
-    }).detach();
+    }).detach();*/
 }
 
 
@@ -670,23 +690,41 @@ PDFViewer::PrefetchEntry PDFViewer::make_double_page_entry(int index, PageReques
     PrefetchEntry entry(index, true, config_->border_margin());
 
     // Get page at this index from renderer
-    Page page1 = renderer_.get_page_at_index(index, request_type);
+    int base_width = display_width_px();
+    Page page1 = renderer_.get_page_at_index(index, request_type, base_width);
     entry.p1 = PixmapPage(page1);
 
     // Get page at next index if it exists
     int count = renderer_.page_count();
     PageRenderer::SegmentRange seg2;
     if (index + 1 <= count) {
-        Page page2 = renderer_.get_page_at_index(index + 1, request_type);
+        Page page2 = renderer_.get_page_at_index(index + 1, request_type, base_width);
         entry.p2 = PixmapPage(page2);
         seg2 = renderer_.get_segment_range(index + 1);
     } else
         copy_blank_image(entry.p1, entry.p2);
 
-    if (!entry.p1.is_empty() && !entry.p2.is_empty()) {
-        const PageRenderer::SegmentRange seg1 = renderer_.get_segment_range(index);
-        entry.rendered = compose_double_page(entry.p1, entry.p2, seg1, seg2);
+    PageRenderer::SegmentRange seg1 = renderer_.get_segment_range(index);
+
+    // Same as single page: each half of the window is what the zoomed crop has
+    // to fill.
+    QSize box = display_box_px();
+    QSize half(box.width() / 2, box.height());
+    int wider1 = zoomed_render_width(entry.p1, seg1, half);
+    if (wider1 > base_width) {
+        Page zoomed = renderer_.get_page_at_index(index, request_type, wider1);
+        if (!zoomed.is_empty())
+            entry.p1 = PixmapPage(zoomed);
     }
+    int wider2 = zoomed_render_width(entry.p2, seg2, half);
+    if (wider2 > base_width) {
+        Page zoomed = renderer_.get_page_at_index(index + 1, request_type, wider2);
+        if (!zoomed.is_empty())
+            entry.p2 = PixmapPage(zoomed);
+    }
+
+    if (!entry.p1.is_empty() && !entry.p2.is_empty())
+        entry.rendered = compose_double_page(entry.p1, entry.p2, seg1, seg2);
 
     return entry;
 }
@@ -703,13 +741,25 @@ PDFViewer::PrefetchEntry PDFViewer::make_single_page_entry(int index, PageReques
     PrefetchEntry entry(index, false, config_->border_margin());
 
     // Get page at this index from renderer
-    Page page = renderer_.get_page_at_index(index, request_type);
+    int base_width = display_width_px();
+    Page page = renderer_.get_page_at_index(index, request_type, base_width);
     entry.p1 = page;
 
     if (entry.p1.is_empty())
         return entry;
 
-    const PageRenderer::SegmentRange seg = renderer_.get_segment_range(index);
+    PageRenderer::SegmentRange seg = renderer_.get_segment_range(index);
+
+    // Zoom-to-content keeps only the ink area, so the page has to be drawn
+    // larger for that area to fill the window. The crop is only known once the
+    // page exists, hence the second render.
+    int wider = zoomed_render_width(entry.p1, seg, display_box_px());
+    if (wider > base_width) {
+        Page zoomed = renderer_.get_page_at_index(index, request_type, wider);
+        if (!zoomed.is_empty())
+            entry.p1 = PixmapPage(zoomed);
+    }
+
     const QRect rect = compute_display_rect(entry.p1, seg);
     entry.rendered = (rect == entry.p1.pixmap.rect()) ? entry.p1.as_pixmap() : entry.p1.pixmap.copy(rect);
     return entry;
@@ -746,6 +796,12 @@ void PDFViewer::get_page(int index)
 
     // Update renderer position
     renderer_.goto_index(index);
+
+    // Until the viewer has been laid out, the label still has Qt's default
+    // size and a render here would produce a tiny page. The first resize does
+    // the real render.
+    if (!laid_out_)
+        return;
 
     const bool is_double = in_double_page_view();
 
@@ -834,59 +890,10 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1,
 }
 
 
-void PDFViewer::on_page_loaded(std::string name, int page_index)
-{
-    SAFE_METHOD;
-    TRACE_CALL_MSG("page_index={}", page_index);
-
-    if (closing_)
-        return;
-
-    if (name != document_->filename())
-        return;
-
-    // Map physical page to index for comparison
-    int current_idx = renderer_.current_index();
-    PageRenderer::Position current_pos = renderer_.index_to_position(current_idx);
-
-    // Check if loaded page is relevant to current display
-    bool relevant = false;
-    if (in_single_page_view()) {
-        relevant = (page_index == current_pos.physical_page);
-    } else {
-        // In double page mode, check if it's current or next page
-        if (page_index == current_pos.physical_page)
-            relevant = true;
-        else if (current_idx + 1 <= renderer_.page_count()) {
-            PageRenderer::Position next_pos = renderer_.index_to_position(current_idx + 1);
-            relevant = (page_index == next_pos.physical_page);
-        }
-    }
-
-    if (!relevant)
-        return;
-
-    skip_resize_update_ = true;
-
-    int count = page_count();
-    if (in_single_page_view() || count == 1) {
-        PrefetchEntry entry = make_single_page_entry(current_idx, PageRequestType::CurrentDisplay);
-        page_ = PixmapPage(entry.rendered, current_pos.physical_page, false);
-        update_image();
-    } else {
-        PrefetchEntry entry = make_double_page_entry(current_idx, PageRequestType::CurrentDisplay);
-        page_ = PixmapPage(entry.rendered, current_pos.physical_page, true);
-        update_image();
-    }
-
-    skip_resize_update_ = false;
-}
-
-
 int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height) const
 {
     // Get the FULL uncropped page to get proper dimensions and border
-    Page full_page = document_->get_page(current_page(), false);
+    Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_height = full_page.height();
     int break_y_full = static_cast<int>(normalized_pos * full_height);
 
@@ -907,7 +914,7 @@ int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height
 double PDFViewer::display_y_to_normalized(int display_y, int display_height) const
 {
     // Get the FULL uncropped page to get proper dimensions and border
-    Page full_page = document_->get_page(current_page(), false);
+    Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_height = full_page.height();
     float click_ratio = static_cast<float>(display_y) / display_height;
 
@@ -928,7 +935,7 @@ double PDFViewer::display_y_to_normalized(int display_y, int display_height) con
 
 int PDFViewer::normalized_to_display_x(double normalized_pos, int display_width) const
 {
-    Page full_page = document_->get_page(current_page(), false);
+    Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_width = full_page.width();
     int x_full = static_cast<int>(normalized_pos * full_width);
 
@@ -944,7 +951,7 @@ int PDFViewer::normalized_to_display_x(double normalized_pos, int display_width)
 
 double PDFViewer::display_x_to_normalized(int display_x, int display_width) const
 {
-    Page full_page = document_->get_page(current_page(), false);
+    Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_width = full_page.width();
     float click_ratio = static_cast<float>(display_x) / display_width;
 
@@ -966,11 +973,60 @@ int PDFViewer::label_pixmap_x_offset() const
     QPixmap displayed = label_->pixmap();
     if (displayed.isNull())
         return 0;
+    // The pixmap is in device pixels; widget coordinates are logical.
+    int shown_width = qRound(displayed.width() / displayed.devicePixelRatio());
     if (page_alignment() == Qt::AlignHCenter)
-        return (label_->width() - displayed.width()) / 2;
+        return (label_->width() - shown_width) / 2;
     if (page_alignment() == Qt::AlignRight)
-        return label_->width() - displayed.width();
+        return label_->width() - shown_width;
     return 0;
+}
+
+
+QSize PDFViewer::display_box_px() const
+{
+    if (!label_ || label_->width() <= 0 || label_->height() <= 0)
+        return {};
+    qreal dpr = label_->devicePixelRatioF();
+    return QSize(qRound(static_cast<qreal>(label_->width()) * dpr),
+                 qRound(static_cast<qreal>(label_->height()) * dpr));
+}
+
+
+int PDFViewer::display_width_px() const
+{
+    QSize box = display_box_px();
+    if (!box.isValid() || !document_)
+        return 0;
+
+    // The page has to fit the label in both directions; sizing it from the
+    // width alone makes it taller than the label, which then clips the bottom.
+    PageRenderer::Position pos = renderer_.index_to_position(renderer_.current_index());
+    auto [page_w_pt, page_h_pt] = document_->get_page_dimensions_points(pos.physical_page);
+    if (page_w_pt <= 0.0f || page_h_pt <= 0.0f)
+        return box.width();
+
+    int across = in_double_page_view() ? 2 : 1;
+    double fit_w = std::min(static_cast<double>(box.width()), static_cast<double>(box.height()) * page_w_pt * across / page_h_pt);
+    return static_cast<int>(fit_w / across);
+}
+
+
+int PDFViewer::zoomed_render_width(const PixmapPage& page, PageRenderer::SegmentRange seg, QSize box) const
+{
+    if (!config_->zoom_to_content() || force_full_page_ || !box.isValid() || page.is_empty())
+        return 0;
+
+    QRect crop = compute_display_rect(page, seg);
+    if (crop.width() <= 0 || crop.height() <= 0)
+        return 0;
+
+    double scale = std::min(static_cast<double>(box.width()) / crop.width(),
+                            static_cast<double>(box.height()) / crop.height());
+    if (scale <= 1.0)
+        return 0;
+
+    return qRound(static_cast<double>(page.width()) * scale);
 }
 
 
@@ -1000,6 +1056,10 @@ void PDFViewer::update_image(const QString& message)
 
     // Use preview image if available (during annotation editing), otherwise use normal page
     QPixmap scaled_pixmap;
+    // True when scaled_pixmap is the page at real pixel size. Its device pixel
+    // ratio is set only after the overlays are drawn: Qt applies the ratio to
+    // painting on the pixmap, which would move every overlay.
+    bool page_shown_at_device_size = false;
     if (preview_page_image_.has_value()) {
         QPixmap preview_pixmap = QPixmap::fromImage(preview_page_image_.value());
 
@@ -1010,11 +1070,11 @@ void PDFViewer::update_image(const QString& message)
             bool preview_is_page2 = (last_click_target_.page_num == current + 1);
 
             // Get the non-preview page
-            Page other_page = document_->get_page(preview_is_page2 ? current : current + 1, false);
+            Page other_page = document_->get_page(preview_is_page2 ? current : current + 1, false, display_width_px());
             QPixmap other_pixmap = other_page.as_pixmap();
 
             // Create PixmapPage for preview (use the target page's border info)
-            Page preview_page_info = document_->get_page(last_click_target_.page_num, false);
+            Page preview_page_info = document_->get_page(last_click_target_.page_num, false, display_width_px());
             PixmapPage preview_pp(preview_pixmap, last_click_target_.page_num, false);
             preview_pp.border = preview_page_info.border;
 
@@ -1057,10 +1117,10 @@ void PDFViewer::update_image(const QString& message)
                 if (in_double_page_view() && current + 1 <= document_->page_count()) {
                     bool moved_is_page2 = (ann->page_num_ == current + 1);
 
-                    Page other_page = document_->get_page(moved_is_page2 ? current : current + 1, false);
+                    Page other_page = document_->get_page(moved_is_page2 ? current : current + 1, false, display_width_px());
                     QPixmap other_pixmap = other_page.as_pixmap();
 
-                    Page moved_page_info = document_->get_page(ann->page_num_, false);
+                    Page moved_page_info = document_->get_page(ann->page_num_, false, display_width_px());
                     PixmapPage moved_pp(moved_pixmap, ann->page_num_, false);
                     moved_pp.border = moved_page_info.border;
 
@@ -1107,13 +1167,16 @@ void PDFViewer::update_image(const QString& message)
 
                 scaled_pixmap = moved_pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
             } else {
-                scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                scaled_pixmap = page_.pixmap;
+                page_shown_at_device_size = true;
             }
         } else {
-            scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            scaled_pixmap = page_.pixmap;
+            page_shown_at_device_size = true;
         }
     } else {
-        scaled_pixmap = page_.pixmap.scaled(label_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        scaled_pixmap = page_.pixmap;
+        page_shown_at_device_size = true;
     }
     // Draw crosshair at last click position (for debugging annotation placement)
     if (ConfigFile::instance().debug_annotations() && !last_click_display_pos_.isNull()) {
@@ -1236,6 +1299,8 @@ void PDFViewer::update_image(const QString& message)
         painter.end();
     }
 
+    if (page_shown_at_device_size)
+        scaled_pixmap.setDevicePixelRatio(devicePixelRatioF());
     label_->setPixmap(scaled_pixmap);
     adjust_initial_subwindow_size();
     // QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
@@ -1389,6 +1454,10 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && text_annotation_mode_) {
         QPixmap displayed = label_->pixmap();
 
+        // The pixmap is in device pixels; mouse and widget coordinates are logical.
+        QSize displayed_size(qRound(displayed.width() / displayed.devicePixelRatio()),
+                             qRound(displayed.height() / displayed.devicePixelRatio()));
+
         // Calculate pixmap coordinates for crosshair (accounting for alignment offset)
         QSize label_size = label_->size();
         int offset_x = 0;
@@ -1396,13 +1465,13 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         Qt::Alignment h_align = page_alignment();
         Qt::Alignment v_align = page_vertical_alignment();
         if (h_align == Qt::AlignHCenter)
-            offset_x = (label_size.width() - displayed.width()) / 2;
+            offset_x = (label_size.width() - displayed_size.width()) / 2;
         else if (h_align == Qt::AlignRight)
-            offset_x = label_size.width() - displayed.width();
+            offset_x = label_size.width() - displayed_size.width();
         if (v_align == Qt::AlignVCenter)
-            offset_y = (label_size.height() - displayed.height()) / 2;
+            offset_y = (label_size.height() - displayed_size.height()) / 2;
         else if (v_align == Qt::AlignBottom)
-            offset_y = label_size.height() - displayed.height();
+            offset_y = label_size.height() - displayed_size.height();
 
         int cursor_offset = 0;
 #ifdef Q_OS_WIN
@@ -1440,13 +1509,13 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         auto [pdf_width_pts, _] = document_->get_page_dimensions_points(last_click_target_.page_num);
         float effective_pdf_width = pdf_width_pts;
         if (config_->zoom_to_content()) {
-            Page full_page = document_->get_page(last_click_target_.page_num, false);
+            Page full_page = document_->get_page(last_click_target_.page_num, false, display_width_px());
             float cropped_width_ratio =
                 static_cast<float>(full_page.border.right - full_page.border.left) / full_page.width();
             effective_pdf_width = cropped_width_ratio * pdf_width_pts;
         }
 
-        float points_to_pixels = static_cast<float>(displayed.width()) / effective_pdf_width;
+        float points_to_pixels = static_cast<float>(displayed_size.width()) / effective_pdf_width;
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
         logger::info("mousePressEvent annotation: event_pos=({},{}) label_size=({},{}) pixmap_size=({},{})",
@@ -1475,6 +1544,8 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y,
                                                    pending_music_symbol_, fi.size,
                                                    cr, cg, cb);
+            // Redraw so the new symbol appears now rather than on the next page change.
+            get_page(renderer_.current_index());
             // Stay in this mode so consecutive clicks place more of the same glyph.
             event->accept();
             return;
@@ -1492,7 +1563,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         if (displayed.isNull())
             return;
 
-        int display_height = displayed.height();
+        int display_height = logical_size(displayed).height();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
 
         // Check if clicking near an existing break (within 5 pixels)
@@ -1530,7 +1601,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         if (displayed.isNull())
             return;
 
-        int display_height = displayed.height();
+        int display_height = logical_size(displayed).height();
 
         // Find and delete the break
         const auto& breaks = document_->performance_data().get_page_breaks(current_page());
@@ -1556,7 +1627,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         if (displayed.isNull())
             return;
 
-        int display_height = displayed.height();
+        int display_height = logical_size(displayed).height();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
         normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
 
@@ -1604,7 +1675,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         if (displayed.isNull())
             return;
 
-        int display_height = displayed.height();
+        int display_height = logical_size(displayed).height();
 
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
         if (crop) {
@@ -1639,7 +1710,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             return;
 
         int click_x = event->pos().x() - label_pixmap_x_offset();
-        int display_width = displayed.width();
+        int display_width = logical_size(displayed).width();
         double normalized_pos = display_x_to_normalized(click_x, display_width);
         normalized_pos = std::clamp(normalized_pos, 0.0, 1.0);
 
@@ -1684,7 +1755,7 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             return;
 
         int click_x = event->pos().x() - label_pixmap_x_offset();
-        int display_width = displayed.width();
+        int display_width = logical_size(displayed).width();
 
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
         if (crop) {
@@ -1723,8 +1794,10 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
                 if (a.handle_ == selected_annotation_) { current = &a; break; }
             if (current) {
                 auto picked = MusicReader::show_font_picker(this, current->font_info_);
-                if (picked)
+                if (picked) {
                     document_->change_annotation_font(selected_annotation_, *picked);
+                    get_page(renderer_.current_index());
+                }
             }
             event->accept();
             return;
@@ -1762,9 +1835,10 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
 
         double normalized_pos;
         if (drag_kind_ == DragKind::CropLeft || drag_kind_ == DragKind::CropRight)
-            normalized_pos = display_x_to_normalized(event->pos().x() - label_pixmap_x_offset(), displayed.width());
+            normalized_pos =
+                display_x_to_normalized(event->pos().x() - label_pixmap_x_offset(), logical_size(displayed).width());
         else
-            normalized_pos = display_y_to_normalized(event->pos().y(), displayed.height());
+            normalized_pos = display_y_to_normalized(event->pos().y(), logical_size(displayed).height());
 
         drag_position_ = std::clamp(normalized_pos, 0.0, 1.0);
         update_image();
@@ -1886,6 +1960,7 @@ void PDFViewer::on_annotation_text_finished(const QString& text)
         Annotation annotation(text.toStdString(), last_click_target_.page_num, last_click_target_.points_x,
                               last_click_target_.points_y, width_points, height_points, font_info);
         document_->add_annotation(annotation);
+        get_page(renderer_.current_index());
 
         // Save text for debug rendering
         last_annotation_text_ = text;
@@ -1994,8 +2069,9 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
 
     // The pixmap is aligned within the label, so calculate the actual pixmap position
     QSize label_size = label_->size();
-    int pixmap_width = displayed.width();
-    int pixmap_height = displayed.height();
+    // The pixmap is in device pixels; mouse and widget coordinates are logical.
+    int pixmap_width = qRound(displayed.width() / displayed.devicePixelRatio());
+    int pixmap_height = qRound(displayed.height() / displayed.devicePixelRatio());
 
     // Calculate offset due to alignment (centered or left/top aligned)
     int offset_x = 0;
@@ -2028,8 +2104,8 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
 
     if (double_page && target_page + 1 <= document_->page_count()) {
         constexpr int line_width = 8; // Must match compose_double_page()
-        Page p1 = document_->get_page(target_page, false);
-        Page p2 = document_->get_page(target_page + 1, false);
+        Page p1 = document_->get_page(target_page, false, display_width_px());
+        Page p2 = document_->get_page(target_page + 1, false, display_width_px());
         int margin = config_->border_margin();
 
         // Calculate dimensions at render DPI (before scaling)
@@ -2080,7 +2156,7 @@ PDFViewer::ClickTarget PDFViewer::get_click_target(QMouseEvent* event) const
     }
 
     // Get the full page to check for border/cropping
-    Page full_page = document_->get_page(target_page, false);
+    Page full_page = document_->get_page(target_page, false, display_width_px());
     auto [pdf_width_points, pdf_height_points] = document_->get_page_dimensions_points(target_page);
 
     // Calculate click ratio in display space (relative to this page's display area)
@@ -2210,7 +2286,7 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     int y_offset = 0;
 
     bool zoom_mode = config_ && config_->zoom_to_content();
-    Page full_page = document_->get_page(annot_page, false);
+    Page full_page = document_->get_page(annot_page, false, display_width_px());
     float full_width = full_page.width();
     float full_height = full_page.height();
 
@@ -2234,13 +2310,15 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     }
 
     // Calculate offsets for double-page mode
+    // This function returns coordinates in the displayed pixmap's pixels, which
+    // are device pixels, so no logical conversion here.
     float page_display_width = static_cast<float>(displayed.width());
     float page_display_height = static_cast<float>(displayed.height());
 
     if (double_page && current_page_num + 1 <= document_->page_count()) {
         constexpr int line_width = 8;
-        Page p1 = document_->get_page(current_page_num, false);
-        Page p2 = document_->get_page(current_page_num + 1, false);
+        Page p1 = document_->get_page(current_page_num, false, display_width_px());
+        Page p2 = document_->get_page(current_page_num + 1, false, display_width_px());
         int margin = config_->border_margin();
 
         int p1_render_width, p1_render_height, p2_render_width, p2_render_height;
@@ -2468,8 +2546,8 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
     bool zoom_mode = config_ && config_->zoom_to_content();
 
     if (double_page && current + 1 <= document_->page_count()) {
-        Page p1 = document_->get_page(current, false);
-        Page p2 = document_->get_page(current + 1, false);
+        Page p1 = document_->get_page(current, false, display_width_px());
+        Page p2 = document_->get_page(current + 1, false, display_width_px());
         int margin = config_->border_margin();
         constexpr int line_width = 8;
 
@@ -2523,7 +2601,7 @@ void PDFViewer::move_selected_annotation(int dx_pixels, int dy_pixels)
     }
 
     if (zoom_mode) {
-        Page full_page = document_->get_page(annotation->page_num_, false);
+        Page full_page = document_->get_page(annotation->page_num_, false, display_width_px());
         float cropped_width_ratio =
             static_cast<float>(full_page.border.right - full_page.border.left) / full_page.width();
         float cropped_height_ratio =
@@ -2576,7 +2654,7 @@ void PDFViewer::flush_pending_annotation_move()
 
     // Reload page so annotation renders in new position
     if (page_num > 0)
-        document_->reload_page(page_num);
+        get_page(renderer_.current_index());
 }
 
 

@@ -120,7 +120,6 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
 
 private slots:
-    void on_page_loaded(std::string name, int page_index);
     void on_annotation_text_finished(const QString& text);
     void on_annotation_text_cancelled();
     void on_annotation_text_changed(const QString& text);
@@ -203,6 +202,15 @@ private:
     int normalized_to_display_x(double normalized_pos, int display_width) const;
     double display_x_to_normalized(int display_x, int display_width) const;
     int label_pixmap_x_offset() const;
+    // Width in real pixels that a page is drawn at. Pages are rendered at this
+    // width, so nothing has to be scaled down for display.
+    int display_width_px() const;
+    // Label size in real pixels.
+    QSize display_box_px() const;
+    // Width to render the page at so that, after zoom-to-content cropping, the
+    // visible area fills `box` instead of being scaled up. 0 when no wider
+    // render is needed.
+    int zoomed_render_width(const PixmapPage& page, PageRenderer::SegmentRange seg, QSize box) const;
     void update_image(const QString& message = QString());
     Qt::AlignmentFlag page_alignment() const;
     Qt::AlignmentFlag page_vertical_alignment() const;
@@ -242,6 +250,9 @@ private:
     bool dragging_annotation_ = false;
     QPoint drag_start_pos_;
     bool skip_resize_update_ = false;
+    // Set by the first resize. Before that the label has Qt's default size,
+    // which would render a tiny page.
+    bool laid_out_ = false;
     bool closing_ = false;
     bool dirty_ = false;
 

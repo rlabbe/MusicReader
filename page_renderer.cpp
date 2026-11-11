@@ -100,13 +100,13 @@ void PageRenderer::goto_physical_page(int physical_page)
 }
 
 
-Page PageRenderer::get_current_page() const
+Page PageRenderer::get_current_page(int width_px) const
 {
     if (!document_)
         return Page(1);
 
     Position pos = index_to_position(current_index_);
-    Page page = document_->get_page(pos.physical_page, true);
+    Page page = document_->get_page(pos.physical_page, true, width_px);
 
     if (PerformanceMode::is_performance()) {
         int seg_count = segment_count(pos.physical_page);
@@ -258,7 +258,7 @@ PageRenderer::SegmentRange PageRenderer::get_segment_range(int index) const
 }
 
 
-Page PageRenderer::get_page_at_index(int index, PageRequestType request_type) const
+Page PageRenderer::get_page_at_index(int index, PageRequestType request_type, int width_px) const
 {
     if (!document_)
         return Page(1);
@@ -269,7 +269,7 @@ Page PageRenderer::get_page_at_index(int index, PageRequestType request_type) co
 
     Position pos = index_to_position(index);
     bool is_current = (request_type == PageRequestType::CurrentDisplay);
-    Page page = document_->get_page(pos.physical_page, is_current);
+    Page page = document_->get_page(pos.physical_page, is_current, width_px);
 
     if (PerformanceMode::is_performance()) {
         int seg_count = segment_count(pos.physical_page);

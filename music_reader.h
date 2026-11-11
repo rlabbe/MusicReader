@@ -6,7 +6,6 @@
 #include <filesystem>
 
 #include "config_file.h"
-#include "document_load_manager.h"
 #include "font_info.h"
 
 class BookmarkPanel;
@@ -151,7 +150,6 @@ private:
     void apply_metronome_state_to_dialog();
     void on_metronome_state_changed();
     void flush_metronome_save();
-    void save_current_page_as_bmp();
 
     void open_fast_search_dialog();
     void open_config_dialog();
@@ -217,8 +215,6 @@ private:
     void setup_mouse_hiding();
     void reset_cursor_timer();
     bool handle_mouse_movement(QObject* watched, QEvent* event);
-
-    void update_document_priority_order();
 
     void toggle_tab_visibility();
 
@@ -309,7 +305,6 @@ private:
     bool fast_search_initialized_ = false;
 
     bool restoring_documents_ = false;
-    DocumentLoadManager load_manager_;
 
     FileViewer* m_logViewer = nullptr;
 

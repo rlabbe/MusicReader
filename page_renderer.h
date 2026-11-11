@@ -62,11 +62,11 @@ public:
     // Get the page to display at current position
     // In normal mode: returns the full page
     // In performance mode: returns the cropped page for current segment
-    Page get_current_page() const;
+    Page get_current_page(int width_px) const;
 
     // Get the page at a specific index without changing current position
     // Used for both current display and prefetching
-    Page get_page_at_index(int index, PageRequestType request_type = PageRequestType::Prefetch) const;
+    Page get_page_at_index(int index, PageRequestType request_type, int width_px) const;
 
     // Map an index to physical page and segment (for UI callbacks)
     struct Position {

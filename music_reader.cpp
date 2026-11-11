@@ -60,8 +60,6 @@ protected:
 MusicReader::MusicReader(QWidget* parent)
     : QMainWindow(parent)
     , config_(ConfigFile::instance())
-    , load_manager_(std::min(80, (int)std::thread::hardware_concurrency()))
-    //, load_manager_(1)
 {
 #if !defined(NDEBUG)
     logger::initialize(true, config_, 1024);
@@ -199,9 +197,6 @@ void MusicReader::on_reload_document()
         doc->wait_for_save();
     }
 
-    doc->kill_load();
-    load_manager_.remove_document(doc->filename());
-
     PDFViewer* reloaded_viewer = open_pdf_in_tab(doc->filename(), page_num, viewer);
 
     // If the PDF was generated externally (say, by musescore), the bookmarks
@@ -261,8 +256,6 @@ MusicReader::open_pdf_in_tab(const std::filesystem::path& filename, int page, PD
 
     save_open_documents_to_config();
 
-    load_manager_.add_document(doc);
-
     viewer->refresh();
     QTimer::singleShot(5000, this, [this] {
         update_memory_usage();
@@ -287,7 +280,6 @@ std::shared_ptr<Document> MusicReader::open_pdf_document(const std::filesystem::
             bookmark_panel_->populate();
             update_background();
         });
-        load_manager_.add_document(doc);
         return doc;
     } catch (const std::exception& e) {
         logger::error("Error opening document {}: {}", filename.string(), e.what());
@@ -338,8 +330,6 @@ void MusicReader::restore_open_documents()
     int tab_to_focus = config_.open_tab();
 
     {
-        DocumentLoadManagerGuard guard;
-
         // Sort documents by tab_order to restore correct tab positions
         auto sorted_docs = docs_info;
         std::sort(sorted_docs.begin(), sorted_docs.end(), [](const OpenDocument& a, const OpenDocument& b) {
@@ -405,34 +395,9 @@ void MusicReader::restore_open_documents()
         QApplication::processEvents();
     }
 
-    update_document_priority_order();
     bookmark_panel_->adjust_width();
     update_background();
 }
-
-void MusicReader::update_document_priority_order()
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    std::vector<std::filesystem::path> ordered_docs;
-
-    auto current_doc = current_document();
-    if (current_doc)
-        ordered_docs.push_back(current_doc->filename());
-
-    for (const auto& open_doc : config_.open_documents()) {
-        std::filesystem::path doc_path = open_doc.filename;
-        if (current_doc && doc_path == current_doc->filename())
-            continue;
-
-        if (doc_is_open(doc_path))
-            ordered_docs.push_back(doc_path);
-    }
-    logger::trace("first doc in priority order: {}", ordered_docs.empty() ? "none" : ordered_docs[0].string());
-    load_manager_.set_document_priority_order(ordered_docs);
-}
-
 
 // SCREEN/DRAWING STUFF
 void MusicReader::on_screen_geometry_changed(const QRect& geometry)
@@ -460,7 +425,6 @@ void MusicReader::closeEvent(QCloseEvent* event)
     TRACE_FUNCTION;
 
 
-    load_manager_.stop_loading();
     DevStatusDialog::close_if_open();
     flush_metronome_save();
     save_config();
@@ -1012,10 +976,8 @@ void MusicReader::on_tab_current_changed()
 
     if (!restoring_documents_) {
         auto doc = current_document();
-        if (doc) {
+        if (doc)
             config_.update_document_access(doc->filename());
-            update_document_priority_order();
-        }
     }
 }
 
@@ -1033,11 +995,8 @@ void MusicReader::on_close_tab(int index)
     TRACE_FUNCTION;
 
     auto doc = document_at(index);
-    if (doc) {
-        doc->kill_load();
-        load_manager_.remove_document(doc->filename());
+    if (doc)
         config_.add_recent_document(doc->filename());
-    }
 
     QWidget* widget_to_remove = tab_widget_->widget(index);
     if (widget_to_remove) {
@@ -2222,49 +2181,6 @@ void MusicReader::flush_metronome_save()
     metronome_save_pending_doc_.reset();*/
 }
 
-void MusicReader::save_current_page_as_bmp()
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    auto doc = current_document();
-    if (!doc) {
-        display_error_message("No document open");
-        return;
-    }
-
-    auto [page_num, valid] = current_page();
-    if (!valid) {
-        display_error_message("Could not determine current page");
-        return;
-    }
-
-    Page page = doc->get_page(page_num, true);
-    if (page.is_empty()) {
-        display_error_message("Page image is empty");
-        return;
-    }
-
-    std::filesystem::path doc_path = doc->path();
-    std::filesystem::path dir = doc_path.parent_path();
-    std::string stem = doc_path.stem().string();
-    std::string filename = stem + "_" + std::to_string(page_num) + ".bmp";
-    std::filesystem::path output_path = dir / filename;
-
-    // Convert to grayscale if the source is grayscale to preserve format
-    QImage img_to_save = page.img;
-    if (page.img.format() == QImage::Format_Grayscale8 || page.img.format() == QImage::Format_Grayscale16) {
-        img_to_save = page.img.convertToFormat(QImage::Format_Grayscale8);
-    }
-
-    QString qpath = QString::fromStdWString(output_path.wstring());
-    if (img_to_save.save(qpath, "BMP")) {
-        logger::info("Saved page {} to {} (format: {})", page_num, output_path.string(),
-                     static_cast<int>(page.img.format()));
-    } else {
-        display_error_message("Failed to save image to " + output_path.string());
-    }
-}
 
 void MusicReader::open_file_dialog_default_path()
 {
@@ -2579,13 +2495,6 @@ void MusicReader::create_edit_menu(auto* menu_bar)
     if (text_annotation_action_) {
         text_annotation_action_->setText("Text &Annotation Mode");
         edit_menu_->addAction(text_annotation_action_);
-    }
-
-    if (config_.in_dev_mode()) {
-        edit_menu_->addSeparator();
-        auto* save_image_action = new QAction("Save Image", this);
-        connect(save_image_action, &QAction::triggered, this, &MusicReader::save_current_page_as_bmp);
-        edit_menu_->addAction(save_image_action);
     }
 
     connect(edit_menu_, &QMenu::aboutToShow, this, [this, set_bookmarks_action, save_bookmarks_action]() {

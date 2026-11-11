@@ -87,7 +87,9 @@ inline std::pair<fz_context*, fz_document*> open_fitz(const std::filesystem::pat
         return {nullptr, nullptr};
     fz_try(ctx)
     {
-        fz_set_aa_level(ctx, 0);
+        // Pages are now rendered at the size they are displayed at, so nothing
+        // smooths the raster afterwards; the rasterizer has to do it.
+        fz_set_aa_level(ctx, 8);
         fz_register_document_handlers(ctx);
     }
     fz_catch(ctx)

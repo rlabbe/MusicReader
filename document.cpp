@@ -16,7 +16,6 @@
 #include "annotation_coords.h"
 #include "bookmark.h"
 #include "document_info.h"
-#include "document_load_manager.h"
 #pragma warning(push, 1)
 #include <mupdf/pdf.h>
 #pragma warning(pop)
@@ -24,13 +23,11 @@
 #include "exception_logger.h"
 #include <fstream>
 #include <qmessagebox.h>
-#include "config_file.h"
 
 
 Document::Document(std::filesystem::path filename, int dpi, int start_page)
     : filename_(std::move(filename))
     , dpi_(dpi)
-    , start_page_(start_page)
     , current_page_(start_page)
 {
     ++unique_id;
@@ -45,8 +42,6 @@ Document::Document(std::filesystem::path filename, int dpi, int start_page)
 Document::~Document()
 {
     TRACE_FUNCTION_MSG("document({})", id);
-
-    kill_loading_ = true;
 
     if (is_temporary()) {
         std::filesystem::remove(filename_);
@@ -78,11 +73,11 @@ Document::~Document()
 }
 
 
-Page Document::get_page(int page_num, bool is_current) const
+Page Document::get_page(int page_num, bool is_current, int width_px) const
 {
     SAFE_METHOD;
-    TRACE_FUNCTION_MSG("Document({}) Requesting page {} of {}, is_current={}", id, page_num, filename_.string(),
-                       is_current);
+    TRACE_FUNCTION_MSG("Document({}) Requesting page {} of {}, is_current={}, width={}", id, page_num,
+                       filename_.string(), is_current, width_px);
 
     if (is_current)
         current_page_ = page_num;
@@ -96,28 +91,38 @@ Page Document::get_page(int page_num, bool is_current) const
         else
             page_num = 1;
     }
-    if (is_current) {
-        bool need_to_request = false;
-        {
-            std::lock_guard lock(read_mutex_);
-            if (pages_[page_num - 1].is_empty())
-                need_to_request = true;
-        }
-        if (need_to_request)
-            prioritize();
+
+    bool have_size = page_num - 1 < static_cast<int>(page_info_.size());
+    float width_points = have_size ? page_info_[page_num - 1].width_points : 0.0f;
+    if (width_px <= 0 || width_points <= 0.0f) {
+        logger::error("Cannot render page {} at width {}", page_num, width_px);
+        return Page(page_num);
+    }
+    int render_dpi = static_cast<int>(static_cast<float>(width_px) * 72.0f / width_points + 0.5f);
+
+    auto [ctx, doc] = open_fitz(filename_.string());
+    if (!ctx || !doc)
+        return Page(page_num);
+
+    std::atomic<bool> quit_now {false};
+    QImage img;
+    fz_try(ctx)
+    {
+        img = render_page(ctx, doc, page_num - 1, render_dpi, quit_now);
+    }
+    fz_catch(ctx)
+    {
+        logger::error("MuPDF exception loading page {}: {}", page_num, fz_caught_message(ctx));
+        close_fitz(ctx, doc);
+        return Page(page_num);
     }
 
-    return pages_[page_num - 1];
-}
+    close_fitz(ctx, doc);
 
+    if (img.isNull())
+        return Page(page_num);
 
-void Document::prioritize() const
-{
-    SAFE_METHOD;
-    TRACE_FUNCTION;
-
-    if (auto* manager = DocumentLoadManager::instance())
-        manager->prioritize_page(filename_);
+    return Page(img, find_content_edges(img), page_num, false);
 }
 
 
@@ -159,10 +164,6 @@ void Document::initialize_document()
         return;
     }
 
-    pages_.resize(total_pages);
-    for (int i = 0; i < total_pages; ++i)
-        pages_[i].page_num = i + 1;
-
     page_info_.resize(total_pages);
     for (int i = 0; i < total_pages; ++i) {
         fz_page* page = nullptr;
@@ -182,21 +183,6 @@ void Document::initialize_document()
     }
 
     close_fitz(ctx, doc);
-
-    if (ConfigFile::instance().adaptive_dpi()) {
-        float max_area_pts = 0.0f;
-        for (const auto& info : page_info_)
-            max_area_pts = std::max(max_area_pts, info.width_points * info.height_points);
-        if (max_area_pts > 0.0f) {
-            constexpr float target_megapixels = 50.0f;
-            constexpr float pts_per_inch = 72.0f;
-            float dpi_from_budget =
-                std::sqrt(target_megapixels * 1.0e6f * pts_per_inch * pts_per_inch / max_area_pts);
-            dpi_ = std::max(72, static_cast<int>(dpi_from_budget));
-            logger::info("Document({}) adaptive dpi: {} (max_page_area_pts={}, target_MP={})", id, dpi_, max_area_pts,
-                         target_megapixels);
-        }
-    }
 
     performance_data_ = document_info::read_performance(filename_);
 
@@ -233,108 +219,6 @@ std::vector<int> get_page_load_order(int start_page, int total_pages, const std:
         load_order.push_back(i);
 
     return load_order;
-}
-
-
-std::vector<int> Document::get_pending_pages() const
-{
-    std::lock_guard<std::mutex> lock(read_mutex_);
-
-    // Get all pending pages
-    std::vector<int> pending;
-    for (int i = 0; i < page_count(); ++i) {
-        if (pages_[i].is_empty())
-            pending.push_back(i + 1);
-    }
-
-    if (pending.empty())
-        return pending;
-
-    // Convert to set for fast lookups
-    std::unordered_set<int> pending_set(pending.begin(), pending.end());
-
-    // Get load order starting from start_page
-    auto load_order = get_page_load_order(current_page_, page_count(), filename());
-
-    // Return pending pages in load order
-    std::vector<int> ordered_pending;
-    for (int page : load_order) {
-        if (pending_set.contains(page))
-            ordered_pending.push_back(page);
-    }
-
-    // Sort and check for duplicates
-    std::vector<int> sorted_result = ordered_pending;
-    std::sort(sorted_result.begin(), sorted_result.end());
-
-    // Check for duplicates - set breakpoint here
-    for (size_t i = 1; i < sorted_result.size(); ++i) {
-        if (sorted_result[i] == sorted_result[i - 1]) {
-            // Duplicate found - breakpoint here
-            int duplicate_page = sorted_result[i];
-            (void)duplicate_page; // Prevent unused variable warning
-        }
-    }
-
-    return ordered_pending;
-}
-
-
-void Document::load_page(int page_num)
-{
-    SAFE_METHOD;
-    TRACE_CALL_MSG("doc {} file: {} page: {}", id, filename_.string(), page_num);
-
-    if (kill_loading_ || page_num < 1 || page_num > page_count())
-        return;
-
-    {
-        std::lock_guard lock(read_mutex_);
-        if (!pages_[page_num - 1].is_empty())
-            return;
-    }
-
-    auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc)
-        return;
-
-    QImage img;
-    fz_try(ctx)
-    {
-        img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
-    }
-    fz_catch(ctx)
-    {
-        logger::error("MuPDF exception loading page {}: {}", page_num, fz_caught_message(ctx));
-        close_fitz(ctx, doc);
-        return;
-    }
-
-    close_fitz(ctx, doc);
-
-    if (kill_loading_)
-        return;
-
-    int sleep = ConfigFile::instance().page_load_delay();
-    if (sleep > 0) {
-        static bool warned = false;
-        if (!warned) {
-            logger::info("Page load delay of {} ms enabled", sleep);
-            warned = true;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
-    }
-
-
-    Border border = find_content_edges(img);
-
-    {
-        std::lock_guard lock(read_mutex_);
-        pages_[page_num - 1] = Page(img, border, page_num, false);
-    }
-
-    logger::debug("emitting page_loaded {} {}", filename_.string(), page_num);
-    emit page_loaded(filename_.string(), page_num);
 }
 
 
@@ -849,7 +733,6 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
         annotations_.push_back(ann);
     }
 
-    reload_page(page_num);
     return true;
 }
 
@@ -890,7 +773,6 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
                 annotation->font_info_ = new_font;
         }
         bool ok = update_annotation_in_pdf(*old_ann, new_ann);
-        reload_page(page_num);
         return ok;
     }
 
@@ -943,7 +825,6 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
         }
     }
 
-    reload_page(page_num);
     return true;
 }
 
@@ -953,7 +834,6 @@ bool Document::add_annotation(const Annotation& annotation)
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    int page_num = annotation.page_num_;
     Annotation ann_copy = annotation;
 
     bool save_success = add_annotation_to_pdf(ann_copy);
@@ -963,7 +843,6 @@ bool Document::add_annotation(const Annotation& annotation)
         annotations_.push_back(ann_copy); // Use copy with updated rect from PDF
     }
 
-    reload_page(page_num);
     return save_success;
 }
 
@@ -973,7 +852,6 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
     TRACE_FUNCTION;
 
     std::optional<Annotation> ann_copy;
-    int page_num = -1;
     {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
@@ -987,12 +865,10 @@ bool Document::remove_annotation(const AnnotationHandle& handle)
         }
 
         ann_copy = *it;
-        page_num = ann_copy->page_num_;
         annotations_.erase(it);
     }
 
     bool save_success = delete_annotation_from_pdf(*ann_copy);
-    reload_page(page_num);
     return save_success;
 }
 
@@ -1003,7 +879,6 @@ bool Document::edit_text_annotation(const AnnotationHandle& handle, const std::s
 
     std::optional<Annotation> old_ann;
     std::optional<Annotation> new_ann;
-    int page_num = -1;
     {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
@@ -1014,11 +889,9 @@ bool Document::edit_text_annotation(const AnnotationHandle& handle, const std::s
         old_ann = *annotation;
         annotation->text_ = new_text;
         new_ann = *annotation;
-        page_num = annotation->page_num_;
     }
 
     bool save_success = update_annotation_in_pdf(*old_ann, *new_ann);
-    reload_page(page_num);
     return save_success;
 }
 
@@ -1030,7 +903,6 @@ bool Document::move_annotation(const AnnotationHandle& handle, float new_x, floa
 
     std::optional<Annotation> old_ann;
     std::optional<Annotation> new_ann;
-    int page_num = -1;
     {
         std::lock_guard<std::recursive_mutex> lock(bookmark_mutex_);
 
@@ -1042,11 +914,9 @@ bool Document::move_annotation(const AnnotationHandle& handle, float new_x, floa
         annotation->x_ = new_x;
         annotation->y_ = new_y;
         new_ann = *annotation;
-        page_num = annotation->page_num_;
     }
 
     bool save_success = update_annotation_in_pdf(*old_ann, *new_ann, /*preserve_appearance=*/true);
-    reload_page(page_num);
     return save_success;
 }
 
@@ -1096,43 +966,6 @@ bool Document::save_moved_annotation(const AnnotationHandle& handle, float origi
     }
 
     return update_annotation_in_pdf(*old_ann, *new_ann, /*preserve_appearance=*/true);
-}
-
-
-void Document::reload_page(int page_num)
-{
-    SAFE_METHOD;
-    TRACE_CALL;
-
-    if (page_num < 1 || page_num > page_count())
-        return;
-
-    auto [ctx, doc] = open_fitz(filename_.string());
-    if (!ctx || !doc)
-        return;
-
-    QImage img;
-    fz_try(ctx)
-    {
-        img = render_page(ctx, doc, page_num - 1, dpi_, kill_loading_);
-    }
-    fz_catch(ctx)
-    {
-        logger::error("MuPDF exception reloading page {}: {}", page_num, fz_caught_message(ctx));
-        close_fitz(ctx, doc);
-        return;
-    }
-
-    close_fitz(ctx, doc);
-
-    Border border = find_content_edges(img);
-
-    {
-        std::lock_guard lock(read_mutex_);
-        pages_[page_num - 1] = Page(img, border, page_num, false);
-    }
-    logger::debug("emiting page_loader {} {}", filename_.string(), page_num);
-    emit page_loaded(filename_.string(), page_num);
 }
 
 
