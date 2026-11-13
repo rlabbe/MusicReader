@@ -634,6 +634,7 @@ void test_bravura_freetext()
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
+    logger::install_crash_handler();
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     // test_create_blank_pdf();

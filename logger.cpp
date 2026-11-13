@@ -11,8 +11,236 @@
 #include "config_file.h"
 #include "exception_logger.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+#endif
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
+
+
 // put here to avoid including spdlog.h in the header file
 static std::shared_ptr<spdlog::logger> logger_;
+
+
+namespace {
+
+#ifdef _WIN32
+std::string process_executable_path()
+{
+    wchar_t buffer[MAX_PATH] {};
+    DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+    if (length == 0)
+        return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, buffer, static_cast<int>(length), nullptr, 0, nullptr, nullptr);
+    std::string path(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, buffer, static_cast<int>(length), path.data(), needed, nullptr, nullptr);
+    return path;
+}
+
+
+// Names one address as module+offset and, when the pdb is next to the exe, as
+// symbol+offset.
+std::string describe_address(DWORD64 address)
+{
+    std::string text = std::format("0x{:016X}", address);
+
+    IMAGEHLP_MODULE64 module {};
+    module.SizeOfStruct = sizeof(module);
+    if (SymGetModuleInfo64(GetCurrentProcess(), address, &module) && module.BaseOfImage != 0)
+        text += std::format(" {}+0x{:X}", std::string_view(module.ModuleName), address - module.BaseOfImage);
+
+    char storage[sizeof(SYMBOL_INFO) + 512] {};
+    auto* symbol = reinterpret_cast<SYMBOL_INFO*>(storage);
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+    symbol->MaxNameLen = 511;
+    DWORD64 displacement = 0;
+    if (SymFromAddr(GetCurrentProcess(), address, &displacement, symbol))
+        text += std::format(" {}+0x{:X}", std::string_view(symbol->Name), displacement);
+
+    return text;
+}
+
+
+// The bytes the cpu was trying to execute, which often says what kind of
+// object was being touched.
+std::string format_instruction_bytes(DWORD64 address)
+{
+    unsigned char bytes[16] {};
+    SIZE_T count = 0;
+    if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), bytes, sizeof(bytes), &count) ||
+        count == 0)
+        return "unreadable";
+
+    std::string text;
+    for (SIZE_T i = 0; i < count; ++i)
+        text += std::format("{}{:02X}", i == 0 ? "" : " ", bytes[i]);
+    return text;
+}
+
+
+void log_registers(EXCEPTION_POINTERS* info)
+{
+    if (!info || !info->ContextRecord)
+        return;
+    const CONTEXT* context = info->ContextRecord;
+    logger::error("FATAL: rip=0x{:016X} rsp=0x{:016X} rbp=0x{:016X}", context->Rip, context->Rsp, context->Rbp);
+    logger::error("FATAL: instruction bytes {}", format_instruction_bytes(context->Rip));
+}
+
+
+// SetUnhandledExceptionFilter is not called for a stack overflow: there is no
+// stack left to run it on. A vectored handler runs earlier and can still write
+// a line, provided a little stack was reserved up front.
+LONG CALLBACK on_stack_overflow(EXCEPTION_POINTERS* info)
+{
+    if (info && info->ExceptionRecord && info->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+        logger::error("FATAL: stack overflow on thread {}", GetCurrentThreadId());
+        logger::flush();
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+
+std::string narrow(const wchar_t* text)
+{
+    if (!text)
+        return {};
+    const int needed = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 1)
+        return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), needed, nullptr, nullptr);
+    out.pop_back();
+    return out;
+}
+
+
+void on_pure_call()
+{
+    logger::error("FATAL: pure virtual function call");
+    logger::flush();
+}
+
+
+void on_invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line,
+                          uintptr_t /*reserved*/)
+{
+    logger::error("FATAL: invalid parameter {} in {} at {}:{}", narrow(expression), narrow(function), narrow(file), line);
+    logger::flush();
+}
+
+// The stack at the point the filter was entered, which still contains the
+// frames that faulted.
+void log_stack_trace()
+{
+    void* frames[64] {};
+    const USHORT count = CaptureStackBackTrace(0, 64, frames, nullptr);
+    for (USHORT i = 0; i < count; ++i)
+        logger::error("  #{:<2} {}", i, describe_address(reinterpret_cast<DWORD64>(frames[i])));
+}
+
+
+// Saves the state of the process to a file that Visual Studio can open. The
+// file holds the call stack of every thread, so the line that crashed can be
+// found without reproducing it under a debugger.
+std::string write_crash_dump(EXCEPTION_POINTERS* info)
+{
+    const std::filesystem::path directory = std::filesystem::path(logger::log_file_path()).parent_path();
+
+    SYSTEMTIME now {};
+    GetLocalTime(&now);
+    const std::string name = std::format("MusicReader-crash-{:04}{:02}{:02}-{:02}{:02}{:02}.dmp", now.wYear,
+                                         now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond);
+    const std::filesystem::path path = directory.empty() ? std::filesystem::path(name) : directory / name;
+
+    HANDLE file = CreateFileW(path.wstring().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+                              nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return {};
+
+    MINIDUMP_EXCEPTION_INFORMATION exception_info {};
+    exception_info.ThreadId = GetCurrentThreadId();
+    exception_info.ExceptionPointers = info;
+    exception_info.ClientPointers = FALSE;
+
+    const auto type = static_cast<MINIDUMP_TYPE>(MiniDumpWithThreadInfo | MiniDumpWithDataSegs);
+    const BOOL written = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file, type,
+                                           info ? &exception_info : nullptr, nullptr, nullptr);
+    CloseHandle(file);
+
+    if (!written) {
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+        return {};
+    }
+    return path.string();
+}
+
+
+// Runs while the process is dying: the logger still works, so this is the only
+// chance to say what killed it.
+LONG WINAPI crash_filter(EXCEPTION_POINTERS* info)
+{
+    const DWORD code = (info && info->ExceptionRecord) ? info->ExceptionRecord->ExceptionCode : 0;
+    const auto address = (info && info->ExceptionRecord)
+                             ? reinterpret_cast<DWORD64>(info->ExceptionRecord->ExceptionAddress)
+                             : 0;
+
+    // Symbols: the pdb sits beside the exe in the build output directory.
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+    const bool have_symbols = SymInitialize(GetCurrentProcess(), nullptr, TRUE) != FALSE;
+
+    logger::error("FATAL: unhandled exception 0x{:08X} at {} on thread {}", code,
+                  have_symbols ? describe_address(address) : std::format("0x{:X}", address),
+                  GetCurrentThreadId());
+
+    if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
+        const ULONG_PTR operation = info->ExceptionRecord->ExceptionInformation[0];
+        const ULONG_PTR target = info->ExceptionRecord->ExceptionInformation[1];
+        logger::error("FATAL: {} of address 0x{:X}",
+                      operation == 0 ? "read" : (operation == 1 ? "write" : "execute"), target);
+    }
+
+    log_registers(info);
+
+    if (have_symbols)
+        log_stack_trace();
+
+    const std::string dump = write_crash_dump(info);
+    if (dump.empty())
+        logger::error("FATAL: crash dump could not be written, GetLastError={}", GetLastError());
+    else
+        logger::error("FATAL: crash dump written to {}", dump);
+
+    logger::flush();
+
+    // Let Windows do whatever it is configured to do (crash dialog, WER, dump).
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+
+void log_terminate()
+{
+    std::string message = "FATAL: std::terminate";
+    if (auto current = std::current_exception()) {
+        try {
+            std::rethrow_exception(current);
+        } catch (const std::exception& ex) {
+            message += std::format(": {}", ex.what());
+        } catch (...) {
+            message += ": unknown exception";
+        }
+    }
+    logger::error(message);
+    logger::flush();
+    std::abort();
+}
+
+} // namespace
 
 
 static std::string get_persistent_config_path(const std::string& file_name,
@@ -84,11 +312,30 @@ void logger::configure_logger(const std::string& filename, size_t max_size_kb, b
         spdlog::register_logger(logger_);
         logger_->set_level(spdlog::level::info);
         set_high_precision(logger_, false, false);
-        // logger_->flush_on(spdlog::level::info);
-        spdlog::flush_every(std::chrono::seconds(5));
+        // A crash loses whatever is still buffered, so flush often enough that
+        // the lines leading up to it survive.
+        spdlog::flush_every(std::chrono::seconds(1));
     } catch (const std::exception& ex) {
         std::cerr << "Failed to initialize logger: " << ex.what() << std::endl;
     }
+}
+
+
+void logger::install_crash_handler()
+{
+#ifdef _WIN32
+    // Reserve a little stack so a stack overflow can still be logged.
+    ULONG guaranteed = 64 * 1024;
+    SetThreadStackGuarantee(&guaranteed);
+
+    // Handles the exceptions Windows kills the process for before the filter runs.
+    AddVectoredExceptionHandler(1, on_stack_overflow);
+    SetUnhandledExceptionFilter(crash_filter);
+
+    _set_purecall_handler(on_pure_call);
+    _set_invalid_parameter_handler(on_invalid_parameter);
+#endif
+    std::set_terminate(log_terminate);
 }
 
 
@@ -110,12 +357,21 @@ void logger::initialize(bool log_to_console, ConfigFile& cf, size_t max_size_kb)
     configure_logger(log_file_path_, max_size_kb, log_to_console);
     logged_error_ = false;
     config_file_ = &cf;
+
+    // Marks the start of a run, so a log that holds several runs can be read.
+#ifdef _WIN32
+    info("=== session start: pid={} exe={} ===", GetCurrentProcessId(), process_executable_path());
+#else
+    info("=== session start ===");
+#endif
 }
 
 
 void logger::shutdown()
 {
     if (logger_) {
+        // Only a clean exit writes this line; a crash does not.
+        logger_->info("=== session end ===");
         logger_->flush();
         spdlog::shutdown();
         logger_ = nullptr;

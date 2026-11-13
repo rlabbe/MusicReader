@@ -20,6 +20,11 @@ struct logger {
     static void initialize(bool log_to_console, ConfigFile& config_file, size_t max_size_kb);
     static void shutdown();
 
+    // Logs the exception code and address of an unhandled exception, and the
+    // message of an uncaught C++ exception, before the process dies. Install
+    // once, as early as possible in main.
+    static void install_crash_handler();
+
     static void flush();
 
     static std::string log_file_path();

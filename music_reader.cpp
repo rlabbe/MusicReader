@@ -91,13 +91,16 @@ PDFViewer* MusicReader::current_tab() const
     if (!tab_widget_)
         return nullptr;
 
-    int i = tab_widget_->currentIndex();
-    if (i >= 0) {
-        QWidget* tab_widget = tab_widget_->widget(i);
-        for (QObject* child : tab_widget->children()) {
-            if (auto* viewer = qobject_cast<PDFViewer*>(child))
-                return viewer;
-        }
+    // While a tab is removed, currentIndex() still names the closed page and
+    // its widget is already gone; currentWidget() returns the page the stacked
+    // layout is switching to.
+    QWidget* page = tab_widget_->currentWidget();
+    if (!page)
+        return nullptr;
+
+    for (QObject* child : page->children()) {
+        if (auto* viewer = qobject_cast<PDFViewer*>(child))
+            return viewer;
     }
     return nullptr;
 }
@@ -152,6 +155,8 @@ PDFViewer* MusicReader::viewer_tab(int index) const
 
     try {
         QWidget* tab = tab_widget_->widget(index);
+        if (!tab)
+            return nullptr;
         for (QObject* child : tab->children()) {
             if (auto* viewer = qobject_cast<PDFViewer*>(child))
                 return viewer;
