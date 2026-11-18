@@ -321,6 +321,9 @@ private:
     bool fast_search_initialized_ = false;
 
     bool restoring_documents_ = false;
+    // Set while the main window closes. Detached windows are closed then, and
+    // their destruction must not rewrite the saved document list.
+    bool quitting_ = false;
 
     FileViewer* m_logViewer = nullptr;
 

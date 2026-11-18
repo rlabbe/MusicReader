@@ -455,6 +455,10 @@ void MusicReader::closeEvent(QCloseEvent* event)
     flush_metronome_save();
     save_config();
 
+    // The config now lists the documents in the detached windows. From here on
+    // their destruction must not save the list again, or they would be lost.
+    quitting_ = true;
+
     int num_open_docs = tab_widget_ ? tab_widget_->count() : 0;
     for (int i = 0; i < num_open_docs; ++i) {
         auto viewer = viewer_tab(i);
@@ -1199,7 +1203,8 @@ DetachedWindow* MusicReader::create_detached_window()
 
     connect(window, &QObject::destroyed, this, [this, window]() {
         std::erase(detached_windows_, window);
-        save_open_documents_to_config();
+        if (!quitting_)
+            save_open_documents_to_config();
     });
 
     return window;
