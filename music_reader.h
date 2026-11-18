@@ -9,6 +9,7 @@
 #include "font_info.h"
 
 class BookmarkPanel;
+class DetachedWindow;
 class Document;
 class PDFViewer;
 class StatusBar;
@@ -188,6 +189,20 @@ private:
     void toggle_page_break_edit_mode();
 
     void on_close_tab(int index);
+
+    // Tab drag: a tab released outside the tab bar moves to the tab widget or
+    // window under the pointer, or into a new window.
+    void setup_tab_drag(QTabWidget* tabs);
+    void on_tab_drag_finished(QTabWidget* source, int index, const QPoint& global_pos);
+    void move_detached_page(QTabWidget* source,
+                            QTabWidget* target,
+                            QWidget* page,
+                            const QString& label,
+                            int index);
+    DetachedWindow* create_detached_window();
+    void rebind_viewer(QWidget* page, QTabWidget* target);
+    StatusBar* status_bar_for(QTabWidget* tabs) const;
+    void focus_viewer(PDFViewer* viewer);
     void update_title(int index = 0);
 
     QIcon create_double_icon();
@@ -202,8 +217,8 @@ private:
     void on_external_edit_document(); // edit with external viewer
     void on_document_loaded(std::string name, int page);
 
-    // Check if the given document is open in a tab, returning either the tab index or None
-    std::optional<int> doc_is_open(std::filesystem::path name);
+    // Check if the given document is open in any window and return its viewer
+    PDFViewer* open_viewer(const std::filesystem::path& name) const;
 
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
@@ -224,6 +239,7 @@ private:
     QSplitter* splitter_ = nullptr;
     BookmarkPanel* bookmark_panel_ = nullptr;
     QTabWidget* tab_widget_ = nullptr;
+    std::vector<DetachedWindow*> detached_windows_;
 
     QMenu* open_recent_menu_ = nullptr;
     QMenu* edit_menu_ = nullptr;

@@ -147,7 +147,8 @@ void PDFViewer::refresh()
     if (current_idx - 1 >= 1)
         prefetch_async(current_idx - 1);
 
-    bookmark_panel_->select_page(physical_page);
+    if (bookmark_panel_)
+        bookmark_panel_->select_page(physical_page);
 
     manual_scrollbar_change_ = true;
     scrollbar_->setMaximum(count);
@@ -846,7 +847,8 @@ void PDFViewer::get_page(int index)
     if (index - 1 >= 1)
         prefetch_async(index - 1);
 
-    bookmark_panel_->select_page(physical_page);
+    if (bookmark_panel_)
+        bookmark_panel_->select_page(physical_page);
 
     manual_scrollbar_change_ = true;
     scrollbar_->setValue(index);

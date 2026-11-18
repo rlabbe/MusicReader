@@ -2,17 +2,17 @@
 
 #include <QtWidgets>
 
+#include "detachable_tab_bar.h"
 
-class VerticalTabBar : public QTabBar {
+class VerticalTabBar : public DetachableTabBar {
 
 public:
     explicit VerticalTabBar(QWidget* parent = nullptr)
-        : QTabBar(parent)
+        : DetachableTabBar(parent)
     {
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
         setDocumentMode(true);
         setElideMode(Qt::ElideRight);
-        setMovable(true);
         setTabsClosable(true);
 
         setStyleSheet(R"(

@@ -88,6 +88,12 @@ public:
     std::shared_ptr<Document> document() const { return document_; }
     void replace_document(std::shared_ptr<Document> document, int page);
 
+    // Used when the page moves to another window: the viewer writes its page
+    // information to the status bar of the window that shows it, and updates
+    // the bookmark panel only when that window has one.
+    void set_status_bar(StatusBar* bar) { status_bar_ = bar; }
+    void set_bookmark_panel(BookmarkPanel* panel) { bookmark_panel_ = panel; }
+
     void set_text_annotation_mode(bool enabled);
     // While in annotation mode, set a SMuFL codepoint that the next click
     // should place as a music symbol. NO_MUSIC_SYMBOL clears the pending symbol

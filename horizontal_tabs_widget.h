@@ -2,16 +2,17 @@
 
 #include <QtWidgets>
 
-class HorizontalTabBar : public QTabBar {
+#include "detachable_tab_bar.h"
+
+class HorizontalTabBar : public DetachableTabBar {
     Q_OBJECT
 public:
     explicit HorizontalTabBar(QWidget* parent = nullptr)
-        : QTabBar(parent)
+        : DetachableTabBar(parent)
     {
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         setDocumentMode(true);
         setElideMode(Qt::ElideRight);
-        setMovable(true);
 
         setStyleSheet(R"(
     QTabBar::tab {

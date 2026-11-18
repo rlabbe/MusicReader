@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -134,7 +134,7 @@ copy /Y "$(SolutionDir)mupdf_dll_bin\x64\Debug\mupdf.dll" "$(MSBuildProjectDirec
     <ClCompile>
       <AdditionalIncludeDirectories>$(QtWakeDpiFixerPath);$(THIRD_PARTY)\nlohmann_json\single_include;%(AdditionalIncludeDirectories);$(ProjectDir);
 extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp23</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/Ob3 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>FZ_DLL_CLIENT;NOMINMAX;WIN32_LEAN_AND_MEAN;QT_STATIC;POLYMETRONOMELIB_STATIC;POINTERHOLDER_TRANSITION;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
@@ -259,6 +259,7 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
     <ClCompile Include="document_info.cpp" />
     <ClCompile Include="font_info.cpp" />
     <ClCompile Include="logger.cpp" />
+    <ClCompile Include="detached_window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="bookmark_titlebar.h" />
@@ -301,6 +302,8 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
     <QtMoc Include="tour_dialog.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="vertical_tabs_widget.h" />
+    <ClInclude Include="detachable_tab_bar.h" />
+    <ClInclude Include="detached_window.h" />
     <ClInclude Include="wait_cursor.h" />
     <QtMoc Include="pdf_viewer.h" />
     <QtMoc Include="document.h" />

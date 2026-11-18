@@ -25,6 +25,8 @@
 #include "fullscreen_exit_button.h"
 #include "vertical_tabs_widget.h"
 #include "horizontal_tabs_widget.h"
+#include "detachable_tab_bar.h"
+#include "detached_window.h"
 #include "file_viewer.h"
 #include "requires.h"
 #include "dev_status_dialog.h"
@@ -71,17 +73,24 @@ MusicReader::MusicReader(QWidget* parent)
     setup_UI();
 }
 
-MusicReader::~MusicReader() = default;
+MusicReader::~MusicReader()
+{
+    // Detached windows are top-level and not owned by the main window. Delete
+    // them here so their viewers save the documents before the app exits.
+    for (auto* window : detached_windows_)
+        disconnect(window, nullptr, this, nullptr);
+
+    for (auto* window : detached_windows_)
+        delete window;
+
+    detached_windows_.clear();
+}
 
 // DOCUMENT AND TABS
 void MusicReader::on_document_loaded(std::string name, int page)
 {
-    auto i = doc_is_open(name);
-    if (i.has_value()) {
-        auto viewer = viewer_tab(i.value());
-        if (viewer)
-            viewer->get_page(page);
-    }
+    if (auto* viewer = open_viewer(name))
+        viewer->get_page(page);
 }
 
 PDFViewer* MusicReader::current_tab() const
@@ -224,8 +233,8 @@ MusicReader::open_pdf_in_tab(const std::filesystem::path& filename, int page, PD
     TRACE_FUNCTION;
 
     if (!viewer) {
-        if (auto i = doc_is_open(filename); i.has_value()) {
-            focus_on_tab(i.value());
+        if (auto* existing = open_viewer(filename)) {
+            focus_viewer(existing);
             return nullptr;
         }
     }
@@ -299,18 +308,30 @@ bool MusicReader::in_single_page_mode() const
     return config_.page_view_count() == 1;
 }
 
-std::optional<int> MusicReader::doc_is_open(std::filesystem::path name)
+PDFViewer* MusicReader::open_viewer(const std::filesystem::path& name) const
 {
     SAFE_METHOD;
-    // TRACE_FUNCTION;
 
     for (int i = 0; i < tab_widget_->count(); ++i) {
-        auto widget = viewer_tab(i);
-        if (widget && widget->document()->filename() == name)
-            return i;
+        auto viewer = viewer_tab(i);
+        if (viewer && viewer->document()->filename() == name)
+            return viewer;
     }
 
-    return std::nullopt;
+    for (auto* window : detached_windows_) {
+        QTabWidget* tabs = window->tab_widget();
+        for (int i = 0; i < tabs->count(); ++i) {
+            QWidget* page = tabs->widget(i);
+            if (!page)
+                continue;
+
+            auto* viewer = page->findChild<PDFViewer*>();
+            if (viewer && viewer->document()->filename() == name)
+                return viewer;
+        }
+    }
+
+    return nullptr;
 }
 
 void MusicReader::restore_open_documents()
@@ -440,6 +461,10 @@ void MusicReader::closeEvent(QCloseEvent* event)
         if (viewer)
             viewer->closing();
     }
+
+    const auto detached = detached_windows_;
+    for (auto* window : detached)
+        window->close();
 
 
     QMainWindow::closeEvent(event); // Call base class implementation
@@ -1030,6 +1055,212 @@ void MusicReader::focus_on_tab(int index)
     }
 }
 
+void MusicReader::setup_tab_drag(QTabWidget* tabs)
+{
+    auto* bar = dynamic_cast<DetachableTabBar*>(tabs->tabBar());
+    if (!bar)
+        return;
+
+    bar->drag_finished = [this, tabs](int index, const QPoint& global_pos) {
+        on_tab_drag_finished(tabs, index, global_pos);
+    };
+}
+
+void MusicReader::on_tab_drag_finished(QTabWidget* source, int index, const QPoint& global_pos)
+{
+    QWidget* page = source->widget(index);
+    if (!page)
+        return;
+
+    const QString label = source->tabText(index);
+
+    QTabWidget* target = nullptr;
+    int target_index = -1;
+
+    for (QWidget* w = QApplication::widgetAt(global_pos); w; w = w->parentWidget()) {
+        if (auto* bar = dynamic_cast<DetachableTabBar*>(w)) {
+            target = dynamic_cast<QTabWidget*>(bar->parentWidget());
+            if (target) {
+                target_index = bar->tabAt(bar->mapFromGlobal(global_pos));
+                if (target_index < 0)
+                    target_index = target->count();
+            }
+            break;
+        }
+
+        if (auto* tabs = dynamic_cast<QTabWidget*>(w)) {
+            target = tabs;
+            target_index = tabs->count();
+            break;
+        }
+
+        if (auto* window = dynamic_cast<DetachedWindow*>(w)) {
+            target = window->tab_widget();
+            target_index = target->count();
+            break;
+        }
+
+        if (w == this) {
+            target = tab_widget_;
+            target_index = tab_widget_->count();
+            break;
+        }
+    }
+
+    if (target) {
+        move_detached_page(source, target, page, label, target_index);
+        return;
+    }
+
+    source->removeTab(index);
+    if (source != tab_widget_ && source->count() == 0) {
+        for (auto* w : detached_windows_) {
+            if (w->tab_widget() == source) {
+                w->close();
+                break;
+            }
+        }
+    }
+
+    DetachedWindow* window = create_detached_window();
+    rebind_viewer(page, window->tab_widget());
+    window->tab_widget()->addTab(page, label);
+    window->tab_widget()->setCurrentWidget(page);
+    window->resize(900, 700);
+    window->move(global_pos - QPoint(120, 30));
+    window->show();
+
+    if (auto* viewer = page->findChild<PDFViewer*>())
+        viewer->update_status_bar();
+
+    save_open_documents_to_config();
+}
+
+void MusicReader::move_detached_page(
+    QTabWidget* source, QTabWidget* target, QWidget* page, const QString& label, int index)
+{
+    const int source_index = source->indexOf(page);
+    if (source_index < 0)
+        return;
+
+    if (source == target && index > source_index)
+        --index;
+
+    if (index < 0 || index > target->count())
+        index = target->count();
+
+    source->removeTab(source_index);
+    rebind_viewer(page, target);
+    target->insertTab(index, page, label);
+    target->setCurrentWidget(page);
+
+    if (source != target && source->count() == 0) {
+        for (auto* window : detached_windows_) {
+            if (window->tab_widget() == source) {
+                window->close();
+                break;
+            }
+        }
+    }
+
+    save_open_documents_to_config();
+}
+
+DetachedWindow* MusicReader::create_detached_window()
+{
+    auto* window = new DetachedWindow(config_.horiz_tabs());
+    detached_windows_.push_back(window);
+
+    QTabWidget* tabs = window->tab_widget();
+    setup_tab_drag(tabs);
+
+    connect(tabs, &QTabWidget::currentChanged, this, [this, window](int) {
+        QTabWidget* current_tabs = window->tab_widget();
+        QWidget* page = current_tabs->currentWidget();
+        if (!page)
+            return;
+
+        window->setWindowTitle(current_tabs->tabText(current_tabs->currentIndex()));
+
+        if (auto* viewer = page->findChild<PDFViewer*>())
+            viewer->update_status_bar();
+    });
+
+    connect(tabs, &QTabWidget::tabCloseRequested, this, [this, window](int index) {
+        QTabWidget* current_tabs = window->tab_widget();
+        QWidget* page = current_tabs->widget(index);
+        current_tabs->removeTab(index);
+        if (page)
+            page->deleteLater();
+        if (current_tabs->count() == 0)
+            window->close();
+        save_open_documents_to_config();
+    });
+
+    connect(window, &QObject::destroyed, this, [this, window]() {
+        std::erase(detached_windows_, window);
+        save_open_documents_to_config();
+    });
+
+    return window;
+}
+
+void MusicReader::rebind_viewer(QWidget* page, QTabWidget* target)
+{
+    auto* viewer = page->findChild<PDFViewer*>();
+    if (!viewer)
+        return;
+
+    viewer->set_status_bar(status_bar_for(target));
+    viewer->set_bookmark_panel(target == tab_widget_ ? bookmark_panel_ : nullptr);
+}
+
+StatusBar* MusicReader::status_bar_for(QTabWidget* tabs) const
+{
+    if (tabs == tab_widget_)
+        return status_bar_;
+
+    for (auto* window : detached_windows_) {
+        if (window->tab_widget() == tabs)
+            return window->status_bar();
+    }
+
+    return status_bar_;
+}
+
+void MusicReader::focus_viewer(PDFViewer* viewer)
+{
+    if (!viewer)
+        return;
+
+    QWidget* page = viewer->parentWidget();
+    if (!page)
+        return;
+
+    QTabWidget* tabs = nullptr;
+    for (QWidget* w = page; w && !tabs; w = w->parentWidget())
+        tabs = dynamic_cast<QTabWidget*>(w);
+    if (!tabs)
+        return;
+
+    tabs->setCurrentWidget(page);
+    viewer->setFocus();
+
+    if (tabs == tab_widget_) {
+        raise();
+        activateWindow();
+        return;
+    }
+
+    for (auto* window : detached_windows_) {
+        if (window->tab_widget() == tabs) {
+            window->raise();
+            window->activateWindow();
+            return;
+        }
+    }
+}
+
 void MusicReader::save_config()
 {
     SAFE_METHOD;
@@ -1046,30 +1277,43 @@ void MusicReader::save_open_documents_to_config()
     TRACE_CALL;
 
     std::vector<OpenDocument> open_documents;
-    open_documents.reserve(tab_widget_->count());
-    for (int index = 0; index < tab_widget_->count(); ++index) {
-        auto pdf_viewer = tab_widget_->widget(index)->findChild<PDFViewer*>();
-        if (pdf_viewer) {
-            auto doc = pdf_viewer->document();
-            bool is_temporary = doc->is_temporary();
 
-            if (is_temporary)
-                continue;
+    const auto add_viewer = [this, &open_documents](PDFViewer* pdf_viewer, int tab_order) {
+        if (!pdf_viewer)
+            return;
 
-            auto name = doc->filename();
+        auto doc = pdf_viewer->document();
+        if (doc->is_temporary())
+            return;
 
-            // Find existing document to preserve access_order
-            for (const auto& existing_doc : config_.open_documents()) {
-                if (existing_doc.filename == name) {
-                    open_documents.push_back({
-                        name, pdf_viewer->current_page(), doc->page_count(), existing_doc.access_order,
-                        index // tab_order = current tab position
-                    });
-                    break;
-                }
+        auto name = doc->filename();
+
+        // Find existing document to preserve access_order
+        for (const auto& existing_doc : config_.open_documents()) {
+            if (existing_doc.filename == name) {
+                open_documents.push_back(
+                    {name, pdf_viewer->current_page(), doc->page_count(), existing_doc.access_order, tab_order});
+                break;
             }
         }
+    };
+
+    int tab_order = 0;
+    for (int index = 0; index < tab_widget_->count(); ++index, ++tab_order) {
+        QWidget* page = tab_widget_->widget(index);
+        if (page)
+            add_viewer(page->findChild<PDFViewer*>(), tab_order);
     }
+
+    for (auto* window : detached_windows_) {
+        QTabWidget* tabs = window->tab_widget();
+        for (int index = 0; index < tabs->count(); ++index, ++tab_order) {
+            QWidget* page = tabs->widget(index);
+            if (page)
+                add_viewer(page->findChild<PDFViewer*>(), tab_order);
+        }
+    }
+
     config_.set_open_documents(open_documents);
 }
 
@@ -2308,6 +2552,7 @@ void MusicReader::setup_UI()
     tab_widget_->setContextMenuPolicy(Qt::CustomContextMenu);
     tab_widget_->tabBar()->setFocusPolicy(Qt::NoFocus);
     tab_widget_->setUsesScrollButtons(false);
+    setup_tab_drag(tab_widget_);
 
     connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &MusicReader::on_close_tab);
     connect(tab_widget_, &QTabWidget::currentChanged, this, &MusicReader::on_tab_current_changed);
@@ -2351,12 +2596,30 @@ void MusicReader::setup_UI()
         QTimer* autosave_timer = new QTimer(this);
         // cast to void just to avoid warning that we are discarding the return value. ugh.
         connect(autosave_timer, &QTimer::timeout, this, [this]() {
-            (void)QtConcurrent::run([this]() {
-                for (int i = 0; i < tab_widget_->count(); ++i) {
-                    auto doc = document_at(i);
-                    if (doc) {
-                        doc->save();
-                    }
+            // Collect the documents on the UI thread; the worker only saves them.
+            std::vector<std::shared_ptr<Document>> documents;
+            for (int i = 0; i < tab_widget_->count(); ++i) {
+                auto doc = document_at(i);
+                if (doc)
+                    documents.push_back(doc);
+            }
+
+            for (auto* window : detached_windows_) {
+                QTabWidget* tabs = window->tab_widget();
+                for (int i = 0; i < tabs->count(); ++i) {
+                    QWidget* page = tabs->widget(i);
+                    if (!page)
+                        continue;
+
+                    auto* viewer = page->findChild<PDFViewer*>();
+                    if (viewer)
+                        documents.push_back(viewer->document());
+                }
+            }
+
+            (void)QtConcurrent::run([documents]() {
+                for (auto& doc : documents) {
+                    doc->save();
                 }
             });
         });
