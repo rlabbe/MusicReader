@@ -19,6 +19,7 @@ public:
 private slots:
     void save_settings();
     void cancel_settings();
+    void browse_musescore_program();
 
 private:
     ConfigFile& config_;
@@ -35,6 +36,8 @@ private:
 
     QComboBox* combo_horiz_alignment_;
     QComboBox* combo_vert_alignment_;
+    QLineEdit* edit_musescore_path_;
+    QPushButton* btn_browse_musescore_;
     QCheckBox* check_restore_window_position_;
     QCheckBox* check_restore_documents_;
     QCheckBox* check_allow_oversize_;

@@ -19,6 +19,7 @@
 #include "exception_logger.h"
 #include "status_bar.h"
 #include "config_dialog.h"
+#include "export_musescore_dialog.h"
 #include "fast_file_search_dialog.h"
 #include "qt_utils.h"
 #include "utils.h"
@@ -1826,6 +1827,7 @@ void MusicReader::show_titlebar_menu()
     create_file_menu(&menu);
     create_edit_menu(&menu);
     create_view_menu(&menu);
+    create_musescore_menu(&menu);
     create_help_menu(&menu);
 
 
@@ -1922,6 +1924,19 @@ void MusicReader::open_config_dialog()
         }
     } catch (const std::exception& e) {
         logger::error("Failed to open settings dialog: " + std::string(e.what()));
+    }
+}
+
+void MusicReader::open_musescore_export_dialog()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    try {
+        ExportMuseScoreDialog dialog(this);
+        dialog.exec();
+    } catch (const std::exception& e) {
+        logger::error("Failed to open MuseScore export dialog: " + std::string(e.what()));
     }
 }
 
@@ -2676,6 +2691,7 @@ void MusicReader::create_menus()
     create_file_menu(menu_bar);
     create_edit_menu(menu_bar);
     create_view_menu(menu_bar);
+    create_musescore_menu(menu_bar);
     create_help_menu(menu_bar);
 
     menuBar()->setStyleSheet(R"(
@@ -2721,6 +2737,18 @@ void MusicReader::create_file_menu(auto* menu_bar)
     QAction* exit_action = new QAction("E&xit", this);
     connect(exit_action, &QAction::triggered, this, &QMainWindow::close);
     file_menu->addAction(exit_action);
+}
+
+void MusicReader::create_musescore_menu(auto* menu_bar)
+{
+    SAFE_METHOD;
+    TRACE_CALL;
+
+    QMenu* musescore_menu = menu_bar->addMenu("&MuseScore");
+
+    QAction* action = new QAction("&Export to PDF...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::open_musescore_export_dialog);
+    musescore_menu->addAction(action);
 }
 
 void MusicReader::create_edit_menu(auto* menu_bar)

@@ -296,6 +296,17 @@ void ConfigFile::read(bool reset_on_error)
     else
         logger::error("Invalid or missing 'append_to_log'");
 
+    // Absent in config files written before the MuseScore export existed; the
+    // defaults from set_defaults() stand, and no error is logged.
+    if (j.contains("musescore_export_overwrite") && j["musescore_export_overwrite"].is_boolean())
+        musescore_export_overwrite_ = j["musescore_export_overwrite"].get<bool>();
+
+    if (j.contains("musescore_export_open_after") && j["musescore_export_open_after"].is_boolean())
+        musescore_export_open_after_ = j["musescore_export_open_after"].get<bool>();
+
+    if (j.contains("musescore_path") && j["musescore_path"].is_string())
+        musescore_path_ = std::filesystem::path(j["musescore_path"].get<std::string>());
+
     // developer only
     if (j.contains("dev_page_load_delay"))
         page_load_delay_ = j["dev_page_load_delay"].get<int>();
@@ -665,6 +676,9 @@ json ConfigFile::to_json() const
     j["log_level"] = log_level_to_string(log_level_);
     j["tour_has_run"] = tour_has_run_;
     j["append_to_log"] = append_to_log_;
+    j["musescore_export_overwrite"] = musescore_export_overwrite_;
+    j["musescore_export_open_after"] = musescore_export_open_after_;
+    j["musescore_path"] = std::string(reinterpret_cast<const char*>(musescore_path_.u8string().c_str()));
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
     j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;
@@ -912,6 +926,9 @@ void ConfigFile::set_defaults()
     dev_mode_ = false;
     tour_has_run_ = false;
     append_to_log_ = false;
+    musescore_path_ = "C:\\Program Files\\MuseScore 4\\bin\\MuseScore4.exe";
+    musescore_export_overwrite_ = true;
+    musescore_export_open_after_ = true;
     annotation_font_ = FontInfo {}; // Use FontInfo defaults
 }
 
@@ -968,6 +985,9 @@ std::string ConfigFile::repr() const
     j["log_level"] = log_level_to_string(log_level_);
     j["tour_has_run"] = tour_has_run_;
     j["append_to_log"] = append_to_log_;
+    j["musescore_export_overwrite"] = musescore_export_overwrite_;
+    j["musescore_export_open_after"] = musescore_export_open_after_;
+    j["musescore_path"] = musescore_path_.string();
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
     j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;

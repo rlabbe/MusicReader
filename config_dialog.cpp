@@ -71,6 +71,14 @@ void ConfigDialog::setup_ui()
     combo_vert_alignment_->addItem("Bottom", static_cast<int>(PageVerticalLocation::Bottom));
     combo_vert_alignment_->setWhatsThis("Vertical alignment of the PDF page in the view area.");
 
+    edit_musescore_path_ = new QLineEdit(this);
+    edit_musescore_path_->setMinimumWidth(420);
+    edit_musescore_path_->setWhatsThis(
+        "Full path to the MuseScore program that File, Export MuseScore to PDF runs.");
+
+    btn_browse_musescore_ = new QPushButton("Browse...", this);
+    btn_browse_musescore_->setWhatsThis("Select the MuseScore program.");
+
     check_restore_window_position_ = new QCheckBox("Restore Window Position On Startup", this);
     check_restore_window_position_->setWhatsThis(
         "Remember and restore the application window size and position when the program starts.");
@@ -175,6 +183,17 @@ void ConfigDialog::setup_ui()
     layout_log_level->addWidget(combo_log_level_);
     form_layout->addRow("Log Level:", layout_log_level);
 
+    // MuseScore program used by File, Export MuseScore to PDF
+    QGroupBox* group_musescore = new QGroupBox("MuseScore PDF Export", this);
+    group_musescore->setWhatsThis("Settings for exporting a MuseScore score to PDF.");
+    QFormLayout* musescore_layout = new QFormLayout;
+    QHBoxLayout* layout_musescore_path = new QHBoxLayout;
+    layout_musescore_path->addWidget(edit_musescore_path_);
+    layout_musescore_path->addWidget(btn_browse_musescore_);
+    musescore_layout->addRow("Program:", layout_musescore_path);
+    group_musescore->setLayout(musescore_layout);
+    form_layout->addRow(group_musescore);
+
     // Save and Cancel buttons
     QHBoxLayout* buttons_layout = new QHBoxLayout;
     buttons_layout->addStretch();
@@ -219,6 +238,7 @@ void ConfigDialog::load_settings()
     check_horiz_tabs_->setChecked(!config_.horiz_tabs());
     check_allow_delete_->setChecked(config_.allow_file_delete());
     check_append_log_->setChecked(config_.append_to_log());
+    edit_musescore_path_->setText(QString::fromStdU16String(config_.musescore_path().u16string()));
 }
 
 
@@ -226,6 +246,17 @@ void ConfigDialog::setup_connections()
 {
     connect(btn_save_, &QPushButton::clicked, this, &ConfigDialog::save_settings);
     connect(btn_cancel_, &QPushButton::clicked, this, &ConfigDialog::cancel_settings);
+    connect(btn_browse_musescore_, &QPushButton::clicked, this, &ConfigDialog::browse_musescore_program);
+}
+
+
+void ConfigDialog::browse_musescore_program()
+{
+    const QString filename = QFileDialog::getOpenFileName(
+        this, "Select the MuseScore Program", edit_musescore_path_->text(), "Programs (*.exe)");
+
+    if (!filename.isEmpty())
+        edit_musescore_path_->setText(filename);
 }
 
 
@@ -262,6 +293,7 @@ void ConfigDialog::save_settings()
     config_.set_horiz_tabs(!check_horiz_tabs_->isChecked());
     config_.set_allow_file_delete(check_allow_delete_->isChecked());
     config_.set_append_to_log(check_append_log_->isChecked());
+    config_.set_musescore_path(std::filesystem::path(edit_musescore_path_->text().toStdU16String()));
 
     accept();
 }

@@ -66,6 +66,9 @@ private:
     bool allow_file_delete_;
     bool tour_has_run_;
     bool append_to_log_;
+    std::filesystem::path musescore_path_;
+    bool musescore_export_overwrite_;
+    bool musescore_export_open_after_;
 
     bool hide_mouse_cursor_ = false;
     int mouse_hide_delay_secs_ = 3;
@@ -358,6 +361,30 @@ public:
     void set_append_to_log(bool value)
     {
         append_to_log_ = value;
+        save();
+    }
+
+    // Full path to the musescore4 exe used by the export to pdf dialog.
+    const std::filesystem::path& musescore_path() const { return musescore_path_; }
+    void set_musescore_path(const std::filesystem::path& value)
+    {
+        musescore_path_ = value;
+        save();
+    }
+
+    // Should we overwrite a musescore export to pdf w/o warning the user?
+    bool musescore_export_overwrite() const { return musescore_export_overwrite_; }
+    void set_musescore_export_overwrite(bool value)
+    {
+        musescore_export_overwrite_ = value;
+        save();
+    }
+
+    // after successfully exporting musescore to a pdf, should we open it in the app?
+    bool musescore_export_open_after() const { return musescore_export_open_after_; }
+    void set_musescore_export_open_after(bool value)
+    {
+        musescore_export_open_after_ = value;
         save();
     }
 
