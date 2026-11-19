@@ -1,0 +1,22 @@
+# Book definition. Hand edited, one document per line.
+#
+#   setting = value        applies to the whole book
+#   file                   one document, bookmark defaults to the file name
+#   file | bookmark        ... with the name shown in the outline
+#   file | bookmark | toc  ... and a different text for the table of contents
+#
+# File names need no extension: "one" finds one.mscz, one.musicxml or one.pdf.
+# Only two files with the same name and different extensions are an error.
+# A PDF is used as it is, anything else is converted by MuseScore.
+#
+# Paths are relative to this file. Lines starting with # are comments and
+# blank lines are ignored. The "|" separator cannot appear in a Windows file
+# name, so no escaping is needed.
+
+output = book.pdf
+outline = on
+toc = off
+toc_title = Contents
+
+one
+two | Score Two

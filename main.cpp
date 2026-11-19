@@ -632,6 +632,7 @@ void test_bravura_freetext()
         std::cerr << "Failed to add Bravura annotation, error code: " << static_cast<int>(result) << std::endl;
 }
 
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     logger::install_crash_handler();

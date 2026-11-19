@@ -6,7 +6,7 @@
 
 class MusicReader;
 
-// Dialog behind File, Export MuseScore to PDF.
+//  Export MuseScore to PDF dialog
 //
 // The user picks an .mscz file; Export runs the MuseScore command line
 // converter on it and writes a PDF beside the .mscz. The program that runs is

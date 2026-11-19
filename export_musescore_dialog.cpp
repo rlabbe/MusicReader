@@ -49,8 +49,8 @@ ExportMuseScoreDialog::ExportMuseScoreDialog(MusicReader* parent)
     } else if (!std::filesystem::exists(program)) {
         logger::warning("MuseScore program not found: " + program.string());
         disable_for_missing_program("MuseScore program not found. Set its path in File, Settings.",
-                                    "The MuseScore program was not found:\n\n" + to_qstring(program)
-                                    + "\n\nSet its path in File, Settings, then try again.");
+                                    "The MuseScore program was not found:\n\n" + to_qstring(program) +
+                                        "\n\nSet its path in File, Settings, then try again.");
     }
 }
 
@@ -148,8 +148,8 @@ void ExportMuseScoreDialog::on_browse()
     if (start_directory.empty())
         start_directory = std::filesystem::path(QDir::homePath().toStdU16String());
 
-    const QString filename = QFileDialog::getOpenFileName(
-        this, "Select a MuseScore File", to_qstring(start_directory), "MuseScore Files (*.mscz *.mscx)");
+    const QString filename = QFileDialog::getOpenFileName(this, "Select a MuseScore File", to_qstring(start_directory),
+                                                          "MuseScore Files (*.mscz *.mscx)");
 
     if (!filename.isEmpty()) {
         path_edit_->setText(filename);
@@ -201,7 +201,7 @@ void ExportMuseScoreDialog::start_conversion(const std::filesystem::path& input,
     set_busy(true);
     status_label_->setText("Converting...");
 
-    const QStringList arguments { "-o", to_qstring(output), to_qstring(input) };
+    const QStringList arguments {"-o", to_qstring(output), to_qstring(input)};
     process_->start(to_qstring(executable), arguments);
 }
 
@@ -218,9 +218,8 @@ void ExportMuseScoreDialog::on_process_finished(int exit_code, QProcess::ExitSta
     finish_run();
 
     if (status != QProcess::NormalExit || exit_code != 0) {
-        QString message = QString("MuseScore failed with exit code %1: %2.")
-                              .arg(exit_code)
-                              .arg(converter_error_reason(exit_code));
+        QString message =
+            QString("MuseScore failed with exit code %1: %2.").arg(exit_code).arg(converter_error_reason(exit_code));
 
         if (!child_output.trimmed().isEmpty()) {
             if (child_output.size() > MAX_REPORTED_OUTPUT)

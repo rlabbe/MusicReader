@@ -237,8 +237,10 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="annotation.cpp" />
+    <ClCompile Include="book.cpp" />
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
+    <ClCompile Include="create_book_dialog.cpp" />
     <ClCompile Include="dev_status_dialog.cpp" />
     <ClCompile Include="export_musescore_dialog.cpp" />
     <ClCompile Include="fast_file_search_dialog.cpp" />
@@ -274,9 +276,11 @@ extern\mupdf\include;$(PolyMetronomePath)</AdditionalIncludeDirectories>
   <ItemGroup>
     <ClInclude Include="annotation.h" />
     <ClInclude Include="annotation_coords.h" />
+    <ClInclude Include="book.h" />
     <ClInclude Include="bookmark.h" />
     <ClInclude Include="border.h" />
     <QtMoc Include="config_dialog.h" />
+    <QtMoc Include="create_book_dialog.h" />
     <ClInclude Include="config_file.h" />
     <QtMoc Include="directory_watcher.h" />
     <QtMoc Include="dev_status_dialog.h" />

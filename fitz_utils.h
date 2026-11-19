@@ -12,7 +12,7 @@
 #include <filesystem>
 
 
-class pdf_document;
+struct pdf_document;
 
 // cannot have constructor/destructor or unique_ptr, because being used inside __try
 struct PixmapData {

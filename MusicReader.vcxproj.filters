@@ -24,12 +24,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="annotation.cpp" />
+    <ClCompile Include="book.cpp" />
     <ClCompile Include="bookmark.cpp" />
     <ClCompile Include="bookmark_panel.cpp" />
     <ClCompile Include="bookmark_treewidget.cpp" />
     <ClCompile Include="border.cpp" />
     <ClCompile Include="config_dialog.cpp" />
     <ClCompile Include="config_file.cpp" />
+    <ClCompile Include="create_book_dialog.cpp" />
     <ClCompile Include="dev_status_dialog.cpp" />
     <ClCompile Include="export_musescore_dialog.cpp" />
     <ClCompile Include="detached_window.cpp" />
@@ -52,6 +54,7 @@
     <QtMoc Include="bookmark_titlebar.h" />
     <QtMoc Include="bookmark_treewidget.h" />
     <QtMoc Include="config_dialog.h" />
+    <QtMoc Include="create_book_dialog.h" />
     <QtMoc Include="dev_status_dialog.h" />
     <QtMoc Include="export_musescore_dialog.h" />
     <QtMoc Include="directory_watcher.h" />
@@ -68,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="annotation.h" />
+    <ClInclude Include="book.h" />
     <ClInclude Include="bookmark.h" />
     <ClInclude Include="border.h" />
     <ClInclude Include="config_file.h" />

@@ -69,6 +69,7 @@ private:
     std::filesystem::path musescore_path_;
     bool musescore_export_overwrite_;
     bool musescore_export_open_after_;
+    bool book_save_exports_;
 
     bool hide_mouse_cursor_ = false;
     int mouse_hide_delay_secs_ = 3;
@@ -385,6 +386,14 @@ public:
     void set_musescore_export_open_after(bool value)
     {
         musescore_export_open_after_ = value;
+        save();
+    }
+
+    // when creating a book, keep each converted document as its own pdf next to the book
+    bool book_save_exports() const { return book_save_exports_; }
+    void set_book_save_exports(bool value)
+    {
+        book_save_exports_ = value;
         save();
     }
 

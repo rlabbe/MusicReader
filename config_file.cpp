@@ -307,6 +307,9 @@ void ConfigFile::read(bool reset_on_error)
     if (j.contains("musescore_path") && j["musescore_path"].is_string())
         musescore_path_ = std::filesystem::path(j["musescore_path"].get<std::string>());
 
+    if (j.contains("book_save_exports") && j["book_save_exports"].is_boolean())
+        book_save_exports_ = j["book_save_exports"].get<bool>();
+
     // developer only
     if (j.contains("dev_page_load_delay"))
         page_load_delay_ = j["dev_page_load_delay"].get<int>();
@@ -679,6 +682,7 @@ json ConfigFile::to_json() const
     j["musescore_export_overwrite"] = musescore_export_overwrite_;
     j["musescore_export_open_after"] = musescore_export_open_after_;
     j["musescore_path"] = std::string(reinterpret_cast<const char*>(musescore_path_.u8string().c_str()));
+    j["book_save_exports"] = book_save_exports_;
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
     j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;
@@ -929,6 +933,7 @@ void ConfigFile::set_defaults()
     musescore_path_ = "C:\\Program Files\\MuseScore 4\\bin\\MuseScore4.exe";
     musescore_export_overwrite_ = true;
     musescore_export_open_after_ = true;
+    book_save_exports_ = false;
     annotation_font_ = FontInfo {}; // Use FontInfo defaults
 }
 
@@ -988,6 +993,7 @@ std::string ConfigFile::repr() const
     j["musescore_export_overwrite"] = musescore_export_overwrite_;
     j["musescore_export_open_after"] = musescore_export_open_after_;
     j["musescore_path"] = musescore_path_.string();
+    j["book_save_exports"] = book_save_exports_;
     j["dev_page_load_delay"] = page_load_delay_;
     j["dev_do_async_loads"] = do_async_loads_;
     j["dev_trace_while_debug_logging"] = trace_while_debug_logging_;

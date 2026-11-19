@@ -156,6 +156,7 @@ private:
     void open_fast_search_dialog();
     void open_config_dialog();
     void open_musescore_export_dialog();
+    void open_create_book_dialog();
     void update_recent_files_list();
     void toggle_draw_margin() { /*TODO*/ }
     void toggle_bookmark_panel();

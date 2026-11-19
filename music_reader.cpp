@@ -19,6 +19,7 @@
 #include "exception_logger.h"
 #include "status_bar.h"
 #include "config_dialog.h"
+#include "create_book_dialog.h"
 #include "export_musescore_dialog.h"
 #include "fast_file_search_dialog.h"
 #include "qt_utils.h"
@@ -1940,6 +1941,19 @@ void MusicReader::open_musescore_export_dialog()
     }
 }
 
+void MusicReader::open_create_book_dialog()
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    try {
+        CreateBookDialog dialog(this);
+        dialog.exec();
+    } catch (const std::exception& e) {
+        logger::error("Failed to open the create book dialog: " + std::string(e.what()));
+    }
+}
+
 void MusicReader::show_about_dialog()
 {
     SAFE_METHOD;
@@ -2746,7 +2760,11 @@ void MusicReader::create_musescore_menu(auto* menu_bar)
 
     QMenu* musescore_menu = menu_bar->addMenu("&MuseScore");
 
-    QAction* action = new QAction("&Export to PDF...", this);
+    QAction* action = new QAction("&Create Book...", this);
+    connect(action, &QAction::triggered, this, &MusicReader::open_create_book_dialog);
+    musescore_menu->addAction(action);
+
+    action = new QAction("&Export to PDF...", this);
     connect(action, &QAction::triggered, this, &MusicReader::open_musescore_export_dialog);
     musescore_menu->addAction(action);
 }

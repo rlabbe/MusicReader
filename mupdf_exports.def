@@ -83,6 +83,7 @@ EXPORTS
     pdf_drop_obj
     pdf_drop_page
     pdf_first_annot
+    pdf_graft_page
     pdf_insert_page
     pdf_load_page
     pdf_lookup_page_obj
