@@ -125,10 +125,14 @@ void on_pure_call()
 }
 
 
-void on_invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line,
+void on_invalid_parameter(const wchar_t* expression,
+                          const wchar_t* function,
+                          const wchar_t* file,
+                          unsigned int line,
                           uintptr_t /*reserved*/)
 {
-    logger::error("FATAL: invalid parameter {} in {} at {}:{}", narrow(expression), narrow(function), narrow(file), line);
+    logger::error("FATAL: invalid parameter {} in {} at {}:{}", narrow(expression), narrow(function), narrow(file),
+                  line);
     logger::flush();
 }
 
@@ -152,12 +156,12 @@ std::string write_crash_dump(EXCEPTION_POINTERS* info)
 
     SYSTEMTIME now {};
     GetLocalTime(&now);
-    const std::string name = std::format("MusicReader-crash-{:04}{:02}{:02}-{:02}{:02}{:02}.dmp", now.wYear,
-                                         now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond);
+    const std::string name = std::format("MusicReader-crash-{:04}{:02}{:02}-{:02}{:02}{:02}.dmp", now.wYear, now.wMonth,
+                                         now.wDay, now.wHour, now.wMinute, now.wSecond);
     const std::filesystem::path path = directory.empty() ? std::filesystem::path(name) : directory / name;
 
-    HANDLE file = CreateFileW(path.wstring().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-                              nullptr);
+    HANDLE file =
+        CreateFileW(path.wstring().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE)
         return {};
 
@@ -185,23 +189,21 @@ std::string write_crash_dump(EXCEPTION_POINTERS* info)
 LONG WINAPI crash_filter(EXCEPTION_POINTERS* info)
 {
     const DWORD code = (info && info->ExceptionRecord) ? info->ExceptionRecord->ExceptionCode : 0;
-    const auto address = (info && info->ExceptionRecord)
-                             ? reinterpret_cast<DWORD64>(info->ExceptionRecord->ExceptionAddress)
-                             : 0;
+    const auto address =
+        (info && info->ExceptionRecord) ? reinterpret_cast<DWORD64>(info->ExceptionRecord->ExceptionAddress) : 0;
 
     // Symbols: the pdb sits beside the exe in the build output directory.
     SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
     const bool have_symbols = SymInitialize(GetCurrentProcess(), nullptr, TRUE) != FALSE;
 
     logger::error("FATAL: unhandled exception 0x{:08X} at {} on thread {}", code,
-                  have_symbols ? describe_address(address) : std::format("0x{:X}", address),
-                  GetCurrentThreadId());
+                  have_symbols ? describe_address(address) : std::format("0x{:X}", address), GetCurrentThreadId());
 
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
         const ULONG_PTR operation = info->ExceptionRecord->ExceptionInformation[0];
         const ULONG_PTR target = info->ExceptionRecord->ExceptionInformation[1];
-        logger::error("FATAL: {} of address 0x{:X}",
-                      operation == 0 ? "read" : (operation == 1 ? "write" : "execute"), target);
+        logger::error("FATAL: {} of address 0x{:X}", operation == 0 ? "read" : (operation == 1 ? "write" : "execute"),
+                      target);
     }
 
     log_registers(info);

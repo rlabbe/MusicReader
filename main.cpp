@@ -621,10 +621,8 @@ void test_bravura_freetext()
         return;
     }
 
-    TextResult result = add_freetext_with_custom_font(test_pdf, text, 1,
-                                                     100.0f, 650.0f, 200.0f, 60.0f,
-                                                     48.0f, "Bravura", *bravura,
-                                                     0, 0, 0);
+    TextResult result = add_freetext_with_custom_font(test_pdf, text, 1, 100.0f, 650.0f, 200.0f, 60.0f, 48.0f,
+                                                      "Bravura", *bravura, 0, 0, 0);
 
     if (result == TextResult::Success)
         std::cout << "Created: " << test_pdf.string() << " with Bravura FreeText annotation" << std::endl;
@@ -639,7 +637,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     // test_create_blank_pdf();
-    //test_bravura_freetext();
+    // test_bravura_freetext();
 
     int result = 0;
     {
@@ -651,11 +649,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         qInstallMessageHandler([](QtMsgType type, const QMessageLogContext&, const QString& msg) {
             std::string s = msg.toStdString();
             switch (type) {
-                case QtDebugMsg:    logger::debug(s);   break;
-                case QtInfoMsg:     logger::info(s);    break;
-                case QtWarningMsg:  logger::warning(s); break;
-                case QtCriticalMsg: logger::error(s);   break;
-                case QtFatalMsg:    logger::error(s);   break;
+                case QtDebugMsg: logger::debug(s); break;
+                case QtInfoMsg: logger::info(s); break;
+                case QtWarningMsg: logger::warning(s); break;
+                case QtCriticalMsg: logger::error(s); break;
+                case QtFatalMsg: logger::error(s); break;
             }
         });
 

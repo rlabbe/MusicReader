@@ -683,8 +683,14 @@ Annotation* Document::find_annotation(const AnnotationHandle& handle)
     return nullptr;
 }
 
-bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
-                                           char32_t symbol_codepoint, float font_size, int r, int g, int b)
+bool Document::add_music_symbol_annotation(int page_num,
+                                           float baseline_x,
+                                           float baseline_y,
+                                           char32_t symbol_codepoint,
+                                           float font_size,
+                                           int r,
+                                           int g,
+                                           int b)
 {
     SAFE_METHOD;
     TRACE_FUNCTION_MSG("page={} cp=U+{:04X} size={}", page_num, static_cast<int>(symbol_codepoint), font_size);
@@ -712,17 +718,20 @@ bool Document::add_music_symbol_annotation(int page_num, float baseline_x, float
     float rect_top_screen = baseline_screen_y - m.ascent;
     float rect_left = baseline_x;
 
-    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(symbol_codepoint), page_num,
-                                                  rect_left, rect_top_screen, m.width, m.height,
-                                                  font_size, "Bravura", *bravura, r, g, b);
+    TextResult tr =
+        add_freetext_with_custom_font(filename_, codepoint_to_utf8(symbol_codepoint), page_num, rect_left,
+                                      rect_top_screen, m.width, m.height, font_size, "Bravura", *bravura, r, g, b);
     if (tr != TextResult::Success) {
-        logger::error("Failed to write music symbol U+{:04X} to PDF, code={}",
-                      static_cast<int>(symbol_codepoint), static_cast<int>(tr));
+        logger::error("Failed to write music symbol U+{:04X} to PDF, code={}", static_cast<int>(symbol_codepoint),
+                      static_cast<int>(tr));
         return false;
     }
 
-    FontInfo font_info {.family = "Bravura", .size = font_size, .color = {r, g, b}};
-    Annotation ann {codepoint_to_utf8(symbol_codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
+    FontInfo font_info {
+        .family = "Bravura", .size = font_size, .color = {r, g, b}
+    };
+    Annotation ann {
+        codepoint_to_utf8(symbol_codepoint), page_num, baseline_x, baseline_y, m.width, m.height, font_info};
     ann.is_music_symbol_ = true;
     ann.symbol_ = symbol_codepoint;
     // Mirror the saved /Rect: top in PDF Y-up = baseline + ascent.
@@ -805,9 +814,9 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
     float rect_top_screen = baseline_screen_y - m.ascent;
 
     auto [nr, ng, nb] = new_font.color;
-    TextResult tr = add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num,
-                                                  baseline_x, rect_top_screen, m.width, m.height,
-                                                  new_font.size, "Bravura", *bravura, nr, ng, nb);
+    TextResult tr =
+        add_freetext_with_custom_font(filename_, codepoint_to_utf8(codepoint), page_num, baseline_x, rect_top_screen,
+                                      m.width, m.height, new_font.size, "Bravura", *bravura, nr, ng, nb);
     if (tr != TextResult::Success) {
         logger::error("change_annotation_font: failed to write replacement music annotation");
         return false;
@@ -818,7 +827,7 @@ bool Document::change_annotation_font(const AnnotationHandle& handle, const Font
         auto* annotation = find_annotation(handle);
         if (annotation) {
             annotation->font_info_ = new_font;
-            annotation->font_info_.family = "Bravura";  // music symbols are always Bravura
+            annotation->font_info_.family = "Bravura"; // music symbols are always Bravura
             annotation->width_ = m.width;
             annotation->height_ = m.height;
             annotation->rect_top_pdf_ = baseline_y + m.ascent;
@@ -1034,8 +1043,14 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
                 float a = gb.y1 * font_size;
                 float d = -gb.y0 * font_size;
                 ink_width += fz_advance_glyph(ctx, prev_font, gid, false) * font_size;
-                if (!any) { ink_ascent = a; ink_descent = d; any = true; }
-                else { ink_ascent = std::max(ink_ascent, a); ink_descent = std::max(ink_descent, d); }
+                if (!any) {
+                    ink_ascent = a;
+                    ink_descent = d;
+                    any = true;
+                } else {
+                    ink_ascent = std::max(ink_ascent, a);
+                    ink_descent = std::max(ink_descent, d);
+                }
                 p += n;
             }
         }
@@ -1046,8 +1061,7 @@ QImage Document::render_page_with_preview_annotation(int page_num, const Annotat
         float baseline_screen = page_height - preview_annotation.y_;
         float rect_y0 = baseline_screen - ink_ascent;
         float rect_y1 = rect_y0 + ink_height;
-        fz_rect rect = fz_make_rect(preview_annotation.x_, rect_y0,
-                                    preview_annotation.x_ + used_width, rect_y1);
+        fz_rect rect = fz_make_rect(preview_annotation.x_, rect_y0, preview_annotation.x_ + used_width, rect_y1);
         pdf_set_annot_rect(ctx, annot, rect);
         pdf_set_annot_contents(ctx, annot, preview_annotation.text_.c_str());
 
@@ -1390,8 +1404,7 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                             if (is_music) {
                                 auto bravura = lookup_font_file("Bravura");
                                 if (bravura && recovered_codepoint != 0) {
-                                    GlyphMetrics m = measure_glyph(*bravura, "Bravura",
-                                                                   recovered_codepoint, font_size);
+                                    GlyphMetrics m = measure_glyph(*bravura, "Bravura", recovered_codepoint, font_size);
                                     baseline_y = y1 - m.ascent;
                                 } else {
                                     baseline_y = coords.rect_top_to_baseline_pdf(y1, font_size);
@@ -1400,8 +1413,8 @@ std::vector<Annotation> Document::load_annotations_from_pdf(fz_context* ctx, fz_
                                 baseline_y = coords.rect_top_to_baseline_pdf(y1, font_size);
                             }
 
-                            Annotation annotation(text ? std::string(text) : std::string(), page_idx + 1,
-                                                  x, baseline_y, width, height, loaded_font);
+                            Annotation annotation(text ? std::string(text) : std::string(), page_idx + 1, x, baseline_y,
+                                                  width, height, loaded_font);
                             annotation.is_music_symbol_ = is_music;
                             annotation.symbol_ = static_cast<char32_t>(recovered_codepoint);
                             annotation.rect_top_pdf_ = y1;
@@ -1506,8 +1519,14 @@ bool Document::add_annotation_to_pdf(Annotation& ann)
                 float a = gb.y1 * font_size;
                 float d = -gb.y0 * font_size;
                 ink_width += fz_advance_glyph(ctx, measure_font, gid, false) * font_size;
-                if (!any) { ink_ascent = a; ink_descent = d; any = true; }
-                else { ink_ascent = std::max(ink_ascent, a); ink_descent = std::max(ink_descent, d); }
+                if (!any) {
+                    ink_ascent = a;
+                    ink_descent = d;
+                    any = true;
+                } else {
+                    ink_ascent = std::max(ink_ascent, a);
+                    ink_descent = std::max(ink_descent, d);
+                }
                 p += n;
             }
         }
@@ -1528,8 +1547,8 @@ bool Document::add_annotation_to_pdf(Annotation& ann)
         // Write /DA for compatibility with other PDF editors
         float color[3] = {cr / 255.0f, cg / 255.0f, cb / 255.0f};
         char da[128];
-        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg",
-                 mupdf_font_name.c_str(), font_size, color[0], color[1], color[2]);
+        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg", mupdf_font_name.c_str(), font_size, color[0],
+                 color[1], color[2]);
         pdf_dict_put_string(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(DA), da, strlen(da));
 
         // Form origin at baseline - ink_ascent; text baseline at form y=ink_descent
@@ -1675,8 +1694,7 @@ bool Document::delete_annotation_from_pdf(const Annotation& ann)
 }
 
 
-bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann,
-                                        bool preserve_appearance)
+bool Document::update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann, bool preserve_appearance)
 {
     SAFE_METHOD;
     TRACE_CALL;

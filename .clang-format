@@ -1,4 +1,4 @@
-﻿---
+---
 AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures : Right
@@ -17,6 +17,7 @@ SortIncludes: false
 ColumnLimit: 120
 IndentCaseLabels: true
 IndentWidth: 4
+LineEnding: CRLF
 MaxEmptyLinesToKeep: 2
 SpaceAfterTemplateKeyword: false
 SpaceBeforeCpp11BracedList: true

@@ -523,10 +523,8 @@ std::string codepoint_to_utf8(int cp)
 }
 
 
-GlyphMetrics measure_glyph(const std::filesystem::path& font_file,
-                           const std::string& font_family,
-                           int codepoint,
-                           float font_size)
+GlyphMetrics
+measure_glyph(const std::filesystem::path& font_file, const std::string& font_family, int codepoint, float font_size)
 {
     GlyphMetrics m {0.0f, 0.0f, 0.0f, 0.0f};
 
@@ -551,8 +549,7 @@ GlyphMetrics measure_glyph(const std::filesystem::path& font_file,
     }
     fz_catch(ctx)
     {
-        logger::error("measure_glyph failed for U+{:04X} in '{}': {}",
-                      codepoint, font_family, fz_caught_message(ctx));
+        logger::error("measure_glyph failed for U+{:04X} in '{}': {}", codepoint, font_family, fz_caught_message(ctx));
     }
 
     if (font)
@@ -632,8 +629,14 @@ TextResult add_freetext_with_custom_font(const std::filesystem::path& pdf_filena
                 fz_rect gb = fz_bound_glyph(ctx, fz_font_obj, gid, fz_identity);
                 float a = gb.y1 * font_size;
                 float d = -gb.y0 * font_size;
-                if (!any) { ascent = a; descent = d; any = true; }
-                else { ascent = std::max(ascent, a); descent = std::max(descent, d); }
+                if (!any) {
+                    ascent = a;
+                    descent = d;
+                    any = true;
+                } else {
+                    ascent = std::max(ascent, a);
+                    descent = std::max(descent, d);
+                }
                 p += n;
             }
         }
@@ -650,8 +653,7 @@ TextResult add_freetext_with_custom_font(const std::filesystem::path& pdf_filena
         fz_append_string(ctx, buf, "<");
         const char* p = text.c_str();
         const char* end = p + text.size();
-        while (p < end)
-        {
+        while (p < end) {
             int rune = 0;
             int n = fz_chartorune(&rune, p);
             int gid = fz_encode_character(ctx, fz_font_obj, rune);
@@ -677,8 +679,8 @@ TextResult add_freetext_with_custom_font(const std::filesystem::path& pdf_filena
         // mupdf's own writer would map this back to Helvetica, but we override
         // its appearance below before that ever runs.
         char da[96];
-        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg",
-                 kFormFontName, font_size, r / 255.0f, g / 255.0f, b / 255.0f);
+        snprintf(da, sizeof(da), "/%s %.2f Tf %.3f %.3f %.3f rg", kFormFontName, font_size, r / 255.0f, g / 255.0f,
+                 b / 255.0f);
         pdf_dict_put_string(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(DA), da, strlen(da));
 
         // Inject our hand-built form. mupdf calls pdf_set_annot_resynthesised

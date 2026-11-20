@@ -197,11 +197,7 @@ private:
     // window under the pointer, or into a new window.
     void setup_tab_drag(QTabWidget* tabs);
     void on_tab_drag_finished(QTabWidget* source, int index, const QPoint& global_pos);
-    void move_detached_page(QTabWidget* source,
-                            QTabWidget* target,
-                            QWidget* page,
-                            const QString& label,
-                            int index);
+    void move_detached_page(QTabWidget* source, QTabWidget* target, QWidget* page, const QString& label, int index);
     DetachedWindow* create_detached_window();
     void rebind_viewer(QWidget* page, QTabWidget* target);
     StatusBar* status_bar_for(QTabWidget* tabs) const;

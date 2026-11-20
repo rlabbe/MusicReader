@@ -103,9 +103,8 @@ std::string qt_font_to_pdf_font(const QString& qt_font, bool bold, bool italic)
 // Search a single Fonts registry hive (HKLM = system, HKCU = per-user).
 // HKCU entries typically store an absolute path; HKLM stores a bare filename
 // to be resolved against the system Fonts directory.
-static std::optional<std::string> lookup_font_in_hive(HKEY hive,
-                                                     const std::string& font_family,
-                                                     const std::filesystem::path& system_fonts_dir)
+static std::optional<std::string>
+lookup_font_in_hive(HKEY hive, const std::string& font_family, const std::filesystem::path& system_fonts_dir)
 {
     HKEY hkey;
     LONG result = RegOpenKeyExW(hive, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0, KEY_READ, &hkey);

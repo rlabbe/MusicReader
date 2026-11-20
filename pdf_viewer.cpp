@@ -26,8 +26,7 @@ namespace {
 QSize logical_size(const QPixmap& pixmap)
 {
     qreal dpr = pixmap.devicePixelRatio();
-    return QSize(qRound(static_cast<qreal>(pixmap.width()) / dpr),
-                 qRound(static_cast<qreal>(pixmap.height()) / dpr));
+    return QSize(qRound(static_cast<qreal>(pixmap.width()) / dpr), qRound(static_cast<qreal>(pixmap.height()) / dpr));
 }
 
 } // namespace
@@ -332,11 +331,14 @@ void PDFViewer::keyPressEvent(QKeyEvent* event)
                 event->accept();
                 return;
             case Qt::Key_Plus:
-            case Qt::Key_Equal:  // unshifted '+' on US keyboards
+            case Qt::Key_Equal: // unshifted '+' on US keyboards
             case Qt::Key_Minus: {
                 const Annotation* current = nullptr;
                 for (const auto& a : document_->annotations())
-                    if (a.handle_ == selected_annotation_) { current = &a; break; }
+                    if (a.handle_ == selected_annotation_) {
+                        current = &a;
+                        break;
+                    }
                 if (current) {
                     bool larger = (key != Qt::Key_Minus);
                     FontInfo new_font = current->font_info_;
@@ -501,8 +503,7 @@ void PDFViewer::delete_shortcut()
         if (document_->remove_annotation(selected_annotation_)) {
             clear_selection();
             get_page(renderer_.current_index());
-        }
-        else
+        } else
             logger::error("Failed to remove annotation with handle {}", static_cast<int>(selected_annotation_));
     } else {
         logger::debug("delete_shortcut called but no selection");
@@ -1090,13 +1091,10 @@ bool PDFViewer::is_crop_position_valid(DragKind kind, double position) const
 {
     switch (kind) {
         case DragKind::CropTop:
-        case DragKind::CropLeft:
-            return position < 0.5;
+        case DragKind::CropLeft: return position < 0.5;
         case DragKind::CropBottom:
-        case DragKind::CropRight:
-            return position > 0.5;
-        default:
-            return true;
+        case DragKind::CropRight: return position > 0.5;
+        default: return true;
     }
 }
 
@@ -1106,8 +1104,7 @@ QSize PDFViewer::display_box_px() const
     if (!label_ || label_->width() <= 0 || label_->height() <= 0)
         return {};
     qreal dpr = label_->devicePixelRatioF();
-    return QSize(qRound(static_cast<qreal>(label_->width()) * dpr),
-                 qRound(static_cast<qreal>(label_->height()) * dpr));
+    return QSize(qRound(static_cast<qreal>(label_->width()) * dpr), qRound(static_cast<qreal>(label_->height()) * dpr));
 }
 
 
@@ -1125,7 +1122,8 @@ int PDFViewer::display_width_px() const
         return box.width();
 
     int across = in_double_page_view() ? 2 : 1;
-    double fit_w = std::min(static_cast<double>(box.width()), static_cast<double>(box.height()) * page_w_pt * across / page_h_pt);
+    double fit_w =
+        std::min(static_cast<double>(box.width()), static_cast<double>(box.height()) * page_w_pt * across / page_h_pt);
     return static_cast<int>(fit_w / across);
 }
 
@@ -1139,8 +1137,8 @@ int PDFViewer::zoomed_render_width(const PixmapPage& page, PageRenderer::Segment
     if (crop.width() <= 0 || crop.height() <= 0)
         return 0;
 
-    double scale = std::min(static_cast<double>(box.width()) / crop.width(),
-                            static_cast<double>(box.height()) / crop.height());
+    double scale =
+        std::min(static_cast<double>(box.width()) / crop.width(), static_cast<double>(box.height()) / crop.height());
     if (scale <= 1.0)
         return 0;
 
@@ -1183,8 +1181,7 @@ void PDFViewer::update_image(const QString& message)
 
         // In double-page mode, compose preview with the other page
         int current = current_page();
-        if (in_double_page_view() && last_click_target_.page_num > 0 &&
-            current + 1 <= document_->page_count()) {
+        if (in_double_page_view() && last_click_target_.page_num > 0 && current + 1 <= document_->page_count()) {
             bool preview_is_page2 = (last_click_target_.page_num == current + 1);
 
             // Get the non-preview page
@@ -1221,8 +1218,8 @@ void PDFViewer::update_image(const QString& message)
 
         // Only show moved annotation if it's on a currently visible page
         int current = current_page();
-        bool annotation_visible = ann && (ann->page_num_ == current ||
-                                          (in_double_page_view() && ann->page_num_ == current + 1));
+        bool annotation_visible =
+            ann && (ann->page_num_ == current || (in_double_page_view() && ann->page_num_ == current + 1));
 
         if (ann && annotation_visible) {
             QImage moved_image = document_->render_page_with_moved_annotation(
@@ -1235,7 +1232,8 @@ void PDFViewer::update_image(const QString& message)
                 if (in_double_page_view() && current + 1 <= document_->page_count()) {
                     bool moved_is_page2 = (ann->page_num_ == current + 1);
 
-                    Page other_page = document_->get_page(moved_is_page2 ? current : current + 1, false, display_width_px());
+                    Page other_page =
+                        document_->get_page(moved_is_page2 ? current : current + 1, false, display_width_px());
                     QPixmap other_pixmap = other_page.as_pixmap();
 
                     Page moved_page_info = document_->get_page(ann->page_num_, false, display_width_px());
@@ -1700,8 +1698,8 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
                     DeleteObject(iconInfo.hbmColor);
             }
         }
-        logger::info("mousePressEvent: IBeam bmHeight={} yHotspot={} is_color={} computed_offset={}",
-                     raw_bm_height, raw_y_hotspot, is_color, cursor_offset);
+        logger::info("mousePressEvent: IBeam bmHeight={} yHotspot={} is_color={} computed_offset={}", raw_bm_height,
+                     raw_y_hotspot, is_color, cursor_offset);
 #endif
         QPoint editor_pos(event->pos().x(), event->pos().y());
 
@@ -1723,16 +1721,16 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         annotation_editor_->set_dpi_scale(points_to_pixels);
 
         logger::info("mousePressEvent annotation: event_pos=({},{}) label_size=({},{}) pixmap_size=({},{})",
-                     event->pos().x(), event->pos().y(), label_size.width(), label_size.height(),
-                     displayed.width(), displayed.height());
-        logger::info("mousePressEvent annotation: offset=({},{}) editor_pos=({},{})",
-                     offset_x, offset_y, editor_pos.x(), editor_pos.y());
-        logger::info("mousePressEvent annotation: zoom_to_content={} effective_pdf_width={:.1f} points_to_pixels={:.3f}",
-                     config_->zoom_to_content(), effective_pdf_width, points_to_pixels);
+                     event->pos().x(), event->pos().y(), label_size.width(), label_size.height(), displayed.width(),
+                     displayed.height());
+        logger::info("mousePressEvent annotation: offset=({},{}) editor_pos=({},{})", offset_x, offset_y,
+                     editor_pos.x(), editor_pos.y());
+        logger::info(
+            "mousePressEvent annotation: zoom_to_content={} effective_pdf_width={:.1f} points_to_pixels={:.3f}",
+            config_->zoom_to_content(), effective_pdf_width, points_to_pixels);
         QPoint label_corner = label_->mapToParent(QPoint(0, 0));
         logger::info("mousePressEvent annotation: label_corner(0,0)=({},{}) label_corner(offset)=({},{})",
-                     label_corner.x(), label_corner.y(),
-                     label_->mapToParent(QPoint(offset_x, offset_y)).x(),
+                     label_corner.x(), label_corner.y(), label_->mapToParent(QPoint(offset_x, offset_y)).x(),
                      label_->mapToParent(QPoint(offset_x, offset_y)).y());
         logger::info("mousePressEvent annotation: last_click_target page={} x={:.1f} y={:.1f}",
                      last_click_target_.page_num, last_click_target_.points_x, last_click_target_.points_y);
@@ -1745,9 +1743,8 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
             ClickTarget raw = get_click_target(event);
             const FontInfo& fi = config_->annotation_font();
             auto [cr, cg, cb] = fi.color;
-            document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y,
-                                                   pending_music_symbol_, fi.size,
-                                                   cr, cg, cb);
+            document_->add_music_symbol_annotation(raw.page_num, raw.points_x, raw.points_y, pending_music_symbol_,
+                                                   fi.size, cr, cg, cb);
             // Redraw so the new symbol appears now rather than on the next page change.
             get_page(renderer_.current_index());
             // Stay in this mode so consecutive clicks place more of the same glyph.
@@ -1993,7 +1990,10 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         if (clicked && clicked == selected_annotation_) {
             const Annotation* current = nullptr;
             for (const auto& a : document_->annotations())
-                if (a.handle_ == selected_annotation_) { current = &a; break; }
+                if (a.handle_ == selected_annotation_) {
+                    current = &a;
+                    break;
+                }
             if (current) {
                 auto picked = MusicReader::show_font_picker(this, current->font_info_);
                 if (picked) {
@@ -2599,7 +2599,8 @@ QRect PDFViewer::calculate_annotation_bounding_box(const Annotation& annotation,
     // In performance mode, map from full page ratio to segment ratio
     double segment_height = segment_bottom_normalized - segment_top_normalized;
     float segment_annot_top_ratio = static_cast<float>((annot_top_ratio - segment_top_normalized) / segment_height);
-    float segment_annot_bottom_ratio = static_cast<float>((annot_bottom_ratio - segment_top_normalized) / segment_height);
+    float segment_annot_bottom_ratio =
+        static_cast<float>((annot_bottom_ratio - segment_top_normalized) / segment_height);
 
     if (zoom_mode) {
         // Get effective border for the segment (or full page if not in performance mode)

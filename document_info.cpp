@@ -130,7 +130,10 @@ bool document_info::write_performance(const std::filesystem::path& pdf_path, con
     nlohmann::json breaks = nlohmann::json::array();
     for (const auto& [page, positions] : performance.all_page_breaks()) {
         for (double position : positions)
-            breaks.push_back({{"page", page}, {"position", position}});
+            breaks.push_back({
+                {    "page",     page},
+                {"position", position}
+            });
     }
     if (!breaks.empty())
         section["page_breaks"] = breaks;
@@ -139,7 +142,9 @@ bool document_info::write_performance(const std::filesystem::path& pdf_path, con
     for (const auto& [page, crop] : performance.all_paper_crops()) {
         if (crop.empty())
             continue;
-        nlohmann::json entry = {{"page", page}};
+        nlohmann::json entry = {
+            {"page", page}
+        };
         if (crop.top)
             entry["top"] = *crop.top;
         if (crop.bottom)

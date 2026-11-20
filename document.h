@@ -72,8 +72,14 @@ public:
     // Place a single SMuFL music glyph (Bravura) as a FreeText annotation with
     // a hand-built appearance stream. baseline_x/y are click coordinates: x in
     // PDF points, y as baseline in PDF Y-up coords.
-    bool add_music_symbol_annotation(int page_num, float baseline_x, float baseline_y,
-                                     char32_t symbol_codepoint, float font_size, int r, int g, int b);
+    bool add_music_symbol_annotation(int page_num,
+                                     float baseline_x,
+                                     float baseline_y,
+                                     char32_t symbol_codepoint,
+                                     float font_size,
+                                     int r,
+                                     int g,
+                                     int b);
     // Change the font (family/size/color) of one existing annotation. Routes
     // to update_annotation_in_pdf for text annotations and to a delete+re-add
     // for music symbols (where size/color require regenerating the /AP form).
@@ -133,8 +139,8 @@ private:
     // preserve_appearance=true skips /AP regeneration so an existing appearance
     // stream (e.g. from Foxit) survives a move. Use false when text/font/color
     // actually changed.
-    bool update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann,
-                                  bool preserve_appearance = false);
+    bool
+    update_annotation_in_pdf(const Annotation& old_ann, const Annotation& new_ann, bool preserve_appearance = false);
     void clear_completed_features();
 
     std::vector<Bookmark> bookmarks_;

@@ -8,8 +8,7 @@
 // with the tab text follows it. On release, drag_finished receives the pressed
 // tab index and the release position; the caller moves the page and decides
 // which window receives it.
-class DetachableTabBar : public QTabBar
-{
+class DetachableTabBar : public QTabBar {
 public:
     explicit DetachableTabBar(QWidget* parent = nullptr);
     ~DetachableTabBar() override;
@@ -60,8 +59,7 @@ inline void DetachableTabBar::mousePressEvent(QMouseEvent* event)
 
 inline void DetachableTabBar::mouseMoveEvent(QMouseEvent* event)
 {
-    if (pressed_index_ < 0)
-    {
+    if (pressed_index_ < 0) {
         QTabBar::mouseMoveEvent(event);
         return;
     }
@@ -70,14 +68,12 @@ inline void DetachableTabBar::mouseMoveEvent(QMouseEvent* event)
     if ((pos - press_pos_).manhattanLength() < QApplication::startDragDistance())
         return;
 
-    if (rect().contains(pos))
-    {
+    if (rect().contains(pos)) {
         if (drag_label_)
             stop_drag();
 
         const int target = tabAt(pos);
-        if (target >= 0 && target != pressed_index_)
-        {
+        if (target >= 0 && target != pressed_index_) {
             moveTab(pressed_index_, target);
             pressed_index_ = target;
         }
@@ -95,8 +91,7 @@ inline void DetachableTabBar::mouseReleaseEvent(QMouseEvent* event)
     const int index = pressed_index_;
     pressed_index_ = -1;
 
-    if (!drag_label_)
-    {
+    if (!drag_label_) {
         QTabBar::mouseReleaseEvent(event);
         return;
     }

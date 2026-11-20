@@ -7,8 +7,7 @@ class StatusBar;
 // Top-level window that holds tabs dragged out of the main window. It has its
 // own status bar, so a viewer moved here writes its page information to this
 // window.
-class DetachedWindow : public QWidget
-{
+class DetachedWindow : public QWidget {
 public:
     explicit DetachedWindow(bool horizontal_tabs);
 

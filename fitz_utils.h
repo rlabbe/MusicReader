@@ -84,10 +84,8 @@ struct GlyphMetrics {
     float ascent;
     float descent;
 };
-extern GlyphMetrics measure_glyph(const std::filesystem::path& font_file,
-                                  const std::string& font_family,
-                                  int codepoint,
-                                  float font_size);
+extern GlyphMetrics
+measure_glyph(const std::filesystem::path& font_file, const std::string& font_family, int codepoint, float font_size);
 
 // Add a FreeText annotation that uses an embedded CID font (e.g. Bravura SMuFL).
 // MuPDF's own appearance writer hardcodes Base-14 fonts and silently rewrites

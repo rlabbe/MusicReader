@@ -27,8 +27,7 @@ DetachedWindow::DetachedWindow(bool horizontal_tabs)
 
 void DetachedWindow::closeEvent(QCloseEvent* event)
 {
-    for (int i = 0; i < tab_widget_->count(); ++i)
-    {
+    for (int i = 0; i < tab_widget_->count(); ++i) {
         QWidget* page = tab_widget_->widget(i);
         if (!page)
             continue;

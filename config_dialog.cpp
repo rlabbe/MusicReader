@@ -33,9 +33,8 @@ void ConfigDialog::setup_ui()
                             "more memory. 360 for 4K display is good");
 
     check_adaptive_dpi_ = new QCheckBox("Adaptive DPI (compute from monitor and page size)", this);
-    check_adaptive_dpi_->setWhatsThis(
-        "Compute DPI per document so the rendered page matches monitor pixel height. "
-        "Ignores the DPI setting above when checked.");
+    check_adaptive_dpi_->setWhatsThis("Compute DPI per document so the rendered page matches monitor pixel height. "
+                                      "Ignores the DPI setting above when checked.");
 
     spin_border_margin_ = new QSpinBox(this);
     spin_border_margin_->setRange(0, 100);
@@ -73,8 +72,7 @@ void ConfigDialog::setup_ui()
 
     edit_musescore_path_ = new QLineEdit(this);
     edit_musescore_path_->setMinimumWidth(420);
-    edit_musescore_path_->setWhatsThis(
-        "Full path to the MuseScore program that File, Export MuseScore to PDF runs.");
+    edit_musescore_path_->setWhatsThis("Full path to the MuseScore program that File, Export MuseScore to PDF runs.");
 
     btn_browse_musescore_ = new QPushButton("Browse...", this);
     btn_browse_musescore_->setWhatsThis("Select the MuseScore program.");
@@ -252,8 +250,8 @@ void ConfigDialog::setup_connections()
 
 void ConfigDialog::browse_musescore_program()
 {
-    const QString filename = QFileDialog::getOpenFileName(
-        this, "Select the MuseScore Program", edit_musescore_path_->text(), "Programs (*.exe)");
+    const QString filename = QFileDialog::getOpenFileName(this, "Select the MuseScore Program",
+                                                          edit_musescore_path_->text(), "Programs (*.exe)");
 
     if (!filename.isEmpty())
         edit_musescore_path_->setText(filename);

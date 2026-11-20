@@ -1142,8 +1142,11 @@ void MusicReader::on_tab_drag_finished(QTabWidget* source, int index, const QPoi
     save_open_documents_to_config();
 }
 
-void MusicReader::move_detached_page(
-    QTabWidget* source, QTabWidget* target, QWidget* page, const QString& label, int index)
+void MusicReader::move_detached_page(QTabWidget* source,
+                                     QTabWidget* target,
+                                     QWidget* page,
+                                     const QString& label,
+                                     int index)
 {
     const int source_index = source->indexOf(page);
     if (source_index < 0)
@@ -1697,11 +1700,11 @@ static const struct {
     int codepoint;
     const char* tooltip;
 } k_music_palette_glyphs[] = {
-    {0xE262, "Sharp"},
-    {0xE260, "Flat"},
-    {0xE261, "Natural"},
+    {0xE262,        "Sharp"},
+    {0xE260,         "Flat"},
+    {0xE261,      "Natural"},
     {0xE263, "Double Sharp"},
-    {0xE264, "Double Flat"},
+    {0xE264,  "Double Flat"},
 };
 
 
@@ -2016,50 +2019,62 @@ void MusicReader::show_keyboard_shortcuts()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    struct Entry { QString key; QString action; };
-    struct Section { QString name; std::vector<Entry> entries; };
+    struct Entry {
+        QString key;
+        QString action;
+    };
+    struct Section {
+        QString name;
+        std::vector<Entry> entries;
+    };
 
     const std::vector<Section> sections = {
-        { "Navigation", {
-            { "Page Down / Down / Space / Right", "Next page" },
-            { "Page Up / Up / Left",              "Previous page" },
-            { "G",                                "Go to page..." },
-            { "F11",                              "Toggle fullscreen" },
-            { "Escape",                           "Exit fullscreen" },
-        }},
-        { "View", {
-            { "1",       "Single page view" },
-            { "2",       "Double page view" },
-            { "Z",       "Toggle zoom to content" },
-            { "S",       "Toggle page step size" },
-            { "T",       "Show / hide document tabs" },
-            { "Ctrl+B",  "Show / hide bookmark panel" },
-        }},
-        { "File", {
-            { "O",   "Open file" },
-            { "F",   "Fast file search" },
-            { "F5",  "Reload document" },
-            { "F2",  "Edit document (external)" },
-        }},
-        { "Bookmarks & Annotations", {
-            { "B / Ctrl+D",          "Add bookmark" },
-            { "Ctrl+Z",              "Undo" },
-            { "Ctrl+Y",              "Redo" },
-            { "A",                   "Toggle annotation mode" },
-            { "Delete / Backspace",  "Delete selected annotation" },
-            { "Arrow keys",          "Move selected annotation" },
-            { "+  /  -",             "Resize annotation font" },
-        }},
-        { "Modes", {
-            { "P",   "Toggle performance mode" },
-            { "M",   "Toggle metronome start / stop" },
-            { ",",   "Metronome BPM − 1" },
-            { ".",   "Metronome BPM + 1" },
-        }},
-        { "Page Break Edit Mode", {
-            { "X", "Toggle paper-crop submode (top / bottom)" },
-            { "Z", "Toggle paper-crop submode (left / right)" },
-        }},
+        {             "Navigation",
+         {
+         {"Page Down / Down / Space / Right", "Next page"},
+         {"Page Up / Up / Left", "Previous page"},
+         {"G", "Go to page..."},
+         {"F11", "Toggle fullscreen"},
+         {"Escape", "Exit fullscreen"},
+         }},
+        {                   "View",
+         {
+         {"1", "Single page view"},
+         {"2", "Double page view"},
+         {"Z", "Toggle zoom to content"},
+         {"S", "Toggle page step size"},
+         {"T", "Show / hide document tabs"},
+         {"Ctrl+B", "Show / hide bookmark panel"},
+         }},
+        {                   "File",
+         {
+         {"O", "Open file"},
+         {"F", "Fast file search"},
+         {"F5", "Reload document"},
+         {"F2", "Edit document (external)"},
+         }},
+        {"Bookmarks & Annotations",
+         {
+         {"B / Ctrl+D", "Add bookmark"},
+         {"Ctrl+Z", "Undo"},
+         {"Ctrl+Y", "Redo"},
+         {"A", "Toggle annotation mode"},
+         {"Delete / Backspace", "Delete selected annotation"},
+         {"Arrow keys", "Move selected annotation"},
+         {"+  /  -", "Resize annotation font"},
+         }},
+        {                  "Modes",
+         {
+         {"P", "Toggle performance mode"},
+         {"M", "Toggle metronome start / stop"},
+         {",", "Metronome BPM − 1"},
+         {".", "Metronome BPM + 1"},
+         }},
+        {   "Page Break Edit Mode",
+         {
+         {"X", "Toggle paper-crop submode (top / bottom)"},
+         {"Z", "Toggle paper-crop submode (left / right)"},
+         }},
     };
 
     // Count total rows: one header row per section + entries
@@ -2075,7 +2090,7 @@ void MusicReader::show_keyboard_shortcuts()
     QVBoxLayout layout(&dialog);
 
     auto* table = new QTableWidget(total_rows, 2, &dialog);
-    table->setHorizontalHeaderLabels({ "Key", "Action" });
+    table->setHorizontalHeaderLabels({"Key", "Action"});
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     table->verticalHeader()->setVisible(false);
@@ -2226,8 +2241,8 @@ void MusicReader::select_annotation_font()
 
     config_.set_annotation_font(*picked);
     auto [pr, pg, pb] = picked->color;
-    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})", picked->family,
-                 picked->size, pr, pg, pb);
+    logger::info("Annotation font set to: family='{}', size={}, color=({},{},{})", picked->family, picked->size, pr, pg,
+                 pb);
 }
 
 void MusicReader::goto_page_dialog()
@@ -2299,12 +2314,13 @@ void MusicReader::show_metronome_dialog()
         // that must persist for the dialog's lifetime.
         metronome_dialog_ = new PolyMetronomeDialog(this, /*no_focus=*/true);
         metronome_dialog_->setAttribute(Qt::WA_DeleteOnClose, true);
-        connect(metronome_dialog_, &QObject::destroyed, this, [this]() { metronome_dialog_ = nullptr; });
+        connect(metronome_dialog_, &QObject::destroyed, this, [this]() {
+            metronome_dialog_ = nullptr;
+        });
 
         // state_changed fires whenever the user moves a slider, spins the
         // dial, edits a meter, etc. We use it to write per-PDF state.
-        connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this,
-                &MusicReader::on_metronome_state_changed);
+        connect(metronome_dialog_, &PolyMetronomeDialog::state_changed, this, &MusicReader::on_metronome_state_changed);
 
         // 500ms debounce: collapses bursts of state_changed signals (slider
         // drags) into a single info file write.
