@@ -1,4 +1,5 @@
 #include "pdf_viewer.h"
+#include <functional>
 #include <thread>
 #include <iostream>
 #include "border.h"
@@ -30,6 +31,29 @@ QSize logical_size(const QPixmap& pixmap)
 }
 
 } // namespace
+
+
+// The page image, with the page break and paper crop lines painted over it.
+// Keeping those lines out of the pixmap means a drag repaints a thin band
+// instead of rebuilding and repainting the whole page image.
+class PageLabel : public QLabel {
+public:
+    using QLabel::QLabel;
+
+    std::function<void(QPainter&)> paint_overlay;
+
+protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        QLabel::paintEvent(event);
+
+        if (!paint_overlay)
+            return;
+
+        QPainter painter(this);
+        paint_overlay(painter);
+    }
+};
 
 
 PDFViewer::PDFViewer(std::shared_ptr<Document> document,
@@ -426,7 +450,10 @@ void PDFViewer::init_ui(int page)
 
     connect(scrollbar_, &QScrollBar::valueChanged, this, &PDFViewer::on_scrollbar_value_changed);
 
-    label_ = new QLabel(this);
+    label_ = new PageLabel(this);
+    label_->paint_overlay = [this](QPainter& painter) {
+        paint_edit_overlays(painter);
+    };
     label_->setStyleSheet("border: 0px;");
 
     label_->setAlignment(page_vertical_alignment() | page_alignment());
@@ -894,79 +921,79 @@ QPixmap PDFViewer::compose_double_page(const PixmapPage& p1,
 
 int PDFViewer::normalized_to_display_y(double normalized_pos, int display_height) const
 {
+    // An uncropped page image fills the display, so the normalized position is
+    // the mapping. Reading the page here would render it again.
+    if (!config_->zoom_to_content() || force_full_page_)
+        return static_cast<int>(normalized_pos * display_height);
+
     // Get the FULL uncropped page to get proper dimensions and border
     Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_height = full_page.height();
     int break_y_full = static_cast<int>(normalized_pos * full_height);
 
-    // force_full_page_ means the displayed pixmap is the uncropped page even
-    // though zoom_to_content is on in config, so the mapping is direct.
-    if (config_->zoom_to_content() && !force_full_page_) {
-        // When zoomed, the displayed image is cropped to border
-        int border_top = full_page.border.top;
-        int border_height = full_page.border.bottom - full_page.border.top;
-        int break_y_cropped = break_y_full - border_top;
-        return static_cast<int>((static_cast<float>(break_y_cropped) / border_height) * display_height);
-    } else
-        // When not zoomed, direct mapping from full image to display
-        return static_cast<int>((static_cast<float>(break_y_full) / full_height) * display_height);
+    // When zoomed, the displayed image is cropped to border
+    int border_top = full_page.border.top;
+    int border_height = full_page.border.bottom - full_page.border.top;
+    int break_y_cropped = break_y_full - border_top;
+    return static_cast<int>((static_cast<float>(break_y_cropped) / border_height) * display_height);
 }
 
 
 double PDFViewer::display_y_to_normalized(int display_y, int display_height) const
 {
+    float click_ratio = static_cast<float>(display_y) / display_height;
+
+    // An uncropped page image fills the display, so the ratio is the position.
+    if (!config_->zoom_to_content() || force_full_page_)
+        return static_cast<double>(click_ratio);
+
     // Get the FULL uncropped page to get proper dimensions and border
     Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_height = full_page.height();
-    float click_ratio = static_cast<float>(display_y) / display_height;
 
-    if (config_->zoom_to_content() && !force_full_page_) {
-        // When zoomed, the displayed image is cropped to border
-        int border_top = full_page.border.top;
-        int border_height = full_page.border.bottom - full_page.border.top;
-        int cropped_y = static_cast<int>(click_ratio * border_height);
-        int full_y = border_top + cropped_y;
-        return static_cast<double>(full_y) / full_height;
-    } else {
-        // When not zoomed, direct mapping from display to full image
-        int full_y = static_cast<int>(click_ratio * full_height);
-        return static_cast<double>(full_y) / full_height;
-    }
+    // When zoomed, the displayed image is cropped to border
+    int border_top = full_page.border.top;
+    int border_height = full_page.border.bottom - full_page.border.top;
+    int cropped_y = static_cast<int>(click_ratio * border_height);
+    int full_y = border_top + cropped_y;
+    return static_cast<double>(full_y) / full_height;
 }
 
 
 int PDFViewer::normalized_to_display_x(double normalized_pos, int display_width) const
 {
+    // An uncropped page image fills the display, so the normalized position is
+    // the mapping. Reading the page here would render it again.
+    if (!config_->zoom_to_content() || force_full_page_)
+        return static_cast<int>(normalized_pos * display_width);
+
     Page full_page = document_->get_page(current_page(), false, display_width_px());
     int full_width = full_page.width();
     int x_full = static_cast<int>(normalized_pos * full_width);
 
-    if (config_->zoom_to_content() && !force_full_page_) {
-        int border_left = full_page.border.left;
-        int border_width = full_page.border.right - full_page.border.left;
-        int x_cropped = x_full - border_left;
-        return static_cast<int>((static_cast<float>(x_cropped) / border_width) * display_width);
-    } else
-        return static_cast<int>((static_cast<float>(x_full) / full_width) * display_width);
+    int border_left = full_page.border.left;
+    int border_width = full_page.border.right - full_page.border.left;
+    int x_cropped = x_full - border_left;
+    return static_cast<int>((static_cast<float>(x_cropped) / border_width) * display_width);
 }
 
 
 double PDFViewer::display_x_to_normalized(int display_x, int display_width) const
 {
-    Page full_page = document_->get_page(current_page(), false, display_width_px());
-    int full_width = full_page.width();
     float click_ratio = static_cast<float>(display_x) / display_width;
 
-    if (config_->zoom_to_content() && !force_full_page_) {
-        int border_left = full_page.border.left;
-        int border_width = full_page.border.right - full_page.border.left;
-        int cropped_x = static_cast<int>(click_ratio * border_width);
-        int full_x = border_left + cropped_x;
-        return static_cast<double>(full_x) / full_width;
-    } else {
-        int full_x = static_cast<int>(click_ratio * full_width);
-        return static_cast<double>(full_x) / full_width;
-    }
+    // An uncropped page image fills the display, so the ratio is the position.
+    if (!config_->zoom_to_content() || force_full_page_)
+        return static_cast<double>(click_ratio);
+
+    Page full_page = document_->get_page(current_page(), false, display_width_px());
+    int full_width = full_page.width();
+
+    int border_left = full_page.border.left;
+    int border_width = full_page.border.right - full_page.border.left;
+    int cropped_x = static_cast<int>(click_ratio * border_width);
+    int full_x = border_left + cropped_x;
+    return static_cast<double>(full_x) / full_width;
 }
 
 
@@ -982,6 +1009,95 @@ int PDFViewer::label_pixmap_x_offset() const
     if (page_alignment() == Qt::AlignRight)
         return label_->width() - shown_width;
     return 0;
+}
+
+
+int PDFViewer::label_pixmap_y_offset() const
+{
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return 0;
+    // The pixmap is in device pixels; widget coordinates are logical.
+    int shown_height = qRound(displayed.height() / displayed.devicePixelRatio());
+    if (page_vertical_alignment() == Qt::AlignVCenter)
+        return (label_->height() - shown_height) / 2;
+    if (page_vertical_alignment() == Qt::AlignBottom)
+        return label_->height() - shown_height;
+    return 0;
+}
+
+
+QPoint PDFViewer::pixmap_offset() const
+{
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return {};
+
+    // QLabel hands the pixmap to QStyle::drawItemPixmap, which aligns it in the
+    // label and intersects that with the label rect.
+    //
+    // When the page is larger than the label, the intersection starts at the
+    // label edge, and the source offset handed to the painter is the logical
+    // alignment offset used as a device-pixel offset. Draw on that path is 1:1
+    // in device pixels, so the visible part begins at offset / dpr in logical
+    // pixels, not at offset.
+    const qreal dpr = displayed.devicePixelRatio();
+    if (dpr <= 0.0)
+        return QPoint(label_pixmap_x_offset(), label_pixmap_y_offset());
+
+    const auto applied = [dpr](int offset) {
+        return offset >= 0 ? offset : qRound(offset / dpr);
+    };
+
+    return QPoint(applied(label_pixmap_x_offset()), applied(label_pixmap_y_offset()));
+}
+
+
+QPoint PDFViewer::to_pixmap_point(const QPoint& widget_pos) const
+{
+    if (label_->pixmap().isNull())
+        return widget_pos;
+
+    // label_->pos() is not zero: the viewer layout has a top margin. The rest
+    // is the alignment offset the label actually applies.
+    return widget_pos - label_->pos() - pixmap_offset();
+}
+
+
+bool PDFViewer::is_inside_page(const QPoint& widget_pos) const
+{
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull() || !document_)
+        return false;
+
+    const QRect page = page_pixmap_rect();
+    return !page.isEmpty() && page.contains(to_pixmap_point(widget_pos));
+}
+
+
+QRect PDFViewer::page_pixmap_rect() const
+{
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return QRect();
+
+    // Editing forces single page view, so the page is the whole image.
+    return QRect(QPoint(0, 0), logical_size(displayed));
+}
+
+
+bool PDFViewer::is_crop_position_valid(DragKind kind, double position) const
+{
+    switch (kind) {
+        case DragKind::CropTop:
+        case DragKind::CropLeft:
+            return position < 0.5;
+        case DragKind::CropBottom:
+        case DragKind::CropRight:
+            return position > 0.5;
+        default:
+            return true;
+    }
 }
 
 
@@ -1212,100 +1328,178 @@ void PDFViewer::update_image(const QString& message)
         painter.end();
     }
 
-    // In edit mode, always draw both overlays regardless of submode: page
-    // break separators (blue) and paper crop lines + excluded-region hatch
-    // (red). The active submode only controls which overlays the mouse edits.
-    if (page_break_edit_mode_) {
-        QPainter painter(&scaled_pixmap);
-        const int display_height = scaled_pixmap.height();
-        const int display_width = scaled_pixmap.width();
-
-        const auto& breaks = document_->performance_data().get_page_breaks(current_page());
-        const bool dragging_break = (drag_kind_ == DragKind::Break);
-
-        painter.setPen(QPen(Qt::blue, 1, Qt::SolidLine));
-        for (double break_pos : breaks) {
-            if (dragging_break && drag_is_existing_ && std::abs(break_pos - drag_original_position_) < 0.01)
-                continue;
-            int y = normalized_to_display_y(break_pos, display_height);
-            if (y >= 0 && y < display_height)
-                painter.drawLine(0, y, display_width, y);
-        }
-        if (dragging_break) {
-            int y = normalized_to_display_y(drag_position_, display_height);
-            if (y >= 0 && y < display_height)
-                painter.drawLine(0, y, display_width, y);
-        }
-
-        const PaperCrop* stored = document_->performance_data().get_paper_crop(current_page());
-        std::optional<double> top_line;
-        std::optional<double> bottom_line;
-        if (stored) {
-            if (stored->top && !(drag_kind_ == DragKind::CropTop && drag_is_existing_))
-                top_line = *stored->top;
-            if (stored->bottom && !(drag_kind_ == DragKind::CropBottom && drag_is_existing_))
-                bottom_line = *stored->bottom;
-        }
-        if (drag_kind_ == DragKind::CropTop)
-            top_line = drag_position_;
-        else if (drag_kind_ == DragKind::CropBottom)
-            bottom_line = drag_position_;
-
-        QBrush hatch(QColor(255, 0, 0, 60), Qt::BDiagPattern);
-        painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
-
-        if (top_line) {
-            int y = normalized_to_display_y(*top_line, display_height);
-            y = std::clamp(y, 0, display_height);
-            if (y > 0)
-                painter.fillRect(QRect(0, 0, display_width, y), hatch);
-            painter.drawLine(0, y, display_width, y);
-        }
-        if (bottom_line) {
-            int y = normalized_to_display_y(*bottom_line, display_height);
-            y = std::clamp(y, 0, display_height);
-            if (y < display_height)
-                painter.fillRect(QRect(0, y, display_width, display_height - y), hatch);
-            painter.drawLine(0, y, display_width, y);
-        }
-
-        // Left/right crop lines (vertical).
-        std::optional<double> left_line;
-        std::optional<double> right_line;
-        if (stored) {
-            if (stored->left && !(drag_kind_ == DragKind::CropLeft && drag_is_existing_))
-                left_line = *stored->left;
-            if (stored->right && !(drag_kind_ == DragKind::CropRight && drag_is_existing_))
-                right_line = *stored->right;
-        }
-        if (drag_kind_ == DragKind::CropLeft)
-            left_line = drag_position_;
-        else if (drag_kind_ == DragKind::CropRight)
-            right_line = drag_position_;
-
-        if (left_line) {
-            int x = normalized_to_display_x(*left_line, display_width);
-            x = std::clamp(x, 0, display_width);
-            if (x > 0)
-                painter.fillRect(QRect(0, 0, x, display_height), hatch);
-            painter.drawLine(x, 0, x, display_height);
-        }
-        if (right_line) {
-            int x = normalized_to_display_x(*right_line, display_width);
-            x = std::clamp(x, 0, display_width);
-            if (x < display_width)
-                painter.fillRect(QRect(x, 0, display_width - x, display_height), hatch);
-            painter.drawLine(x, 0, x, display_height);
-        }
-
-        painter.end();
-    }
-
     if (page_shown_at_device_size)
         scaled_pixmap.setDevicePixelRatio(devicePixelRatioF());
     label_->setPixmap(scaled_pixmap);
     adjust_initial_subwindow_size();
     // QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+}
+
+
+void PDFViewer::paint_edit_overlays(QPainter& painter)
+{
+    if (!page_break_edit_mode_ || !document_ || page_.is_empty())
+        return;
+
+    QPixmap displayed = label_->pixmap();
+    if (displayed.isNull())
+        return;
+
+    const QSize shown = logical_size(displayed);
+    if (shown.isEmpty())
+        return;
+
+    // The pixmap is aligned inside the label, and in two page view the edited
+    // page is only part of it.
+    const QRect page = page_pixmap_rect();
+    if (page.isEmpty())
+        return;
+
+    const QPoint origin = pixmap_offset();
+    const QRect area(origin.x() + page.x(), origin.y() + page.y(), page.width(), page.height());
+    const int width = area.width();
+    const int height = area.height();
+
+    const auto y_of = [&](double normalized) {
+        return area.y() + normalized_to_display_y(normalized, height);
+    };
+    const auto x_of = [&](double normalized) {
+        return area.x() + normalized_to_display_x(normalized, width);
+    };
+
+    // Page break separators (blue).
+    const auto& breaks = document_->performance_data().get_page_breaks(current_page());
+    const bool dragging_break = (drag_kind_ == DragKind::Break);
+
+    painter.setPen(QPen(Qt::blue, 1, Qt::SolidLine));
+    for (double break_pos : breaks) {
+        if (dragging_break && drag_is_existing_ && std::abs(break_pos - drag_original_position_) < 0.01)
+            continue;
+
+        const int y = y_of(break_pos);
+        if (y >= area.y() && y < area.y() + height)
+            painter.drawLine(area.x(), y, area.x() + width, y);
+    }
+    if (dragging_break) {
+        const int y = y_of(drag_position_);
+        if (y >= area.y() && y < area.y() + height)
+            painter.drawLine(area.x(), y, area.x() + width, y);
+    }
+
+    // Paper crop lines (red) and the excluded regions hatch.
+    const PaperCrop* stored = document_->performance_data().get_paper_crop(current_page());
+    std::optional<double> top_line;
+    std::optional<double> bottom_line;
+    if (stored) {
+        if (stored->top && !(drag_kind_ == DragKind::CropTop && drag_is_existing_))
+            top_line = *stored->top;
+        if (stored->bottom && !(drag_kind_ == DragKind::CropBottom && drag_is_existing_))
+            bottom_line = *stored->bottom;
+    }
+    if (drag_kind_ == DragKind::CropTop)
+        top_line = drag_position_;
+    else if (drag_kind_ == DragKind::CropBottom)
+        bottom_line = drag_position_;
+
+    QBrush hatch(QColor(255, 0, 0, 60), Qt::BDiagPattern);
+
+    // A crop line is used only on its own side of the page middle. The line
+    // being dragged is drawn dashed with no hatch while it is on the other
+    // side, which shows that releasing it there stores nothing.
+    const auto draw_horizontal_crop = [&](double position, bool hatch_above, bool pending) {
+        const bool valid = !pending || is_crop_position_valid(drag_kind_, position);
+        const int y = std::clamp(y_of(position), area.y(), area.y() + height);
+
+        if (valid && hatch_above && y > area.y())
+            painter.fillRect(QRect(area.x(), area.y(), width, y - area.y()), hatch);
+        if (valid && !hatch_above && y < area.y() + height)
+            painter.fillRect(QRect(area.x(), y, width, area.y() + height - y), hatch);
+
+        if (valid) {
+            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+            painter.drawLine(area.x(), y, area.x() + width, y);
+        } else {
+            // Wide magenta dashes stay visible on white paper and on a dark
+            // page.
+            painter.setPen(QPen(QColor(255, 0, 255), 3, Qt::DashLine));
+            painter.drawLine(area.x(), y, area.x() + width, y);
+        }
+    };
+
+    const auto draw_vertical_crop = [&](double position, bool hatch_left, bool pending) {
+        const bool valid = !pending || is_crop_position_valid(drag_kind_, position);
+        const int x = std::clamp(x_of(position), area.x(), area.x() + width);
+
+        if (valid && hatch_left && x > area.x())
+            painter.fillRect(QRect(area.x(), area.y(), x - area.x(), height), hatch);
+        if (valid && !hatch_left && x < area.x() + width)
+            painter.fillRect(QRect(x, area.y(), area.x() + width - x, height), hatch);
+
+        if (valid) {
+            painter.setPen(QPen(Qt::red, 1, Qt::SolidLine));
+            painter.drawLine(x, area.y(), x, area.y() + height);
+        } else {
+            painter.setPen(QPen(QColor(255, 0, 255), 3, Qt::DashLine));
+            painter.drawLine(x, area.y(), x, area.y() + height);
+        }
+    };
+
+    if (top_line)
+        draw_horizontal_crop(*top_line, true, drag_kind_ == DragKind::CropTop);
+    if (bottom_line)
+        draw_horizontal_crop(*bottom_line, false, drag_kind_ == DragKind::CropBottom);
+
+    std::optional<double> left_line;
+    std::optional<double> right_line;
+    if (stored) {
+        if (stored->left && !(drag_kind_ == DragKind::CropLeft && drag_is_existing_))
+            left_line = *stored->left;
+        if (stored->right && !(drag_kind_ == DragKind::CropRight && drag_is_existing_))
+            right_line = *stored->right;
+    }
+    if (drag_kind_ == DragKind::CropLeft)
+        left_line = drag_position_;
+    else if (drag_kind_ == DragKind::CropRight)
+        right_line = drag_position_;
+
+    if (left_line)
+        draw_vertical_crop(*left_line, true, drag_kind_ == DragKind::CropLeft);
+    if (right_line)
+        draw_vertical_crop(*right_line, false, drag_kind_ == DragKind::CropRight);
+}
+
+
+void PDFViewer::repaint_drag(double old_position, double new_position)
+{
+    const QRect page = page_pixmap_rect();
+    if (page.isEmpty())
+        return;
+
+    const QPoint origin = pixmap_offset();
+    const QRect area(origin.x() + page.x(), origin.y() + page.y(), page.width(), page.height());
+
+    // Crossing the page middle changes which parts of the page are hatched, so
+    // the whole page has to be painted again.
+    if (is_crop_position_valid(drag_kind_, old_position) != is_crop_position_valid(drag_kind_, new_position)) {
+        label_->update(area);
+        return;
+    }
+
+    // Only the band between the old and the new line changes, plus the lines
+    // themselves, so a drag does not repaint the whole page.
+    if (drag_kind_ == DragKind::CropLeft || drag_kind_ == DragKind::CropRight) {
+        const int old_x = area.x() + normalized_to_display_x(old_position, area.width());
+        const int new_x = area.x() + normalized_to_display_x(new_position, area.width());
+        const int left = std::min(old_x, new_x) - 2;
+        const int width = std::abs(new_x - old_x) + 5;
+        label_->update(QRect(left, area.y(), width, area.height()));
+    } else {
+        const int old_y = area.y() + normalized_to_display_y(old_position, area.height());
+        const int new_y = area.y() + normalized_to_display_y(new_position, area.height());
+        const int top = std::min(old_y, new_y) - 2;
+        const int height = std::abs(new_y - old_y) + 5;
+        label_->update(QRect(area.x(), top, area.width(), height));
+    }
 }
 
 
@@ -1428,17 +1622,25 @@ void PDFViewer::set_page_break_sub_mode(PageBreakSubMode mode)
     drag_kind_ = DragKind::None;
     drag_is_existing_ = false;
 
-    switch (mode) {
-        case PageBreakSubMode::EditBreaks: setCursor(Qt::CrossCursor); break;
-        case PageBreakSubMode::EditPaperCrop: setCursor(Qt::SplitVCursor); break;
-        case PageBreakSubMode::EditPaperCropLR: setCursor(Qt::SplitHCursor); break;
-    }
+    setCursor(page_break_cursor());
 
     // Submode switches only change interaction and cursor; the rendered page
     // is identical (edit mode always renders full-page) and both break and
     // crop overlays are drawn in both submodes. Just repaint overlays.
     update_image();
     emit page_break_sub_mode_changed(mode);
+}
+
+
+Qt::CursorShape PDFViewer::page_break_cursor() const
+{
+    switch (page_break_sub_mode_) {
+        case PageBreakSubMode::EditPaperCrop: return Qt::SplitVCursor;
+        case PageBreakSubMode::EditPaperCropLR: return Qt::SplitHCursor;
+        case PageBreakSubMode::EditBreaks: return Qt::CrossCursor;
+    }
+
+    return Qt::CrossCursor;
 }
 
 
@@ -1560,12 +1762,12 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
         // Handle page break editing - left button to add/move
-        int click_y = event->pos().y();
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int display_height = logical_size(displayed).height();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_height = page_rect.height();
+        const int click_y = to_pixmap_point(event->pos()).y() - page_rect.y();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
 
         // Check if clicking near an existing break (within 5 pixels)
@@ -1598,12 +1800,12 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditBreaks) {
         // Handle page break deletion - right button
-        int click_y = event->pos().y();
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int display_height = logical_size(displayed).height();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_height = page_rect.height();
+        const int click_y = to_pixmap_point(event->pos()).y() - page_rect.y();
 
         // Find and delete the break
         const auto& breaks = document_->performance_data().get_page_breaks(current_page());
@@ -1624,14 +1826,13 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
         // Handle paper crop editing - left button to add/move
-        int click_y = event->pos().y();
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int display_height = logical_size(displayed).height();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_height = page_rect.height();
+        const int click_y = to_pixmap_point(event->pos()).y() - page_rect.y();
         double normalized_pos = display_y_to_normalized(click_y, display_height);
-        normalized_pos = std::max(0.0, std::min(1.0, normalized_pos));
 
         // Hit-test against existing crop lines first (5 pixel tolerance).
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
@@ -1672,12 +1873,12 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
     } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditPaperCrop) {
         // Handle paper crop deletion - right button
-        int click_y = event->pos().y();
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int display_height = logical_size(displayed).height();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_height = page_rect.height();
+        const int click_y = to_pixmap_point(event->pos()).y() - page_rect.y();
 
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
         if (crop) {
@@ -1707,14 +1908,13 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         return;
     } else if (event->button() == Qt::LeftButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditPaperCropLR) {
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int click_x = event->pos().x() - label_pixmap_x_offset();
-        int display_width = logical_size(displayed).width();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_width = page_rect.width();
+        const int click_x = to_pixmap_point(event->pos()).x() - page_rect.x();
         double normalized_pos = display_x_to_normalized(click_x, display_width);
-        normalized_pos = std::clamp(normalized_pos, 0.0, 1.0);
 
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
         DragKind hit = DragKind::None;
@@ -1752,12 +1952,12 @@ void PDFViewer::mousePressEvent(QMouseEvent* event)
         return;
     } else if (event->button() == Qt::RightButton && page_break_edit_mode_ &&
                page_break_sub_mode_ == PageBreakSubMode::EditPaperCropLR) {
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        if (!is_inside_page(event->pos()))
             return;
 
-        int click_x = event->pos().x() - label_pixmap_x_offset();
-        int display_width = logical_size(displayed).width();
+        const QRect page_rect = page_pixmap_rect();
+        const int display_width = page_rect.width();
+        const int click_x = to_pixmap_point(event->pos()).x() - page_rect.x();
 
         const PaperCrop* crop = document_->performance_data().get_paper_crop(current_page());
         if (crop) {
@@ -1831,22 +2031,41 @@ void PDFViewer::mouseMoveEvent(QMouseEvent* event)
     TRACE_FUNCTION;
 
     if (drag_kind_ != DragKind::None) {
-        QPixmap displayed = label_->pixmap();
-        if (displayed.isNull())
+        // A drag that leaves the page image keeps the line where it was.
+        if (!is_inside_page(event->pos())) {
+            setCursor(Qt::ForbiddenCursor);
+            event->accept();
             return;
+        }
+
+        const QRect page_rect = page_pixmap_rect();
+        if (page_rect.isEmpty()) {
+            event->accept();
+            return;
+        }
+
+        const QPoint pixmap_point = to_pixmap_point(event->pos()) - page_rect.topLeft();
+        const double previous_position = drag_position_;
 
         double normalized_pos;
         if (drag_kind_ == DragKind::CropLeft || drag_kind_ == DragKind::CropRight)
-            normalized_pos =
-                display_x_to_normalized(event->pos().x() - label_pixmap_x_offset(), logical_size(displayed).width());
+            normalized_pos = display_x_to_normalized(pixmap_point.x(), page_rect.width());
         else
-            normalized_pos = display_y_to_normalized(event->pos().y(), logical_size(displayed).height());
+            normalized_pos = display_y_to_normalized(pixmap_point.y(), page_rect.height());
 
-        drag_position_ = std::clamp(normalized_pos, 0.0, 1.0);
-        update_image();
+        drag_position_ = normalized_pos;
+
+        // The cursor says whether releasing here keeps the line; the color of
+        // the line says the same.
+        setCursor(is_crop_position_valid(drag_kind_, normalized_pos) ? page_break_cursor() : Qt::ForbiddenCursor);
+
+        repaint_drag(previous_position, normalized_pos);
         event->accept();
         return;
     }
+
+    if (page_break_edit_mode_)
+        setCursor(is_inside_page(event->pos()) ? page_break_cursor() : Qt::ForbiddenCursor);
 
     if (dragging_annotation_ && selected_annotation_) {
         QPoint delta = event->pos() - drag_start_pos_;
@@ -1870,6 +2089,24 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && drag_kind_ != DragKind::None) {
         const int page = current_page();
         auto& perf = document_->performance_data();
+
+        if (!is_inside_page(event->pos())) {
+            drag_kind_ = DragKind::None;
+            drag_is_existing_ = false;
+            setCursor(page_break_cursor());
+            update_image();
+            event->accept();
+            return;
+        }
+
+        if (!is_crop_position_valid(drag_kind_, drag_position_)) {
+            drag_kind_ = DragKind::None;
+            drag_is_existing_ = false;
+            setCursor(page_break_cursor());
+            update_image();
+            event->accept();
+            return;
+        }
 
         switch (drag_kind_) {
             case DragKind::Break: {
@@ -1928,6 +2165,7 @@ void PDFViewer::mouseReleaseEvent(QMouseEvent* event)
 
         drag_kind_ = DragKind::None;
         drag_is_existing_ = false;
+        setCursor(page_break_cursor());
         update_image();
         event->accept();
         return;

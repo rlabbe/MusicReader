@@ -15,6 +15,7 @@ class ConfigFile;
 class InPlaceAnnotationEditor;
 class MusicReader;
 class BookmarkPanel;
+class PageLabel;
 
 
 // Submodes of the page break edit mode. EditBreaks is the existing behavior
@@ -208,6 +209,29 @@ private:
     int normalized_to_display_x(double normalized_pos, int display_width) const;
     double display_x_to_normalized(int display_x, int display_width) const;
     int label_pixmap_x_offset() const;
+    // Offset of the pixmap inside the label, following the vertical alignment.
+    // The label is taller than the page whenever the page is limited by width.
+    int label_pixmap_y_offset() const;
+    // The alignment offset that actually applies, in logical pixels. Same as
+    // the two offsets above, except for the overflow case, where QLabel clips
+    // the page and the offset ends up divided by the device pixel ratio.
+    QPoint pixmap_offset() const;
+    // Converts a point in this widget's coordinates to the pixmap's logical
+    // coordinates. Removes the label's position (the layout margins) and the
+    // alignment offsets, so the result can be compared with the pixmap size.
+    QPoint to_pixmap_point(const QPoint& widget_pos) const;
+    // True when a point in this widget's coordinates is on the page image.
+    // Clicks outside it do not edit page breaks or paper crops.
+    bool is_inside_page(const QPoint& widget_pos) const;
+    // Rectangle of the edited page inside the displayed pixmap, in the
+    // pixmap's logical coordinates. In two page view the second page and the
+    // separator are outside it.
+    QRect page_pixmap_rect() const;
+    // True when a crop line of this kind belongs on this side of the page
+    // middle: top and left crops above it, bottom and right crops below it.
+    bool is_crop_position_valid(DragKind kind, double position) const;
+    // Cursor of the current submode, shown while a drag would be kept.
+    Qt::CursorShape page_break_cursor() const;
     // Width in real pixels that a page is drawn at. Pages are rendered at this
     // width, so nothing has to be scaled down for display.
     int display_width_px() const;
@@ -218,10 +242,15 @@ private:
     // render is needed.
     int zoomed_render_width(const PixmapPage& page, PageRenderer::SegmentRange seg, QSize box) const;
     void update_image(const QString& message = QString());
+    // Paints the page break and paper crop lines over the page image.
+    void paint_edit_overlays(QPainter& painter);
+    // Repaints the band between two drag positions, so a drag does not redraw
+    // the whole page.
+    void repaint_drag(double old_position, double new_position);
     Qt::AlignmentFlag page_alignment() const;
     Qt::AlignmentFlag page_vertical_alignment() const;
 
-    QLabel* label_;
+    PageLabel* label_;
     StatusBar* status_bar_;
     QScrollBar* scrollbar_;
     QHBoxLayout* layout_;
