@@ -200,9 +200,41 @@ void MusicReader::on_reload_document()
     SAFE_METHOD;
     TRACE_FUNCTION;
 
-    auto viewer = current_viewer();
-    auto doc = current_document();
-    if (!viewer || !doc)
+    PDFViewer* viewer = current_viewer();
+    if (!viewer)
+        return;
+
+    reload_viewer(viewer);
+
+    // Tab probably didn't change, but this ensures everything gets redrawn - page numbers, bookmarks, etc
+    on_tab_current_changed();
+}
+
+void MusicReader::reload_or_open_pdf_in_tab(const std::filesystem::path& filename)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    PDFViewer* viewer = open_viewer(filename);
+    if (!viewer) {
+        open_pdf_in_tab(filename);
+        return;
+    }
+
+    reload_viewer(viewer);
+    focus_viewer(viewer);
+
+    // The tab was probably already current, so no tab change redrew the UI.
+    on_tab_current_changed();
+}
+
+void MusicReader::reload_viewer(PDFViewer* viewer)
+{
+    SAFE_METHOD;
+    TRACE_FUNCTION;
+
+    auto doc = viewer->document();
+    if (!doc)
         return;
 
     int page_num = viewer->current_page();
@@ -223,9 +255,6 @@ void MusicReader::on_reload_document()
         if (doc->bookmarks().empty() && doc->bookmarks_file_exists())
             doc->set_bookmarks_from_file();
     }
-
-    // Tab probably didn't change, but this ensures everything gets redrawn - page numbers, bookmarks, etc
-    on_tab_current_changed();
 }
 
 PDFViewer*

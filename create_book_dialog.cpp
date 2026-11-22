@@ -218,7 +218,7 @@ void CreateBookDialog::on_create()
     logger::info("Created book {}", spec.output.string());
 
     if (open_after_checkbox_->isChecked())
-        main_window_->open_pdf_in_tab(spec.output);
+        main_window_->reload_or_open_pdf_in_tab(spec.output);
 
     accept();
 }

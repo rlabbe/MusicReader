@@ -237,7 +237,7 @@ void ExportMuseScoreDialog::on_process_finished(int exit_code, QProcess::ExitSta
     }
 
     if (open_after_checkbox_->isChecked())
-        main_window_->open_pdf_in_tab(pending_output_);
+        main_window_->reload_or_open_pdf_in_tab(pending_output_);
 
     accept();
 }

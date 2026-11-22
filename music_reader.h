@@ -35,6 +35,11 @@ public:
                                bool is_temporary = false);
     std::shared_ptr<Document> open_pdf_document(const std::filesystem::path& filename, int page_num);
 
+    // Loads filename again from disk in its open tab, so the display shows the
+    // file as it is now. Opens a tab when the file is not open, and brings the
+    // tab to the front.
+    void reload_or_open_pdf_in_tab(const std::filesystem::path& filename);
+
     void display_error_message(const std::string& msg);
     bool display_query(const std::string& msg);
 
@@ -213,6 +218,8 @@ private:
     void show_context_menu(const QPoint& pos);
 
     void on_reload_document();
+    // Loads the file of viewer again from disk and replaces the document in it.
+    void reload_viewer(PDFViewer* viewer);
     void on_external_edit_document(); // edit with external viewer
     void on_document_loaded(std::string name, int page);
 
