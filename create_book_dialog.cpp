@@ -175,30 +175,23 @@ void CreateBookDialog::on_create()
         if (main_window_->display_query(text))
             return true;
 
-        cancelled_ = true;
+        overwrite_declined_ = true;
         return false;
     };
 
     // Not shown until the first progress report, so the confirmation above is
     // not buried under it.
-    QProgressDialog progress("Building the book...", "Cancel", 0, static_cast<int>(spec.entries.size()), this);
+    QProgressDialog progress("Building the book...", QString(), 0, static_cast<int>(spec.entries.size()), this);
     progress.setWindowTitle("Create Book");
     progress.setWindowModality(Qt::WindowModal);
     progress.setMinimumDuration(0);
     progress.setAutoClose(false);
     progress.setAutoReset(false);
 
-    cancelled_ = false;
-    const BookProgressFn report = [&progress, this](int current, int total, const std::string& status) {
+    const BookProgressFn report = [&progress](int current, int total, const std::string& status) {
         progress.setLabelText(QString::fromStdString(status));
         progress.setMaximum(total);
         progress.setValue(current);
-
-        if (progress.wasCanceled()) {
-            cancelled_ = true;
-            return false;
-        }
-        return true;
     };
 
     set_busy(true);
@@ -209,7 +202,7 @@ void CreateBookDialog::on_create()
 
     if (!built) {
         status_label_->clear();
-        if (!cancelled_)
+        if (!overwrite_declined_)
             report_failure(QString::fromStdString(error));
         return;
     }

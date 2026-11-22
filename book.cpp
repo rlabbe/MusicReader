@@ -2,8 +2,11 @@
 
 #include <cctype>
 #include <fstream>
+#include <memory>
 #include <set>
+#include <thread>
 
+#include <QEventLoop>
 #include <QProcess>
 
 #pragma warning(push, 0)
@@ -165,31 +168,141 @@ bool resolve_document_path(const std::filesystem::path& directory,
 }
 
 
-// Runs "musescore -o <pdf> <score>" and writes the PDF to pdf_path, which the
-// caller owns, so a converted score never overwrites a file next to the score
-// itself.
-bool export_score_to_pdf(const std::filesystem::path& musescore,
-                         const BookEntry& entry,
-                         const std::filesystem::path& pdf_path,
-                         std::string& error)
+// MuseScore processes that convert scores at the same time: half the hardware
+// threads. hardware_concurrency returns 0 when the count is unknown, so there is
+// always at least one. A conversion spends most of its time starting MuseScore
+// and laying out the score, so several overlap well. Each instance needs several
+// hundred megabytes of memory.
+const int half_the_hardware_threads = std::thread::hardware_concurrency() / 2;
+const int max_parallel_exports = half_the_hardware_threads > 0 ? half_the_hardware_threads : 2;
+
+
+// Converts every entry that is not already a PDF, and calls progress for every
+// entry in spec order.
+//
+// Up to max_parallel_exports MuseScore processes run at the same time, each
+// writing the PDF of one score. The next document starts as soon as any process
+// ends, so a slow score never holds the other slots idle. progress is called on
+// this thread before each document starts. Returns false with error set when a
+// conversion fails, and leaves no MuseScore process running.
+bool export_entries(const std::filesystem::path& musescore,
+                    const std::vector<BookEntry>& entries,
+                    const BookProgressFn& progress,
+                    std::string& error)
 {
     if (!std::filesystem::exists(musescore)) {
         error = "MuseScore program not found: " + musescore.string();
         return false;
     }
 
+    const int total = static_cast<int>(entries.size());
     const QString program = QString::fromStdU16String(musescore.u16string());
-    const QStringList arguments {"-o", QString::fromStdU16String(pdf_path.u16string()),
-                                 QString::fromStdU16String(entry.score.u16string())};
 
-    const int exit_code = QProcess::execute(program, arguments);
+    struct Job {
+        size_t entry_index;
+        std::unique_ptr<QProcess> process;
+        bool reported = false;
+    };
 
-    if (exit_code != 0 || !std::filesystem::exists(pdf_path)) {
-        error = "MuseScore failed with exit code " + std::to_string(exit_code) + " for " + entry.score.string();
-        return false;
-    }
+    // Every job started. The process signal handlers refer to a Job, so it must
+    // outlive its QProcess.
+    std::vector<std::unique_ptr<Job>> jobs;
 
-    return true;
+    size_t next_entry = 0;
+    int running = 0;
+    bool failed = false;
+
+    QEventLoop loop;
+
+    std::function<void()> start_pending;
+    std::function<void(Job*, std::string)> finish_job;
+
+    // Starts "musescore -o <pdf> <score>" and returns before it ends.
+    const auto start_job = [&](size_t entry_index) {
+        const BookEntry& entry = entries[entry_index];
+
+        auto job = std::make_unique<Job>();
+        job->entry_index = entry_index;
+        job->process = std::make_unique<QProcess>();
+
+        Job* job_ptr = job.get();
+        QProcess* process = job->process.get();
+        jobs.push_back(std::move(job));
+
+        process->setProgram(program);
+        process->setArguments({"-o", QString::fromStdU16String(entry.pdf.u16string()),
+                               QString::fromStdU16String(entry.score.u16string())});
+
+        const auto on_finished = [&, job_ptr](int exit_code, QProcess::ExitStatus status) {
+            const BookEntry& finished_entry = entries[job_ptr->entry_index];
+            if (status != QProcess::NormalExit || exit_code != 0 || !std::filesystem::exists(finished_entry.pdf)) {
+                finish_job(job_ptr, "MuseScore failed with exit code " + std::to_string(exit_code) + " for " +
+                                        finished_entry.score.string());
+                return;
+            }
+            finish_job(job_ptr, {});
+        };
+        QObject::connect(process, &QProcess::finished, process, on_finished);
+
+        const auto on_error = [&, job_ptr](QProcess::ProcessError process_error) {
+            if (process_error != QProcess::FailedToStart)
+                return;
+
+            const BookEntry& failed_entry = entries[job_ptr->entry_index];
+            finish_job(job_ptr, "Cannot start " + musescore.string() + " for " + failed_entry.score.string());
+        };
+        QObject::connect(process, &QProcess::errorOccurred, process, on_error);
+
+        // Counted before start(), because a process that cannot be created
+        // reports the error before start() returns.
+        ++running;
+        process->start();
+    };
+
+    // Records the result of one process and fills the slot it held.
+    finish_job = [&](Job* job, std::string failure) {
+        if (job->reported)
+            return;
+        job->reported = true;
+        --running;
+
+        if (!failure.empty() && !failed) {
+            failed = true;
+            error = std::move(failure);
+        }
+
+        start_pending();
+    };
+
+    // Reports the entries that are next in spec order and starts the documents
+    // that fit in the free slots.
+    start_pending = [&]() {
+        while (!failed && running < max_parallel_exports && next_entry < entries.size()) {
+            const size_t index = next_entry;
+            const BookEntry& entry = entries[index];
+            ++next_entry;
+
+            if (!entry.convert) {
+                if (progress)
+                    progress(static_cast<int>(index), total, "Adding " + entry.score.filename().string());
+                continue;
+            }
+
+            if (progress)
+                progress(static_cast<int>(index), total, "Exporting " + entry.score.filename().string());
+
+            start_job(index);
+        }
+
+        if (running == 0 && (failed || next_entry >= entries.size()))
+            loop.quit();
+    };
+
+    start_pending();
+    if (running > 0)
+        loop.exec();
+
+    return !failed;
 }
 
 } // namespace
@@ -346,6 +459,25 @@ bool build_book(const BookSpec& spec,
         }
     }
 
+    // Every temporary file the build creates is removed when this function
+    // returns, whatever the result. Saved exports are files the user asked for
+    // and stay.
+    struct TemporaryFiles {
+        std::vector<std::filesystem::path> paths;
+
+        ~TemporaryFiles()
+        {
+            std::error_code ignored;
+            for (const std::filesystem::path& path : paths)
+                std::filesystem::remove(path, ignored);
+        }
+    } temporary_files;
+
+    for (const BookEntry& entry : entries) {
+        if (entry.convert && !save_exports)
+            temporary_files.paths.push_back(entry.pdf);
+    }
+
     if (confirm_overwrite) {
         std::vector<std::filesystem::path> existing_files;
         std::error_code exists_error;
@@ -361,28 +493,13 @@ bool build_book(const BookSpec& spec,
         }
 
         if (!existing_files.empty() && !confirm_overwrite(existing_files)) {
-            error = "Cancelled";
+            error = "Overwrite declined";
             return false;
         }
     }
 
-    for (int i = 0; i < total; ++i) {
-        if (!entries[i].convert) {
-            if (progress && !progress(i, total, "Adding " + entries[i].score.filename().string())) {
-                error = "Cancelled";
-                return false;
-            }
-            continue;
-        }
-
-        if (progress && !progress(i, total, "Exporting " + entries[i].score.filename().string())) {
-            error = "Cancelled";
-            return false;
-        }
-
-        if (!export_score_to_pdf(musescore, entries[i], entries[i].pdf, error))
-            return false;
-    }
+    if (!export_entries(musescore, entries, progress, error))
+        return false;
 
     if (spec.toc)
         logger::warning("The table of contents is not built yet, creating the book without it");
@@ -422,15 +539,13 @@ bool build_book(const BookSpec& spec,
         page += page_counts[i];
     }
 
-    if (progress && !progress(total, total, "Merging")) {
-        error = "Cancelled";
-        fz_drop_context(ctx);
-        return false;
-    }
+    if (progress)
+        progress(total, total, "Merging");
 
     // Written next to the output and renamed over it at the end, so a failure
     // leaves the previous book in place.
     const std::filesystem::path temporary = spec.output.parent_path() / (path_to_utf8(spec.output.stem()) + ".tmp.pdf");
+    temporary_files.paths.push_back(temporary);
 
     pdf_document* merged = nullptr;
     fz_try(ctx)
@@ -466,29 +581,17 @@ bool build_book(const BookSpec& spec,
         const BookmarkResult result = add_bookmarks_to_pdf(temporary, bookmarks);
         if (result != BookmarkResult::Success) {
             error = "Cannot write the PDF bookmarks, error " + std::to_string(static_cast<int>(result));
-            std::filesystem::remove(temporary);
             return false;
         }
     }
 
     if (!MoveFileExW(temporary.wstring().c_str(), spec.output.wstring().c_str(), MOVEFILE_REPLACE_EXISTING)) {
         error = "Cannot replace " + spec.output.string() + ", error " + std::to_string(GetLastError());
-        std::filesystem::remove(temporary);
         return false;
     }
 
     if (!document_info::write_bookmarks(spec.output, bookmarks))
         logger::error("Cannot write the .mrd file for {}", spec.output.string());
-
-    // The converted scores are no longer needed; a source PDF is never touched.
-    // Saved exports stay. What is left after a failure stays too, so the
-    // problem can be looked at.
-    if (!save_exports) {
-        for (const BookEntry& entry : entries) {
-            if (entry.convert)
-                std::filesystem::remove(entry.pdf, directory_error);
-        }
-    }
 
     if (progress)
         progress(total, total, "Done");

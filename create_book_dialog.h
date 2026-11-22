@@ -39,8 +39,8 @@ private:
     QPushButton* create_button_ = nullptr;
     QPushButton* cancel_button_ = nullptr;
 
-    // Set by the progress callback when the user presses Cancel.
-    bool cancelled_ = false;
+    // Set when the user declines to replace the files the build would overwrite.
+    bool overwrite_declined_ = false;
 
     // True while build_book runs, so reject can ignore Escape.
     bool building_ = false;

@@ -39,8 +39,8 @@ struct BookSpec {
     std::vector<BookEntry> entries;
 };
 
-// Reports progress and asks whether to continue. Return false to stop.
-using BookProgressFn = std::function<bool(int current, int total, const std::string& status)>;
+// Reports the document being processed and how many are done.
+using BookProgressFn = std::function<void(int current, int total, const std::string& status)>;
 
 // Called once with every file the build would replace, before anything is
 // written. Return false to stop the build without touching any of them.
